@@ -24,6 +24,13 @@ trait MonoidQueueAux {
   def read(): Message[MA]
 
   def reset()
+
+  //tracking stuff
+
+  def resultsIds(): Set[String]
+  def tasksIds(): Set[String]
+  def isReady: Boolean
+  def markAsReady()
 }
 
 

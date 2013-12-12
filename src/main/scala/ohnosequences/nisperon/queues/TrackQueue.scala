@@ -6,22 +6,23 @@ import scala.collection.JavaConversions._
 import java.util.concurrent.ArrayBlockingQueue
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest
 
-
-trait Trackable {
-  def resultsIds: Set[String]
-  
-}
+//
+//trait Trackable {
+//  def resultsIds: Set[String]
+//
+//}
 
 
 //think about batch stuff latter
-class TrackQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Serializer[T]) extends MonoidQueue[T](name, monoid) with Trackable {
+class TrackQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Serializer[T]) extends MonoidQueue[T](name, monoid) {
   val taskIdAttr = "id1"
   val resultIdAttr = "id2"
 
   val unitId = ""
 
+  val readyItemId = "ready"
   val readyItem = Map(
-    taskIdAttr -> new AttributeValue().withS("ready"),
+    taskIdAttr -> new AttributeValue().withS(readyItemId),
     resultIdAttr -> new AttributeValue().withS(unitId)
   )
 
@@ -146,14 +147,23 @@ class TrackQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: S
   }
 
   //think about >1 MB
-  def resultsIds: Set[String] = {
-    aws.ddb.scan(new ScanRequest()
+  def resultsIds(): Set[String] = {
+    val s = aws.ddb.scan(new ScanRequest()
       .withTableName(name)
       .withAttributesToGet(resultIdAttr)
-    ).getItems.toList.map(_.get(resultIdAttr).getS).filter(!_.equals(unitId)).toSet
+    )
+
+    if(s.)
+
+
+    s.getItems.toList.map(_.get(resultIdAttr).getS).filter(!_.equals(unitId)).toSet
+
+
+
+
   }
 
-  def tasksIds: Set[String] = {
+  def tasksIds(): Set[String] = {
     aws.ddb.scan(new ScanRequest()
       .withTableName(name)
       .withAttributesToGet(taskIdAttr)
