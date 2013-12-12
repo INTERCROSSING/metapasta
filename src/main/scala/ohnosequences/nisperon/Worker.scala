@@ -58,19 +58,10 @@ abstract class WorkerAux {
         endTime =  System.currentTimeMillis()
         logger.info("executed in " + (endTime - startTime))
 
-        outputs.foreach { output =>
-
-          startTime =  System.currentTimeMillis()
-          outputQueue.put(output)
-          endTime =  System.currentTimeMillis()
-
-          //  logger.info("output: " + output)
-          logger.info("message written in " + (endTime - startTime))
-
-
-        }
-
-        outputQueue.flush()
+        startTime =  System.currentTimeMillis()
+        outputQueue.put(messages.head.id, outputs)
+        endTime =  System.currentTimeMillis()
+        logger.info("message written in " + (endTime - startTime))
 
         messages.foreach(_.delete())
 
@@ -92,7 +83,7 @@ abstract class WorkerAux {
           //terminate instance
 
       }  finally {
-        inputQueue.clear()
+        inputQueue.reset()
       }
      }
   }

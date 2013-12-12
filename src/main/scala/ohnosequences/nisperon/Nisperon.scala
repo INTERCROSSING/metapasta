@@ -24,25 +24,18 @@ abstract class Nisperon {
 
  // val addressCreator: AddressCreator = DefaultAddressCreator
 
-  class QueueWithDefaults[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
-     BufferedMonoidQueue(aws, nisperonConfiguration.id + name, monoid, serializer)
+  class S3QueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
+     S3Queue(aws, nisperonConfiguration.id + name, monoid, serializer)
 
-  object unitQueue extends MonoidQueue[Unit]("unit", unitMonoid) {
-    val unitMessage = new UnitMessage[Unit](())
-
-    def put(value: Unit) {}
-
-    def read(): Message[Unit] = unitMessage
-
-    def flush() {}
-
-    def init() {}
-
-    def clear() {}
+  def s3queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) = {
+    new S3QueueLocal(name, monoid, serializer)
   }
 
+  class DynamoDBQueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
+    DynamoDBQueue(aws, nisperonConfiguration.id + name, monoid, serializer)
+
   def queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) = {
-    new QueueWithDefaults(name, monoid, serializer)
+    new DynamoDBQueueLocal(name, monoid, serializer)
   }
 
   //in secs

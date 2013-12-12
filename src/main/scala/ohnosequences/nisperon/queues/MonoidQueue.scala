@@ -27,10 +27,8 @@ trait MonoidQueueAux {
 
   //tracking stuff
 
-  def resultsIds(): Set[String]
-  def tasksIds(): Set[String]
-  def isReady: Boolean
-  def markAsReady()
+  def isEmpty: Boolean
+
 }
 
 

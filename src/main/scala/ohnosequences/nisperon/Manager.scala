@@ -1,6 +1,6 @@
 package ohnosequences.nisperon
 
-import ohnosequences.nisperon.queues.Queue
+import ohnosequences.nisperon.queues.{SQSQueue}
 import org.clapper.avsl.Logger
 
 case class SNSMessage(Message: String)
@@ -18,11 +18,12 @@ abstract class ManagerAux {
 
   def runControlQueueHandler() {
     //it is needed for sns redirected messages
-    val controlQueue = new Queue[SNSMessage](nisperoConfiguration.controlQueueName, aws.sqs, new JsonSerializer[SNSMessage]())
-    controlQueue.create()
+    val controlQueue = new SQSQueue[SNSMessage](aws.sqs.sqs, nisperoConfiguration.controlQueueName, new JsonSerializer[SNSMessage]())
+    controlQueue.init()
 
     val controlTopic = aws.sns.createTopic(nisperoConfiguration.nisperonConfiguration.controlTopic)
-    controlTopic.subscribeQueue(controlQueue.queue.get)
+    val controlQueueWrap = aws.sqs.createQueue(controlQueue.name)
+    controlTopic.subscribeQueue(controlQueueWrap)
 
     var stopped = false
 
@@ -46,7 +47,7 @@ abstract class ManagerAux {
           try {
           logger.info("delete control queue")
           m0.delete()
-          controlQueue.delete()
+          controlQueueWrap.delete()
           } catch {
             case t: Throwable => t.printStackTrace()
           }

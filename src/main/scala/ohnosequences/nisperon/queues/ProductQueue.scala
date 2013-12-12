@@ -43,15 +43,7 @@ class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
     new ProductMessage(xQueue.read(), yQueue.read())
   }
 
-  def resultsIds(): Set[String] = xQueue.resultsIds() ++ yQueue.resultsIds()
+  def isEmpty: Boolean = xQueue.isEmpty && yQueue.isEmpty
 
-  def tasksIds(): Set[String] = xQueue.tasksIds() ++ yQueue.tasksIds()
-
-  def isReady: Boolean = xQueue.isReady && yQueue.isReady
-
-  def markAsReady() {
-    xQueue.markAsReady()
-    yQueue.markAsReady()
-  }
 }
 
