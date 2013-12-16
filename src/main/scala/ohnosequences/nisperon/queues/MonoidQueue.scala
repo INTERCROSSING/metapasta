@@ -29,6 +29,10 @@ trait MonoidQueueAux {
 
   def isEmpty: Boolean
 
+  def list(): List[String]
+
+  def read(id: String): Option[MA]
+
 }
 
 

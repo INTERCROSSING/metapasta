@@ -1,6 +1,6 @@
 package ohnosequences.nisperon.queues
 
-import ohnosequences.nisperon.{Serializer}
+import ohnosequences.nisperon.{JsonSerializer, Serializer}
 
 import scala.collection.JavaConversions._
 
@@ -34,12 +34,19 @@ class SQSMessage[T](val sqs: AmazonSQS, val queueUrl: String, val id: String, va
   }
 }
 
+case class ValueWrap(id: String, body: String)
+
+object valueWrapSerializer extends JsonSerializer[ValueWrap]
+
 
 class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializer[T]) {
 
   val logger = Logger(this.getClass)
 
-  @volatile var queueURL = ""
+  val queueURL = sqs.createQueue(new CreateQueueRequest()
+    .withQueueName(name)
+    .withAttributes(Map(QueueAttributeName.VisibilityTimeout.toString -> "10"))
+  ).getQueueUrl
 
   val bufferSize = 20
   val buffer = new ArrayBlockingQueue[SQSMessage[T]](bufferSize)
@@ -61,7 +68,8 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
             ).getMessages
 
             messages.foreach { m =>
-              buffer.put(new SQSMessage[T](sqs, queueURL, m.getMessageId, m.getReceiptHandle, m.getBody, serializer))
+              val valueWrap = valueWrapSerializer.fromString(m.getBody)
+              buffer.put(new SQSMessage[T](sqs, queueURL, valueWrap.id, m.getReceiptHandle, valueWrap.body, serializer))
             }
 
             if(messages.isEmpty) {
@@ -79,10 +87,6 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
 
 
   def init() {
-    queueURL = sqs.createQueue(new CreateQueueRequest()
-      .withQueueName(name)
-      .withAttributes(Map(QueueAttributeName.VisibilityTimeout.toString -> "10"))
-    ).getQueueUrl
 
     if(!SQSReader.isAlive) {
       try {
@@ -94,10 +98,10 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
 
   }
 
-  def put(t: T): String = {
+  def put(id: String, t: T): String = {
     sqs.sendMessage(new SendMessageRequest()
       .withQueueUrl(queueURL)
-      .withMessageBody(serializer.toString(t))
+      .withMessageBody(valueWrapSerializer.toString(ValueWrap(id, serializer.toString(t))))
     ).getMessageId
   }
 

@@ -23,6 +23,11 @@ class ProductMessage[X, Y](mx: Message[X], my: Message[Y]) extends Message[(X, Y
 class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
   extends MonoidQueue[(X, Y)](xQueue.name + "_" + yQueue.name, new ProductMonoid(xQueue.monoid, yQueue.monoid)) {
 
+
+  //todo
+  def list(): List[String] = List[String]()
+  def read(id: String): Option[(X, Y)] = None
+
   def init() {
     xQueue.init()
     yQueue.init()

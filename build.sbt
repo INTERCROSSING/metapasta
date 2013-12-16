@@ -1,10 +1,12 @@
-Nice.scalaProject
+Statika.distributionProject
 
 name := "metapasta"
 
 description := "metapasta project"
 
 organization := "ohnosequences"
+
+metadataObject := name.value
 
 libraryDependencies ++= Seq(
   "commons-io"     % "commons-io" % "2.4",
@@ -20,3 +22,4 @@ libraryDependencies ++= Seq(
 bucketSuffix := "era7.com"
 
 dependencyOverrides += "commons-codec" % "commons-codec" % "1.6"
+

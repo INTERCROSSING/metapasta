@@ -24,3 +24,15 @@ object unitSerializer extends Serializer[Unit] {
   def toString(t: Unit) = ""
 }
 
+object intSerializer extends Serializer[Int] {
+
+  def fromString(s: String): Int = s.toInt
+
+  def toString(t: Int): String = t.toString
+}
+
+object stringSerializer extends Serializer[String] {
+  def fromString(s: String): String = s
+
+  def toString(t: String): String = t
+}

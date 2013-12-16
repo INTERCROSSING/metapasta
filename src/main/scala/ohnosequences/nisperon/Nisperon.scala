@@ -25,7 +25,7 @@ abstract class Nisperon {
  // val addressCreator: AddressCreator = DefaultAddressCreator
 
   class S3QueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
-     S3Queue(aws, nisperonConfiguration.id + name, monoid, serializer)
+     S3Queue(aws, (nisperonConfiguration.id + name).replace("_", "-"), monoid, serializer)
 
   def s3queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) = {
     new S3QueueLocal(name, monoid, serializer)
@@ -73,6 +73,11 @@ abstract class Nisperon {
     undeployActions()
 
     aws.sns.createTopic(nisperonConfiguration.controlTopic).publish(undeployMessage)
+  }
+
+  def checkQueues() {
+    val graph = new NisperoGraph(nisperos)
+    graph.checkQueues()
   }
 
   def notification(subject: String, message: String) {

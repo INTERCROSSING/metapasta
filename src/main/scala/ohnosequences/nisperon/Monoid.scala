@@ -17,6 +17,17 @@ class ListMonoid[T] extends Monoid[List[T]] {
   def mult(x: List[T], y: List[T]): List[T] = x ++ y
 }
 
+object intMonoid extends Monoid[Int] {
+  def unit: Int = 0
+  def mult(x: Int, y: Int): Int = x + y
+}
+
+object stringMonoid extends Monoid[String] {
+  def unit = ""
+  def mult(x: String, y: String): String = x + y
+}
+
+
 
 object unitMonoid extends Monoid[Unit] {
   def unit: Unit = ()
