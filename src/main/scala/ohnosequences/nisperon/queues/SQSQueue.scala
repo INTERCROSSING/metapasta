@@ -1,6 +1,6 @@
 package ohnosequences.nisperon.queues
 
-import ohnosequences.nisperon.{JsonSerializer, Serializer}
+import ohnosequences.nisperon.{SNSMessage, JsonSerializer, Serializer}
 
 import scala.collection.JavaConversions._
 
@@ -39,13 +39,14 @@ case class ValueWrap(id: String, body: String)
 object valueWrapSerializer extends JsonSerializer[ValueWrap]
 
 
-class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializer[T]) {
+class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializer[T], snsRedirected: Boolean = false) {
+
+  val snsMessageParser = new JsonSerializer[SNSMessage]()
 
   val logger = Logger(this.getClass)
 
-  val queueURL = sqs.createQueue(new CreateQueueRequest()
+  @volatile var queueURL = sqs.createQueue(new CreateQueueRequest()
     .withQueueName(name)
-    .withAttributes(Map(QueueAttributeName.VisibilityTimeout.toString -> "10"))
   ).getQueueUrl
 
   val bufferSize = 20
@@ -54,8 +55,9 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
   object SQSReader extends Thread("sqs reader") {
 
     override def run() {
+      var stopped = false
 
-      while(true) {
+      while(!stopped) {
         try {
 
           if(queueURL.isEmpty) {
@@ -68,7 +70,12 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
             ).getMessages
 
             messages.foreach { m =>
-              val valueWrap = valueWrapSerializer.fromString(m.getBody)
+              val body = if (snsRedirected) {
+                snsMessageParser.fromString(m.getBody).Message
+              } else {
+                m.getBody
+              }
+              val valueWrap = valueWrapSerializer.fromString(body)
               buffer.put(new SQSMessage[T](sqs, queueURL, valueWrap.id, m.getReceiptHandle, valueWrap.body, serializer))
             }
 
@@ -79,7 +86,20 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
             }
           }
         } catch {
-          case t: Throwable => logger.error("queue deleted")
+          //todo fail thing
+          case t: Throwable => {
+            try {
+              logger.error("error during reading from queue " + name + " " + t.toString + " " + t.getMessage)
+              Thread.sleep(5000)
+              queueURL = sqs.createQueue(new CreateQueueRequest()
+                .withQueueName(name)
+              ).getQueueUrl
+            } catch {
+              case t: Throwable => Thread.sleep(10000)
+            }
+           // stopped = true
+
+          }
         }
       }
     }
@@ -87,6 +107,14 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
 
 
   def init() {
+    try {
+      sqs.setQueueAttributes(new SetQueueAttributesRequest()
+        .withQueueUrl(queueURL)
+        .withAttributes(Map(QueueAttributeName.VisibilityTimeout.toString -> "10"))
+      )
+    } catch {
+      case t: Throwable => logger.error("error during changing timeout for queue " + name + " " + t.toString)
+    }
 
     if(!SQSReader.isAlive) {
       try {

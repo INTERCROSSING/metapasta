@@ -36,6 +36,7 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
         s3Writer.put(id, value)
     }
     s3Writer.flush()
+    c = 0
     values.filter(!_.equals(monoid.unit)).map {
       value =>
         c += 1
@@ -55,6 +56,8 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
 
       def value(): T = {
         //val address = m.value()
+        val address = ObjectAddress(name, id)
+        logger.info("reading data from " + address)
         val rawValue = aws.s3.readWholeObject(ObjectAddress(name, id))
         serializer.fromString(rawValue)
       }

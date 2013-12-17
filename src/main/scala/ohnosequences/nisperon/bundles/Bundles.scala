@@ -4,7 +4,9 @@ import ohnosequences.statika._
 import ohnosequences.statika.aws._
 
 
-import ohnosequences.nisperon.{Nispero, ManagerAux}
+import ohnosequences.nisperon._
+import org.clapper.avsl.Logger
+import ohnosequences.nisperon.queues.SQSQueue
 
 
 trait InstructionsBundleAux extends AnyBundle {
@@ -56,12 +58,10 @@ trait ManagerDistributionAux extends AnyAWSDistribution {
 abstract class ManagerDistribution[W <: WorkerBundleAux, T <: HList : towerFor[∅]#is](val worker: W) extends ManagerDistributionAux {
   type WA = W
 
-
   type DepsTower = T
   val  depsTower = deps.tower
-
-
 }
+
 
 trait NisperoDistributionAux extends AnyAWSDistribution {
   type MA <: ManagerDistributionAux
@@ -79,6 +79,9 @@ trait NisperoDistributionAux extends AnyAWSDistribution {
 
 
 
+
+
+
 abstract class NisperoDistribution[M <: ManagerDistributionAux, T <: HList : towerFor[∅]#is](val manager: M) extends NisperoDistributionAux {
   type MA =  M
 
@@ -90,3 +93,30 @@ abstract class NisperoDistribution[M <: ManagerDistributionAux, T <: HList : tow
     success("NisperoDistribution finished")
   }
 }
+
+
+
+class WhateverBundle[T <: HList : towerFor[∅]#is](nisperon: Nisperon, component: String, name: String) extends AnyAWSDistribution {
+
+  type Deps = ∅
+  val deps = ∅
+
+  type DepsTower = T
+  val  depsTower = deps.tower
+
+
+  type Members = WhateverBundle[T] :+: ∅
+  val members = this :+: ∅
+
+  type AMI = NisperonAMI.type
+  val ami = NisperonAMI
+
+  val metadata = nisperon.nisperonConfiguration.metadataBuilder.build(component, name)
+
+  override def install[Dist <: AnyDistribution](distribution: Dist): InstallResults = {
+    success("WhateverBundle finished")
+
+  }
+}
+
+

@@ -5,7 +5,7 @@ import ohnosequences.nisperon.queues._
 import scala.collection.mutable
 import ohnosequences.awstools.s3.ObjectAddress
 import java.io.{PrintWriter, File}
-import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
+import ohnosequences.nisperon.bundles.{WhateverBundle, NisperonMetadataBuilder}
 import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.sqs.model.DeleteQueueRequest
@@ -69,13 +69,13 @@ abstract class Nisperon {
 
   def undeploy(reason: String) {
     val undeployMessage = JSON.toJSON(ManagerCommand("undeploy", reason))
-    notification("fastapasta terminated", "reason: " + reason)
-    undeployActions()
 
-    aws.sns.createTopic(nisperonConfiguration.controlTopic).publish(undeployMessage)
+    val wrap = JSON.toJSON(ValueWrap("1", undeployMessage))
+
+    aws.sns.createTopic(nisperonConfiguration.controlTopic).publish(wrap)
   }
 
-  def checkQueues() {
+  def checkQueues(): Option[MonoidQueueAux] = {
     val graph = new NisperoGraph(nisperos)
     graph.checkQueues()
   }
@@ -83,7 +83,6 @@ abstract class Nisperon {
   def notification(subject: String, message: String) {
     val topic = aws.sns.createTopic(nisperonConfiguration.notificationTopic)
     topic.publish(message, subject)
-
   }
 
   def addTasks(): Unit
@@ -91,6 +90,8 @@ abstract class Nisperon {
   def main(args: Array[String]) {
 
     args.toList match {
+      case "meta" :: "meta" :: Nil => new MetaManager(Nisperon.this).run()
+
       case "manager" :: nisperoId :: Nil => nisperos(nisperoId).nisperoDistribution.installManager()
       case "worker" :: nisperoId :: Nil => nisperos(nisperoId).managerDistribution.installWorker()
 
@@ -106,8 +107,11 @@ abstract class Nisperon {
             logger.info("please confirm subscription")
           }
 
-
-          aws.s3.s3.getObjectMetadata(nisperonConfiguration.artifactAddress.bucket, nisperonConfiguration.artifactAddress.key)
+          try {
+            aws.s3.s3.getObjectMetadata(nisperonConfiguration.artifactAddress.bucket, nisperonConfiguration.artifactAddress.key)
+          } catch {
+            case t: Throwable => throw new Error("jar isn't published: " + nisperonConfiguration.artifactAddress)
+          }
 
           nisperos.foreach {
             case (id, nispero) =>
@@ -117,7 +121,20 @@ abstract class Nisperon {
 
           println("check you e-mail for further instructions")
 
-          notification("fastapasta started", "started")
+          val bundle = new WhateverBundle(Nisperon.this, "meta", "meta")
+          val userdata = bundle.userScript(bundle)
+
+          val metagroup = nisperonConfiguration.managerGroups.autoScalingGroup(
+            name = nisperonConfiguration.metamanagerGroup,
+            defaultInstanceSpecs = nisperonConfiguration.defaultSpecs,
+            amiId = bundle.ami.id,
+            userData = userdata
+          )
+
+          aws.as.createAutoScalingGroup(metagroup)
+
+
+          notification("nisperon started", "started")
         } catch {
           case e: AmazonServiceException if e.getErrorCode == "NoSuchKey"
             => println(nisperonConfiguration.artifactAddress + " doesn't exist: " + e.getMessage)

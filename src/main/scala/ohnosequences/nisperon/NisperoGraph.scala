@@ -80,14 +80,14 @@ class NisperoGraph(nisperos: HashMap[String, NisperoAux]) {
 
   val graph: Graph[String, String] = new Graph(edges)
 
-  def checkQueues() {
+  def checkQueues(): Option[MonoidQueueAux] = {
     val sorted = graph.sort
-   // println(sorted)
+    println(sorted)
     sorted.filterNot(graph.out(_).isEmpty).find { node =>
       !queues(node.label).isEmpty
     } match {
-      case None => println("all queues are empty")
-      case Some(node) => println("queue " + node.label + " isn't empty")
+      case None => println("all queues are empty"); None
+      case Some(node) => println("queue " + node.label + " isn't empty"); queues.get(node.label)
     }
 
 //    graph.sort.filterNot(graph.out(_).isEmpty).foreach { node =>

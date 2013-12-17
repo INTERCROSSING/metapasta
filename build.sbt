@@ -19,7 +19,7 @@ libraryDependencies ++= Seq(
   "ohnosequences" %% "amazon-linux-ami" % "0.13.0-SNAPSHOT"
 )
 
-bucketSuffix := "era7.com"
+bucketSuffix := "frutero.org"
 
 dependencyOverrides += "commons-codec" % "commons-codec" % "1.6"
 

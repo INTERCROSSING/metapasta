@@ -18,7 +18,7 @@ abstract class ManagerAux {
 
   def runControlQueueHandler() {
     //it is needed for sns redirected messages
-    val controlQueue = new SQSQueue[SNSMessage](aws.sqs.sqs, nisperoConfiguration.controlQueueName, new JsonSerializer[SNSMessage]())
+    val controlQueue = new SQSQueue[ManagerCommand](aws.sqs.sqs, nisperoConfiguration.controlQueueName, new JsonSerializer[ManagerCommand](), snsRedirected = true)
     controlQueue.init()
 
     val controlTopic = aws.sns.createTopic(nisperoConfiguration.nisperonConfiguration.controlTopic)
@@ -29,7 +29,7 @@ abstract class ManagerAux {
 
     while(!stopped) {
       val m0 = controlQueue.read()
-      val command: ManagerCommand= JSON.extract[ManagerCommand](m0.value().Message)
+      val command: ManagerCommand= m0.value()
 
       command match {
         case ManagerCommand("undeploy", _) => {

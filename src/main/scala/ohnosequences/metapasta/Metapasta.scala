@@ -14,13 +14,13 @@ object Metapasta extends Nisperon {
     email = "museeer@gmail.com"
   )
 
-  val queue1 = s3queue(
+  val queue1 = queue(
     name = "queue1",
     monoid = intMonoid,
     serializer = intSerializer
   )
 
-  val queue2 = queue(
+  val queue2 = s3queue(
     name = "queue2",
     monoid = intMonoid,
     serializer = intSerializer
@@ -52,7 +52,7 @@ object Metapasta extends Nisperon {
 //      queue1.put("id" + i, List(i))
 //    }
 
-    queue1.put("0", (1 to 1000).toList)
+    queue1.put("5", (1 to 1000).toList)
 
     val t2 = System.currentTimeMillis()
 
@@ -60,7 +60,7 @@ object Metapasta extends Nisperon {
 
     //should be initialized
 
-    checkQueues()
+   // checkQueues()
 
     println(queue1.list())
 
