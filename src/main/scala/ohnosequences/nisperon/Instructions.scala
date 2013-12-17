@@ -13,6 +13,8 @@ trait InstructionsAux {
 
 trait Instructions[Input, Output] extends InstructionsAux {
 
+  def prepare() {}
+
   type I = Input
 
   type O = Output

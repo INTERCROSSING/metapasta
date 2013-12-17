@@ -92,8 +92,8 @@ abstract class Nisperon {
     args.toList match {
       case "meta" :: "meta" :: Nil => new MetaManager(Nisperon.this).run()
 
-      case "manager" :: nisperoId :: Nil => nisperos(nisperoId).nisperoDistribution.installManager()
-      case "worker" :: nisperoId :: Nil => nisperos(nisperoId).managerDistribution.installWorker()
+      case "manager" :: nisperoId :: Nil => nisperos(nisperoId).installManager()
+      case "worker" :: nisperoId :: Nil => nisperos(nisperoId).installWorker()
 
       case "run" :: Nil => {
         //check jar
@@ -115,7 +115,7 @@ abstract class Nisperon {
 
           nisperos.foreach {
             case (id, nispero) =>
-              nispero.nisperoDistribution.runManager()
+              nispero.runManager()
           }
           addTasks()
 

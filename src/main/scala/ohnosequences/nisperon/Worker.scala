@@ -27,6 +27,8 @@ abstract class WorkerAux {
 
   def runInstructions() {
 
+    instructions.prepare()
+
     inputQueue.init()
     outputQueue.init()
 
