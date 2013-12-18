@@ -26,7 +26,7 @@ abstract class WorkerAux {
   val logger = Logger(this.getClass)
 
   def runInstructions() {
-
+    try {
     instructions.prepare()
 
     inputQueue.init()
@@ -36,7 +36,7 @@ abstract class WorkerAux {
 
 
     while(true) {
-      try {
+
 
         // logger.info("start reading messages from: " + inputQueue.name)
       var startTime =  System.currentTimeMillis()
@@ -75,7 +75,7 @@ abstract class WorkerAux {
        }
 
 
-
+      }
 
       } catch {
         case t: Throwable =>
@@ -87,7 +87,7 @@ abstract class WorkerAux {
       }  finally {
         inputQueue.reset()
       }
-     }
+
   }
 }
 

@@ -35,7 +35,7 @@ class Graph[N, E](val edges: List[Edge[E, N]]) {
 
     val result = ListBuffer[Node[N]]()
     var s: List[Node[N]] = nodes.toList.filter(arcFree.in(_).isEmpty)
-    println(s)
+    //println(s)
     while(!s.isEmpty) {
       val n = s.head
       s = s.tail
@@ -82,7 +82,7 @@ class NisperoGraph(nisperos: HashMap[String, NisperoAux]) {
 
   def checkQueues(): Option[MonoidQueueAux] = {
     val sorted = graph.sort
-    println(sorted)
+   // println(sorted)
     sorted.filterNot(graph.out(_).isEmpty).find { node =>
       !queues(node.label).isEmpty
     } match {
