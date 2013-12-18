@@ -142,6 +142,13 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer
       case t: Throwable => logger.warn("message not found: " + id); None
     }
   }
+
+  def delete(id: String) {
+    aws.ddb.deleteItem(new DeleteItemRequest()
+      .withTableName(name)
+      .withKey(Map(idAttr -> new AttributeValue().withS(id)))
+    )
+  }
 }
 
 //

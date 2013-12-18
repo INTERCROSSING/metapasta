@@ -26,7 +26,7 @@ object Metapasta extends Nisperon {
     serializer = intSerializer
   )
 
-
+  override val mergingQueues = List(queue2)
 
   val nispero1 = nispero(
     inputQueue = queue1,

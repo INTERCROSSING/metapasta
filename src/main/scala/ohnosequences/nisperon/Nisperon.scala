@@ -18,6 +18,8 @@ abstract class Nisperon {
 
   val nisperonConfiguration: NisperonConfiguration
 
+  val mergingQueues: List[MonoidQueueAux] = List[MonoidQueueAux]()
+
   val aws: AWS = new AWS()
 
   val logger = Logger(this.getClass)
@@ -68,6 +70,8 @@ abstract class Nisperon {
   def undeployActions()
 
   def undeploy(reason: String) {
+
+    logger.info("sending undeploy messages to managers")
     val undeployMessage = JSON.toJSON(ManagerCommand("undeploy", reason))
 
     val wrap = JSON.toJSON(ValueWrap("1", undeployMessage))
@@ -152,14 +156,14 @@ abstract class Nisperon {
       }
 
       case "undeploy" :: "force" :: Nil => {
+        aws.as.deleteAutoScalingGroup(nisperonConfiguration.metamanagerGroup)
+
         nisperos.foreach {
           case (id, nispero) =>
-
             undeployActions()
             aws.as.deleteAutoScalingGroup(nispero.nisperoConfiguration.managerGroupName)
+            aws.as.deleteAutoScalingGroup(nispero.nisperoConfiguration.workersGroupName)
             aws.sqs.createQueue(nispero.nisperoConfiguration.controlQueueName).delete()
-
-
         }
       }
 

@@ -27,6 +27,7 @@ class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
   //todo
   def list(): List[String] = List[String]()
   def read(id: String): Option[(X, Y)] = None
+  def delete(id: String) {}
 
   def init() {
     xQueue.init()

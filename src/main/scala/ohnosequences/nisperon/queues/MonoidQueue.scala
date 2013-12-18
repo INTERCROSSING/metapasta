@@ -33,6 +33,8 @@ trait MonoidQueueAux {
 
   def read(id: String): Option[MA]
 
+  def delete(id: String)
+
 }
 
 

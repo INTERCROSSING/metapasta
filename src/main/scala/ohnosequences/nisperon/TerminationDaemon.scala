@@ -6,8 +6,11 @@ class TerminationDaemon(nisperon: Nisperon) extends Thread {
   val logger = Logger(this.getClass)
   @volatile var stopped = false
 
+
+
   override def run() {
-    while(stopped) {
+    logger.info("termination daemon started")
+    while(!stopped) {
       try {
         logger.info("checking queues")
         nisperon.checkQueues() match {

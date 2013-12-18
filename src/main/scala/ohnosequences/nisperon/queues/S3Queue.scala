@@ -108,4 +108,8 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
   def read(id: String): Option[T] = {
     aws.s3.readObject(ObjectAddress(name, id)).map(serializer.fromString)
   }
+
+  def delete(id: String) {
+    aws.s3.deleteObject(ObjectAddress(name, id))
+  }
 }

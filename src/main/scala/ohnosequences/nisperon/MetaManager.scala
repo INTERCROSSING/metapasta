@@ -1,7 +1,7 @@
 package ohnosequences.nisperon
 
 import org.clapper.avsl.Logger
-import ohnosequences.nisperon.queues.SQSQueue
+import ohnosequences.nisperon.queues.{Merger, SQSQueue}
 
 class MetaManager(nisperon: Nisperon) {
   import nisperon._
@@ -31,11 +31,17 @@ class MetaManager(nisperon: Nisperon) {
       val command: ManagerCommand= m0.value()
       command match {
         case ManagerCommand("undeploy", reason) => {
+
           try {
             nisperon.undeployActions()
           } catch {
             case t: Throwable => logger.error("error during performing undeploy actions " + t.toString)
           }
+
+          logger.info("merging queues")
+            mergingQueues.foreach { queue =>
+              new Merger(queue).merge()
+            }
 
           try {
             logger.info("deleting auto scaling group")
