@@ -4,13 +4,14 @@ import ohnosequences.statika._
 import ohnosequences.statika.aws._
 import ohnosequences.awstools.s3.ObjectAddress
 
+//case class NisperonMetadata(s3Bucket: String)
 
-object NisperonAMI extends AbstractAMI("ami-149f7863", "2013.09") {
+object NisperonAMI extends AMI[NisperonMetadata]("ami-149f7863", "2013.09") {
 
-  type Metadata = NisperonMetadata
+ // type Metadata = NisperonMetadata
 
   def userScript(
-                  metadata: Metadata
+                  metadata: NisperonMetadata
                   , distName: String
                   , bundleName: String
                   , creds: AWSCredentials = RoleCredentials

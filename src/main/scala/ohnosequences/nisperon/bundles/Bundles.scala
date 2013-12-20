@@ -2,6 +2,8 @@ package ohnosequences.nisperon.bundles
 
 import ohnosequences.statika._
 import ohnosequences.statika.aws._
+import ohnosequences.typesets._
+import shapeless._
 
 
 import ohnosequences.nisperon._
@@ -27,13 +29,13 @@ trait WorkerBundleAux extends AnyBundle {
   type IA <: InstructionsBundleAux
   val instructions: IA
 
-  type Deps = IA :+: ∅
-  val deps =  instructions :+: ∅
+  type Deps = IA :~: ∅
+  val deps =  instructions :~: ∅
 
 
 }
 
-abstract class WorkerBundle[I <: InstructionsBundleAux, T <: HList : towerFor[I :+: ∅]#is](val instructions: I) extends WorkerBundleAux {
+abstract class WorkerBundle[I <: InstructionsBundleAux, T <: HList : towerFor[I :~: ∅]#is](val instructions: I) extends WorkerBundleAux {
   type IA = I
   val  depsTower = deps.tower
   type DepsTower = T
@@ -47,15 +49,18 @@ trait ManagerDistributionAux extends AnyAWSDistribution {
   type Deps = ∅
   val deps = ∅
 
+  type Metadata = NisperonMetadata
+
   type AMI = NisperonAMI.type
   val ami = NisperonAMI
 
-  type Members = WA :+: ∅
-  val members = worker :+: ∅
+  type Members = WA :~: ∅
+  val members = worker :~: ∅
 
 }
 
 abstract class ManagerDistribution[W <: WorkerBundleAux, T <: HList : towerFor[∅]#is](val worker: W) extends ManagerDistributionAux {
+
   type WA = W
 
   type DepsTower = T
@@ -70,8 +75,10 @@ trait NisperoDistributionAux extends AnyAWSDistribution {
   type Deps = ∅
   val deps = ∅
 
-  type Members = MA :+: ∅
-  val members = manager :+: ∅
+  type Members = MA :~: ∅
+  val members = manager :~: ∅
+
+  type Metadata = NisperonMetadata
 
   type AMI = NisperonAMI.type
   val ami = NisperonAMI
@@ -105,8 +112,10 @@ class WhateverBundle[T <: HList : towerFor[∅]#is](nisperon: Nisperon, componen
   val  depsTower = deps.tower
 
 
-  type Members = WhateverBundle[T] :+: ∅
-  val members = this :+: ∅
+  type Members = WhateverBundle[T] :~: ∅
+  val members = this :~: ∅
+
+  type Metadata = NisperonMetadata
 
   type AMI = NisperonAMI.type
   val ami = NisperonAMI
