@@ -29,6 +29,7 @@ abstract class WorkerAux {
     try {
     instructions.prepare()
 
+
     inputQueue.init()
     outputQueue.init()
 
@@ -79,9 +80,11 @@ abstract class WorkerAux {
 
       } catch {
         case t: Throwable =>
+          //todo some reporting here!!!
           logger.error("error during processing messages: " + t.getMessage)
+          t.printStackTrace()
           logger.error("terminating instance")
-          aws.ec2.getCurrentInstance.foreach(_.terminate())
+          //aws.ec2.getCurrentInstance.foreach(_.terminate())
           //terminate instance
 
       }  finally {

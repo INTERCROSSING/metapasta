@@ -135,6 +135,8 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
 
 
   def read(): Message[T] = {
+
+
     buffer.take()
   }
 

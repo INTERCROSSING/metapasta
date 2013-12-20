@@ -27,7 +27,7 @@ abstract class Nisperon {
  // val addressCreator: AddressCreator = DefaultAddressCreator
 
   class S3QueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
-     S3Queue(aws, (nisperonConfiguration.id + name).replace("_", "-"), monoid, serializer)
+     S3Queue(aws, (nisperonConfiguration.id + name).replace("_", "-").toLowerCase, monoid, serializer)
 
   def s3queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) = {
     new S3QueueLocal(name, monoid, serializer)
@@ -138,7 +138,7 @@ abstract class Nisperon {
           aws.as.createAutoScalingGroup(metagroup)
 
 
-          notification("nisperon started", "started")
+          notification(nisperonConfiguration.id + " started", "started")
         } catch {
           case e: AmazonServiceException if e.getErrorCode == "NoSuchKey"
             => println(nisperonConfiguration.artifactAddress + " doesn't exist: " + e.getMessage)

@@ -10,7 +10,7 @@ import scala.Some
 import org.clapper.avsl.Logger
 
 
-case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email: String, managerGroups: GroupConfiguration = SingleGroup(InstanceType.T1Micro, OnDemand), timeout: Int = 3600) {
+case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email: String, managerGroups: GroupConfiguration = SingleGroup(InstanceType.T1Micro, OnDemand), timeout: Int = 3600, autoTermination: Boolean = true) {
 
   def controlTopic: String = metadataBuilder.id + "controlTopic"
 
@@ -30,6 +30,8 @@ case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email
 
   def metamanagerQueue = metadataBuilder.id + "_metamanager"
   def metamanagerGroup = metadataBuilder.id + "_metamanager"
+
+
 
 
 }

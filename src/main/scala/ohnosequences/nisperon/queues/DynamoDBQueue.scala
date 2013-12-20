@@ -61,22 +61,40 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer
 
 
   def read(): Message[T] = {
-    val m = sqsQueue.readRAW()
-    visibilityExtender.addMessage(m)
-    new Message[T] {
-      val id: String = m.id
 
-      def value(): T = m.value()
+    var message: SQSMessage[T] = null
+
+    var taken = false
+    while(!taken) {
+      message = sqsQueue.readRAW()
+      //println("taked: " + message)
+      //check timeout
+      try {
+        message.changeMessageVisibility(20)
+        taken = true
+      } catch {
+        case t: Throwable => logger.warn("skipping expired message")
+      }
+    }
+
+    visibilityExtender.addMessage(message)
+
+    new Message[T] {
+      val id: String = message.id
+
+      def value(): T = message.value()
 
       def delete() {
         aws.ddb.deleteItem(new DeleteItemRequest()
           .withTableName(name)
           .withKey(Map(idAttr -> new AttributeValue().withS(id)))
         )
-        m.delete()
+
+        visibilityExtender.clear()
+        message.delete()
       }
 
-      def changeMessageVisibility(secs: Int): Unit = m.changeMessageVisibility(secs)
+      def changeMessageVisibility(secs: Int): Unit = message.changeMessageVisibility(secs)
     }
   }
 

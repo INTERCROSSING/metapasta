@@ -11,28 +11,29 @@ object testInstructions extends MapInstructions[Int, Int] {
 object Metapasta extends Nisperon {
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
     metadataBuilder = new NisperonMetadataBuilder(new generated.metadata.metapasta()),
-    email = "museeer@gmail.com"
+    email = "museeer@gmail.com",
+    autoTermination = false
   )
 
-  val queue1 = queue(
-    name = "queue1",
-    monoid = intMonoid,
-    serializer = intSerializer
+  val fasta = queue(
+    name = "fastaQueue",
+    monoid = stringMonoid,
+    serializer = stringSerializer
   )
 
-  val queue2 = s3queue(
-    name = "queue2",
-    monoid = intMonoid,
-    serializer = intSerializer
+  val blastRes = s3queue(
+    name = "blastRes",
+    monoid = new ListMonoid[BlastResult],
+    serializer = new JsonSerializer[List[BlastResult]]
   )
 
-  override val mergingQueues = List(queue2)
+  override val mergingQueues = List(blastRes)
 
-  val nispero1 = nispero(
-    inputQueue = queue1,
-    outputQueue = queue2,
-    instructions = testInstructions,
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "square")
+  val blastNispero = nispero(
+    inputQueue = fasta,
+    outputQueue = blastRes,
+    instructions = new BlastInstructions(aws, new NTDatabase(aws)),
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "blast")
   )
 
 
@@ -41,8 +42,7 @@ object Metapasta extends Nisperon {
   }
 
   def addTasks() {
-    queue1.init()
-    queue2.init()
+    fasta.init()
 
     val t1 = System.currentTimeMillis()
 
@@ -54,7 +54,12 @@ object Metapasta extends Nisperon {
 //      queue1.put("id" + i, List(i))
 //    }
 
-    queue1.put("5", (1 to 1000).toList)
+    //todo fix this order!!!
+    //added 232 ms
+    //check you e-mail for further instructions
+    //  unprocessed:0
+    fasta.put("0", List(io.Source.fromFile("f1.fasta").mkString, io.Source.fromFile("f2.fasta").mkString))
+
 
     val t2 = System.currentTimeMillis()
 
@@ -64,7 +69,7 @@ object Metapasta extends Nisperon {
 
    // checkQueues()
 
-    println(queue1.list())
+   // println(queue1.list())
 
   }
 }

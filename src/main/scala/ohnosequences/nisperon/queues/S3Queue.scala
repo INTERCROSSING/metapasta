@@ -48,10 +48,26 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
 
 
   def read(): Message[T] = {
-    val m = sqsQueue.readRAW()
-    visibilityExtender.addMessage(m)
+    var message: SQSMessage[String] = null
+
+    var taken = false
+    while(!taken) {
+      message = sqsQueue.readRAW()
+      //println("taked: " + message)
+      //check timeout
+      try {
+        message.changeMessageVisibility(20)
+        taken = true
+      } catch {
+        case t: Throwable => logger.warn("skipping expired message")
+      }
+    }
+
+    visibilityExtender.addMessage(message)
+
+
     new Message[T] {
-      val id: String = m.id
+      val id: String = message.id
 
 
       def value(): T = {
@@ -64,10 +80,12 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
 
       def delete() {
         aws.s3.deleteObject(ObjectAddress(name, id))
-        m.delete()
+        visibilityExtender.clear()
+        message.delete()
+
       }
 
-      def changeMessageVisibility(secs: Int): Unit = m.changeMessageVisibility(secs)
+      def changeMessageVisibility(secs: Int): Unit = message.changeMessageVisibility(secs)
     }
   }
 
