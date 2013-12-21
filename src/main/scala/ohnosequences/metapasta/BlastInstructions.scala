@@ -44,6 +44,16 @@ class BlastInstructions(aws: AWS, database: Database) extends MapInstructions[St
   }
 
   def apply(input: String): List[BlastResult] = {
+     val bio4j = new Bio4jDistributionDist(blastNispero.managerDistribution.metadata)
+      val noderetr = bio4j.nodeRetriever
+
+    val human = noderetr.getNCBITaxonByTaxId("9606")
+    println("human.getName: " + human.getName)
+    println("human.getScientificName: " + human.getScientificName)
+    println("human.getComments: " + human.getComments)
+
+
+
     import scala.sys.process._
 
     logger.info("saving reads to reads.fasta")

@@ -4,6 +4,8 @@ import ohnosequences.nisperon._
 import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
 import ohnosequences.nisperon.NisperonConfiguration
 
+
+
 object testInstructions extends MapInstructions[Int, Int] {
   def apply(input: Int): Int = input * input
 }
@@ -42,6 +44,12 @@ object Metapasta extends Nisperon {
   }
 
   def addTasks() {
+  //  val bio4j = new Bio4jDistributionDist(blastNispero.managerDistribution.metadata)
+  //  val noderetr = bio4j.nodeRetriever
+
+    //noderetr.
+
+
     fasta.init()
 
     val t1 = System.currentTimeMillis()
