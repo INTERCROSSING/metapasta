@@ -17,10 +17,22 @@ object Metapasta extends Nisperon {
     autoTermination = false
   )
 
-  val fasta = queue(
-    name = "fastaQueue",
-    monoid = stringMonoid,
-    serializer = stringSerializer
+  val pairedSample = queue(
+    name = "pairedSample",
+    monoid = new ListMonoid[PairedSample],
+    serializer = new JsonSerializer[List[PairedSample]]
+  )
+
+  val processedSample = queue(
+    name = "processedSample",
+    monoid = new ListMonoid[ProcessedSampleChunk](),
+    serializer = new JsonSerializer[List[ProcessedSampleChunk]]()
+  )
+
+  val parsedSample = queue(
+    name = "parsedSample",
+    monoid = new ListMonoid[ParsedSampleChunk](),
+    serializer = new JsonSerializer[List[ParsedSampleChunk]]()
   )
 
   val blastRes = s3queue(
@@ -31,8 +43,25 @@ object Metapasta extends Nisperon {
 
   override val mergingQueues = List(blastRes)
 
+
+  //todo bucket thing!!!
+  val flashNispero = nispero(
+    inputQueue = pairedSample,
+    outputQueue = processedSample,
+    instructions = new FlashInstructions(aws, nisperonConfiguration.id),
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flashNispero")
+  )
+
+  val parseNispero = nispero(
+    inputQueue = processedSample,
+    outputQueue = parsedSample,
+    instructions = new ParseInstructions(aws),
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "parse")
+  )
+
+
   val blastNispero = nispero(
-    inputQueue = fasta,
+    inputQueue = parsedSample,
     outputQueue = blastRes,
     instructions = new BlastInstructions(aws, new NTDatabase(aws)),
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "blast")
@@ -50,7 +79,7 @@ object Metapasta extends Nisperon {
     //noderetr.
 
 
-    fasta.init()
+    pairedSample.init()
 
     val t1 = System.currentTimeMillis()
 
@@ -66,7 +95,7 @@ object Metapasta extends Nisperon {
     //added 232 ms
     //check you e-mail for further instructions
     //  unprocessed:0
-    fasta.put("0", List(io.Source.fromFile("f1.fasta").mkString, io.Source.fromFile("f2.fasta").mkString))
+   // pairedSample.put("0", List(io.Source.fromFile("f1.fasta").mkString, io.Source.fromFile("f2.fasta").mkString))
 
 
     val t2 = System.currentTimeMillis()

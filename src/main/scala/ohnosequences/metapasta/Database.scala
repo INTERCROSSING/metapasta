@@ -3,6 +3,7 @@ package ohnosequences.metapasta
 import ohnosequences.awstools.s3.ObjectAddress
 
 trait Database {
+
   def install()
 
   //for blast

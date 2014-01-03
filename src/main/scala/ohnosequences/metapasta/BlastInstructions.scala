@@ -8,7 +8,7 @@ import scala.collection.mutable.ListBuffer
 
 case class BlastResult(readId: String, gi: String)
 
-class BlastInstructions(aws: AWS, database: Database) extends MapInstructions[String, List[BlastResult]] {
+class BlastInstructions(aws: AWS, database: Database) extends MapInstructions[List[ParsedSampleChunk], List[BlastResult]] {
 
   val logger = Logger(this.getClass)
 
@@ -43,21 +43,23 @@ class BlastInstructions(aws: AWS, database: Database) extends MapInstructions[St
     scala.io.Source.fromFile(file).mkString
   }
 
-  def apply(input: String): List[BlastResult] = {
-     val bio4j = new Bio4jDistributionDist(blastNispero.managerDistribution.metadata)
-      val noderetr = bio4j.nodeRetriever
-
-    val human = noderetr.getNCBITaxonByTaxId("9606")
-    println("human.getName: " + human.getName)
-    println("human.getScientificName: " + human.getScientificName)
-    println("human.getComments: " + human.getComments)
+  def apply(input: List[ParsedSampleChunk]): List[BlastResult] = {
+//     val bio4j = new Bio4jDistributionDist(blastNispero.managerDistribution.metadata)
+//      val noderetr = bio4j.nodeRetriever
+//
+//    val human = noderetr.getNCBITaxonByTaxId("9606")
+//    println("human.getName: " + human.getName)
+//    println("human.getScientificName: " + human.getScientificName)
+//    println("human.getComments: " + human.getComments)
 
 
 
     import scala.sys.process._
 
+    val chunk = input.head
+
     logger.info("saving reads to reads.fasta")
-    writeFile(input, new File("reads.fasta"))
+    writeFile(chunk.toFasta, new File("reads.fasta"))
 
 
     logger.info("running BLAST")
