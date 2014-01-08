@@ -4,6 +4,7 @@ import ohnosequences.nisperon.queues._
 import org.clapper.avsl.Logger
 import ohnosequences.awstools.s3.ObjectAddress
 import scala.collection.mutable.ListBuffer
+import java.io.File
 
 abstract class WorkerAux {
 
@@ -25,72 +26,94 @@ abstract class WorkerAux {
 
   val logger = Logger(this.getClass)
 
+  def terminateInstance(t: Throwable) {
+    logger.error("terminating instance")
+    try {
+      val instanceId = aws.ec2.getCurrentInstanceId.getOrElse("undefined_" + System.currentTimeMillis())
+      val logAddress = ObjectAddress(nisperoConfiguration.nisperonConfiguration.bucket, "logs/" + instanceId)
+      //todo incorporate with ami
+      aws.s3.putObject(logAddress, new File("/root/log.txt"))
+    } catch {
+      case t: Throwable => logger.error("could't upload log")
+    }
+    aws.ec2.getCurrentInstance.foreach(_.terminate())
+  }
+
+
+
   def runInstructions() {
     try {
-    instructions.prepare()
+      logger.info("preparing instructions")
+      instructions.prepare()
+    } catch {
+      case t: Throwable =>
+        logger.error("error during preparing instructions")
+        terminateInstance(t)
+    }
 
+    try {
+      logger.info("initializing queues")
+      inputQueue.init()
+      outputQueue.init()
+    } catch {
+      case t: Throwable =>
+        logger.error("error during initializing queues")
+        terminateInstance(t)
+    }
 
-    inputQueue.init()
-    outputQueue.init()
-
-    println("start reading messages from " + inputQueue)
-
+    var startTime = 0L
+    var endTime = 0L
 
     while(true) {
+      var messages = List[Message[inputQueue.MA]]()
 
-
-        // logger.info("start reading messages from: " + inputQueue.name)
-      var startTime =  System.currentTimeMillis()
-      //todo add multithreading here
-
-      val messages: List[Message[inputQueue.MA]] = (1 to instructions.arity).toList.map { n =>
-       // logger.info("waiting for message from: " + inputQueue.name + "[" + n + "]")
-        inputQueue.read()
+      try {
+        startTime =  System.currentTimeMillis()
+        messages = (1 to instructions.arity).toList.map { n =>
+         // logger.info("waiting for message from: " + inputQueue.name + "[" + n + "]")
+          inputQueue.read()
+        }
+        endTime =  System.currentTimeMillis()
+        logger.info("message read in " + (endTime - startTime))
+      } catch {
+        case t: Throwable => {
+          logger.error("error during reading from the queue")
+          terminateInstance(t)
+        }
       }
 
-      var endTime =  System.currentTimeMillis()
 
-      logger.info("message read in " + (endTime - startTime))
-
-      logger.info("executing " + instructions + " instructions on " + messages)
-
-
-       try {
+      var output = List[outputQueue.MA]()
+      try {
+        logger.info("executing " + instructions + " instructions on " + messages)
         startTime =  System.currentTimeMillis()
-        val outputs = instructions.solve(messages.map(_.value()))
+        output = instructions.solve(messages.map(_.value()))
         endTime =  System.currentTimeMillis()
         logger.info("executed in " + (endTime - startTime))
 
-        startTime =  System.currentTimeMillis()
-        outputQueue.put(messages.head.id, outputs)
-        endTime =  System.currentTimeMillis()
-        logger.info("message written in " + (endTime - startTime))
 
-        messages.foreach(_.delete())
+        try {
+          startTime =  System.currentTimeMillis()
+          outputQueue.put(messages.head.id, output)
+          endTime =  System.currentTimeMillis()
+          logger.info("message written in " + (endTime - startTime))
+          messages.foreach(_.delete())
+        } catch {
+          case t: Throwable => {
+            logger.error("error during writing to the queue")
+            terminateInstance(t)
+          }
+        }
 
-       } catch {
-         case t: Throwable => {
-           logger.error("instructions error:")
-           t.printStackTrace()
-         }
-       }
-
-
-      }
+        inputQueue.reset()
 
       } catch {
-        case t: Throwable =>
-          //todo some reporting here!!!
-          logger.error("error during processing messages: " + t.getMessage)
+        case t: Throwable => {
+          logger.error("instructions error: " + t.toString)
           t.printStackTrace()
-          logger.error("terminating instance")
-          //aws.ec2.getCurrentInstance.foreach(_.terminate())
-          //terminate instance
-
-      }  finally {
-        inputQueue.reset()
+        }
       }
-
+    }
   }
 }
 

@@ -59,9 +59,9 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
 
   override def prepare() {
 
-
-    //old installing with building
-
+//
+//    old installing with building
+//
 //    logger.info("downloading FLASH")
 //    val flash = "FLASH-1.2.8.tar.gz"
 //    lm.download(ObjectAddress("metapasta", flash), new File(flash))
@@ -78,8 +78,13 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
 //    logger.info("building FLASH")
 //    Process(Seq("make"), new java.io.File(flash.replace(".tar.gz", ""))).!
 
+    logger.info("creating bucket " + bucket)
+    aws.s3.createBucket(bucket)
+
     val flash = "flash"
-    lm.download(ObjectAddress("metapasta", flash), new File("/usr/bin", flash))
+    val flashDst = new File("/usr/bin", flash)
+    lm.download(ObjectAddress("metapasta", flash), flashDst)
+    flashDst.setExecutable(true)
 
 
   }
@@ -103,7 +108,7 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
     lm.upload(resultObject, new File("out.extendedFrags.fastq"))
 
 
-    val ranges = new S3Splitter(aws.s3, resultObject, 1000000).chunks()
+    val ranges = new S3Splitter(aws.s3, resultObject, 10000).chunks()
 
     ranges.map { range =>
       List(ProcessedSampleChunk(resultObject, sample.name, range))

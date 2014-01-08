@@ -45,9 +45,15 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
 
   val logger = Logger(this.getClass)
 
-  @volatile var queueURL = sqs.createQueue(new CreateQueueRequest()
+  val queueURL = sqs.createQueue(new CreateQueueRequest()
     .withQueueName(name)
   ).getQueueUrl
+
+  @volatile var stopped = false
+
+  def terminate() {
+    stopped = true
+  }
 
   val bufferSize = 20
   val buffer = new ArrayBlockingQueue[SQSMessage[T]](bufferSize)
@@ -55,15 +61,9 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
   object SQSReader extends Thread("sqs reader") {
 
     override def run() {
-      var stopped = false
 
       while(!stopped) {
         try {
-
-          if(queueURL.isEmpty) {
-            logger.error("queue " + name + " doesn't exist")
-          } else {
-
             val messages = sqs.receiveMessage(new ReceiveMessageRequest()
               .withQueueUrl(queueURL)
               .withMaxNumberOfMessages(10)
@@ -84,19 +84,11 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
             } else {
               Thread.sleep(5)
             }
-          }
         } catch {
-          //todo fail thing
+
           case t: Throwable => {
-            try {
               logger.error("error during reading from queue " + name + " " + t.toString + " " + t.getMessage)
-              Thread.sleep(5000)
-              queueURL = sqs.createQueue(new CreateQueueRequest()
-                .withQueueName(name)
-              ).getQueueUrl
-            } catch {
-              case t: Throwable => Thread.sleep(10000)
-            }
+              terminate()
            // stopped = true
 
           }
@@ -127,6 +119,7 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
   }
 
   def put(id: String, t: T): String = {
+    if(stopped) throw new Error("queue is stopped")
     sqs.sendMessage(new SendMessageRequest()
       .withQueueUrl(queueURL)
       .withMessageBody(valueWrapSerializer.toString(ValueWrap(id, serializer.toString(t))))
@@ -135,12 +128,12 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
 
 
   def read(): Message[T] = {
-
-
+    if(stopped) throw new Error("queue is stopped")
     buffer.take()
   }
 
   def readRAW(): SQSMessage[T] = {
+    if(stopped) throw new Error("queue is stopped")
     buffer.take()
   }
 

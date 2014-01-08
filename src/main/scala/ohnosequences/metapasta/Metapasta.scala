@@ -3,7 +3,7 @@ package ohnosequences.metapasta
 import ohnosequences.nisperon._
 import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
 import ohnosequences.nisperon.NisperonConfiguration
-
+import ohnosequences.awstools.s3.ObjectAddress
 
 
 object testInstructions extends MapInstructions[Int, Int] {
@@ -14,7 +14,8 @@ object Metapasta extends Nisperon {
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
     metadataBuilder = new NisperonMetadataBuilder(new generated.metadata.metapasta()),
     email = "museeer@gmail.com",
-    autoTermination = false
+    autoTermination = false,
+    timeout = 36000
   )
 
   val pairedSample = queue(
@@ -32,7 +33,8 @@ object Metapasta extends Nisperon {
   val parsedSample = queue(
     name = "parsedSample",
     monoid = new ListMonoid[ParsedSampleChunk](),
-    serializer = new JsonSerializer[List[ParsedSampleChunk]]()
+    serializer = new JsonSerializer[List[ParsedSampleChunk]](),
+    writeBodyToTable = false
   )
 
   val blastRes = s3queue(
@@ -43,12 +45,13 @@ object Metapasta extends Nisperon {
 
   override val mergingQueues = List(blastRes)
 
+  //todo think about buffered writing!!
 
   //todo bucket thing!!!
   val flashNispero = nispero(
     inputQueue = pairedSample,
     outputQueue = processedSample,
-    instructions = new FlashInstructions(aws, nisperonConfiguration.id),
+    instructions = new FlashInstructions(aws, nisperonConfiguration.id.replace("_", "-").toLowerCase),
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flashNispero")
   )
 
@@ -90,6 +93,11 @@ object Metapasta extends Nisperon {
 //      }
 //      queue1.put("id" + i, List(i))
 //    }
+
+    val testBucket = "metapasta-test"
+    val sample = PairedSample("test", ObjectAddress(testBucket, "test1.fastq"), ObjectAddress(testBucket, "test2.fastq"))
+
+    pairedSample.put("000", List(List(sample)))
 
     //todo fix this order!!!
     //added 232 ms

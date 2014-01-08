@@ -30,6 +30,8 @@ case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email
   def metamanagerQueue = metadataBuilder.id + "_metamanager"
   def metamanagerGroup = metadataBuilder.id + "_metamanager"
 
+  def bucket = metadataBuilder.id.replace("_", "-").toLowerCase
+
 
 
 
@@ -86,7 +88,8 @@ case class Group(
 
 
 case class NisperoConfiguration(nisperonConfiguration: NisperonConfiguration, name: String, workerGroup: GroupConfiguration = SingleGroup()) {
-  
+
+  //todo rename to worker ????
   def workersGroupName = nisperonConfiguration.id  + "_" + name + "_workers"
 
   def managerGroupName = nisperonConfiguration.id + "_" + name + "_manager"

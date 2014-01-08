@@ -29,7 +29,7 @@ class SQSWriter[T](aws: AWS, queueUrl: String, monoid: Monoid[T], queueName: Str
     }
   }
 
-  def stop() {
+  def terminate() {
     stopped = true
   }
 
@@ -68,7 +68,9 @@ class SQSWriter[T](aws: AWS, queueUrl: String, monoid: Monoid[T], queueName: Str
             }
 
         } catch {
-          case t: Throwable => logger.warn(t.toString + " " + t.getMessage)
+          case t: Throwable =>
+            logger.error(t.toString + " " + t.getMessage)
+            terminate()
         }
       }
     }

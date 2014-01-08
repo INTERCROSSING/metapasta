@@ -5,7 +5,7 @@ import ohnosequences.formats.{RawHeader, FASTQ}
 import ohnosequences.parsers.S3ChunksReader
 import org.clapper.avsl.Logger
 
-
+//todo it's very inefficient because of lack of batch
 class ParseInstructions(aws: AWS) extends MapInstructions[List[ProcessedSampleChunk], List[ParsedSampleChunk]] {
 
   val logger = Logger(this.getClass)

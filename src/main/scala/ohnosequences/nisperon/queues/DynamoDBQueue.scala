@@ -15,7 +15,7 @@ import scala.collection.mutable.ListBuffer
 
 
 //think about batch stuff latter
-class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Serializer[T]) extends MonoidQueue[T](name, monoid) {
+class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Serializer[T], writeBodyToTable: Boolean) extends MonoidQueue[T](name, monoid) {
 
   def createBatchWriteItemRequest(table: String, items: List[Map[String, AttributeValue]]): BatchWriteItemRequest = {
     val writeOperations = new java.util.ArrayList[WriteRequest]()
@@ -43,7 +43,7 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer
   val visibilityExtender = new VisibilityExtender[T](name)
   
   val sqsWriter = new SQSWriter(aws, sqsQueue.queueURL, monoid, name, serializer)
-  val ddbWriter = new DynamoDBWriter(aws, monoid, name, serializer, idAttr, valueAttr)
+  val ddbWriter = new DynamoDBWriter(aws, monoid, name, serializer, idAttr, valueAttr, writeBodyToTable)
   
 
   def put(taskId: String, values: List[T]) {
@@ -112,8 +112,6 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer
     sqsWriter.init()
     ddbWriter.init()
 
-    //todo create table
-
     Utils.createTable(aws.ddb, name, new AttributeDefinition(idAttr, ScalarAttributeType.S), None, logger, 100, 100)
   }
 
@@ -162,10 +160,14 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer
   }
 
   def delete(id: String) {
-    aws.ddb.deleteItem(new DeleteItemRequest()
-      .withTableName(name)
-      .withKey(Map(idAttr -> new AttributeValue().withS(id)))
-    )
+    try {
+      aws.ddb.deleteItem(new DeleteItemRequest()
+        .withTableName(name)
+        .withKey(Map(idAttr -> new AttributeValue().withS(id)))
+      )
+    } catch {
+      case t: Throwable => logger.warn("message not found: " + id); None
+    }
   }
 }
 

@@ -7,7 +7,7 @@ import com.amazonaws.services.dynamodbv2.model._
 import scala.collection.JavaConversions._
 
 
-class DynamoDBWriter[T](aws: AWS, monoid: Monoid[T], queueName: String, serializer: Serializer[T], idAttr: String, valueAttr: String, threads: Int = 1) {
+class DynamoDBWriter[T](aws: AWS, monoid: Monoid[T], queueName: String, serializer: Serializer[T], idAttr: String, valueAttr: String, writeBodyToTable: Boolean, threads: Int = 1) {
   val batchSize = 25
   val bufferSize = batchSize * (threads + 1)
   val buffer = new ArrayBlockingQueue[(String, T)](bufferSize)
@@ -18,6 +18,7 @@ class DynamoDBWriter[T](aws: AWS, monoid: Monoid[T], queueName: String, serializ
   val logger = Logger(this.getClass)
 
   def put(id: String, value: T) {
+    if(stopped) throw new Error("queue is stopped")
     buffer.put(id -> value)
   }
 
@@ -30,11 +31,12 @@ class DynamoDBWriter[T](aws: AWS, monoid: Monoid[T], queueName: String, serializ
     }
   }
 
-  def stop() {
+  def terminate() {
     stopped = true
   }
 
   def flush() {
+    if(stopped) throw new Error("queue is stopped")
     for (i <- 1 to bufferSize) {
       buffer.put("id" -> monoid.unit)
     }
@@ -48,10 +50,17 @@ class DynamoDBWriter[T](aws: AWS, monoid: Monoid[T], queueName: String, serializ
           for (i <- 1 to 25) {
             val (id, value) = buffer.take()
             if (!value.equals(monoid.unit)) {
-              val item = Map(
-                idAttr -> new AttributeValue().withS(id),
-                valueAttr -> new AttributeValue().withS(serializer.toString(value))
-              )
+
+              val item = if(writeBodyToTable) {
+                Map(
+                  idAttr -> new AttributeValue().withS(id),
+                  valueAttr -> new AttributeValue().withS(serializer.toString(value))
+                )
+              } else {
+                Map(
+                  idAttr -> new AttributeValue().withS(id)
+                )
+              }
               writeOperations.add(new WriteRequest()
                 .withPutRequest(new PutRequest()
                 .withItem(item)
@@ -68,14 +77,19 @@ class DynamoDBWriter[T](aws: AWS, monoid: Monoid[T], queueName: String, serializ
                   .withRequestItems(operations)
                 )
                 operations = res.getUnprocessedItems
-                println("unprocessed:" + operations.size())
+
+                val size = operations.values().map(_.size()).sum
+                println("unprocessed:" + size)
               } catch {
                 case t: ProvisionedThroughputExceededException => logger.warn(t.toString + " " + t.getMessage)
               }
             } while (!operations.isEmpty)
           }
         } catch {
-          case t: Throwable => logger.warn(t.toString + " " + t.getMessage); logger.warn(">>")
+          case t: Throwable => {
+            logger.warn(t.toString + " " + t.getMessage)
+            terminate()
+          }
         }
       }
     }

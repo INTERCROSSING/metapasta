@@ -4,7 +4,6 @@ import ohnosequences.nisperon.ProductMonoid
 
 class ProductMessage[X, Y](mx: Message[X], my: Message[Y]) extends Message[(X, Y)] {
 
-  //todo reading from product queue
   val id: String = mx.id + "," + my.id
 
   def value(): (X, Y) = (mx.value(), my.value())
@@ -20,14 +19,25 @@ class ProductMessage[X, Y](mx: Message[X], my: Message[Y]) extends Message[(X, Y
   }
 
 }
-class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
+
+
+case class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
   extends MonoidQueue[(X, Y)](xQueue.name + "_" + yQueue.name, new ProductMonoid(xQueue.monoid, yQueue.monoid)) {
 
 
-  //todo
-  def list(): List[String] = List[String]()
-  def read(id: String): Option[(X, Y)] = None
-  def delete(id: String) {}
+
+  def list(): List[String] = xQueue.list() ++ yQueue.list()
+
+  def read(id: String): Option[(X, Y)] = {
+    (xQueue.read(id).getOrElse(xQueue.monoid.unit), yQueue.read(id).getOrElse(yQueue.monoid.unit)) match {
+      case (xQueue.monoid.unit, yQueue.monoid.unit) => None
+      case s => Some(s)
+    }
+  }
+  def delete(id: String) {
+    xQueue.delete(id)
+    yQueue.delete(id)
+  }
 
   def init() {
     xQueue.init()
@@ -44,7 +54,7 @@ class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
     yQueue.reset()
   }
 
-  //todo something with this block
+  //todo reading from product queue
   def read(): Message[(X, Y)] = {
     new ProductMessage(xQueue.read(), yQueue.read())
   }

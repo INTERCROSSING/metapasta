@@ -33,11 +33,11 @@ abstract class Nisperon {
     new S3QueueLocal(name, monoid, serializer)
   }
 
-  class DynamoDBQueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
-    DynamoDBQueue(aws, nisperonConfiguration.id + name, monoid, serializer)
+  class DynamoDBQueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean) extends
+    DynamoDBQueue(aws, nisperonConfiguration.id + name, monoid, serializer, writeBodyToTable)
 
-  def queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) = {
-    new DynamoDBQueueLocal(name, monoid, serializer)
+  def queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean = true) = {
+    new DynamoDBQueueLocal(name, monoid, serializer, writeBodyToTable)
   }
 
   //in secs
@@ -112,10 +112,14 @@ abstract class Nisperon {
           }
 
           try {
+
             aws.s3.s3.getObjectMetadata(nisperonConfiguration.artifactAddress.bucket, nisperonConfiguration.artifactAddress.key)
           } catch {
             case t: Throwable => throw new Error("jar isn't published: " + nisperonConfiguration.artifactAddress)
           }
+
+          logger.info("creating bucket")
+          aws.s3.createBucket(nisperonConfiguration.bucket)
 
           nisperos.foreach {
             case (id, nispero) =>

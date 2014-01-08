@@ -17,6 +17,7 @@ class S3Writer[T](aws: AWS, monoid: Monoid[T], queueName: String, serializer: Se
   val logger = Logger(this.getClass)
 
   def put(id: String, value: T) {
+    if(stopped) throw new Error("queue is stopped")
     buffer.put(id -> value)
   }
 
@@ -29,11 +30,12 @@ class S3Writer[T](aws: AWS, monoid: Monoid[T], queueName: String, serializer: Se
     }
   }
 
-  def stop() {
+  def terminate() {
     stopped = true
   }
 
   def flush() {
+    if(stopped) throw new Error("queue is stopped")
     for (i <- 1 to bufferSize) {
       buffer.put("id" -> monoid.unit)
     }
@@ -48,7 +50,10 @@ class S3Writer[T](aws: AWS, monoid: Monoid[T], queueName: String, serializer: Se
               aws.s3.putWholeObject(ObjectAddress(queueName, id), serializer.toString(value))
             }
         } catch {
-          case t: Throwable => logger.warn(t.toString + " " + t.getMessage)
+          case t: Throwable => {
+            logger.warn(t.toString + " " + t.getMessage)
+            terminate()
+          }
         }
       }
     }

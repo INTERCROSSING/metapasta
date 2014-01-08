@@ -8,6 +8,10 @@ import scala.collection.mutable.ListBuffer
 
 case class BlastResult(readId: String, gi: String)
 
+
+//todo think about behavior on slow machine
+//[2014/01/07 05:01:58:376 UTC] (INFO) BlastInstructions: running BLAST
+//warning: invalid idStatus Code: 400, AWS Service: AmazonSQS, AWS Request ID: 712
 class BlastInstructions(aws: AWS, database: Database) extends MapInstructions[List[ParsedSampleChunk], List[BlastResult]] {
 
   val logger = Logger(this.getClass)

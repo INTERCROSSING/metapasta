@@ -74,7 +74,7 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
         //val address = m.value()
         val address = ObjectAddress(name, id)
         logger.info("reading data from " + address)
-        val rawValue = aws.s3.readWholeObject(ObjectAddress(name, id))
+        val rawValue = aws.s3.readWholeObject(address)
         serializer.fromString(rawValue)
       }
 
@@ -124,10 +124,18 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
   }
 
   def read(id: String): Option[T] = {
-    aws.s3.readObject(ObjectAddress(name, id)).map(serializer.fromString)
+    try {
+      aws.s3.readObject(ObjectAddress(name, id)).map(serializer.fromString)
+    } catch {
+      case t: Throwable => logger.warn("message not found: " + id); None
+    }
   }
 
   def delete(id: String) {
-    aws.s3.deleteObject(ObjectAddress(name, id))
+    try {
+      aws.s3.deleteObject(ObjectAddress(name, id))
+    } catch {
+      case t: Throwable => logger.warn("message not found: " + id); None
+    }
   }
 }
