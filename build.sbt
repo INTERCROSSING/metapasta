@@ -13,7 +13,7 @@ libraryDependencies ++= Seq(
   "com.novocode"   % "junit-interface" % "0.10" % "test",
   "org.clapper"   %% "avsl" % "1.0.1",
   "org.json4s"    %% "json4s-native" % "3.2.5",
-  "ohnosequences" %% "aws-scala-tools" % "0.5.0",
+  "ohnosequences" %% "aws-scala-tools" % "0.5.4-SNAPSHOT",
   "ohnosequences" %% "statika" % "1.0.0",
   "ohnosequences" %% "aws-statika" % "1.0.0",
   "ohnosequences" %% "amazon-linux-ami" % "0.14.1"

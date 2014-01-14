@@ -37,7 +37,8 @@ class DynamoDBWriter[T](aws: AWS, monoid: Monoid[T], queueName: String, serializ
 
   def flush() {
     if(stopped) throw new Error("queue is stopped")
-    for (i <- 1 to bufferSize) {
+    logger.info("running flush")
+    for (i <- 1 to bufferSize * 2) {
       buffer.put("id" -> monoid.unit)
     }
   }
@@ -79,7 +80,7 @@ class DynamoDBWriter[T](aws: AWS, monoid: Monoid[T], queueName: String, serializ
                 operations = res.getUnprocessedItems
 
                 val size = operations.values().map(_.size()).sum
-                println("unprocessed:" + size)
+                logger.info("unprocessed: " + size)
               } catch {
                 case t: ProvisionedThroughputExceededException => logger.warn(t.toString + " " + t.getMessage)
               }

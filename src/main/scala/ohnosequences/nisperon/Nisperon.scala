@@ -33,11 +33,11 @@ abstract class Nisperon {
     new S3QueueLocal(name, monoid, serializer)
   }
 
-  class DynamoDBQueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean) extends
-    DynamoDBQueue(aws, nisperonConfiguration.id + name, monoid, serializer, writeBodyToTable)
+  class DynamoDBQueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean, throughputs: (Int, Int)) extends
+    DynamoDBQueue(aws, nisperonConfiguration.id + name, monoid, serializer, writeBodyToTable, throughputs)
 
-  def queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean = true) = {
-    new DynamoDBQueueLocal(name, monoid, serializer, writeBodyToTable)
+  def queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean = true, throughputs: (Int, Int) = (100, 100)) = {
+    new DynamoDBQueueLocal(name, monoid, serializer, writeBodyToTable, throughputs)
   }
 
   //in secs
@@ -149,6 +149,10 @@ abstract class Nisperon {
         }
       }
 
+      case "graph" :: Nil => {
+        logger.info(new NisperoGraph(nisperos).graph)
+      }
+
       case "add" :: "tasks" :: Nil => {
         addTasks()
       }
@@ -212,4 +216,24 @@ abstract class Nisperon {
   }
 
 
+}
+
+object Nisperon {
+
+  def terminateInstance(aws: AWS, bucket: String, logger: Logger, component: String, t: Throwable, timeout: Int = 5) {
+    t.printStackTrace()
+
+    logger.error("terminating instance")
+    try {
+      logger.info("waiting " + timeout + " secs")
+      Thread.sleep(timeout * 1000)
+      val instanceId = aws.ec2.getCurrentInstanceId.getOrElse("undefined_" + System.currentTimeMillis())
+      val logAddress = ObjectAddress(bucket, "logs/" + component + "-" + instanceId)
+      //todo incorporate with ami
+      aws.s3.putObject(logAddress, new File("/root/log.txt"))
+    } catch {
+      case t: Throwable => logger.error("couldn't upload log")
+    }
+    aws.ec2.getCurrentInstance.foreach(_.terminate())
+  }
 }

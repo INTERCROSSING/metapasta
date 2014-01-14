@@ -4,6 +4,8 @@ import ohnosequences.nisperon._
 import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
 import ohnosequences.nisperon.NisperonConfiguration
 import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.awstools.ec2.InstanceType
+import ohnosequences.awstools.autoscaling.OnDemand
 
 
 object testInstructions extends MapInstructions[Int, Int] {
@@ -21,7 +23,8 @@ object Metapasta extends Nisperon {
   val pairedSample = queue(
     name = "pairedSample",
     monoid = new ListMonoid[PairedSample],
-    serializer = new JsonSerializer[List[PairedSample]]
+    serializer = new JsonSerializer[List[PairedSample]],
+    throughputs = (1, 1)
   )
 
   val processedSample = queue(
@@ -43,15 +46,15 @@ object Metapasta extends Nisperon {
     serializer = new JsonSerializer[List[BlastResult]]
   )
 
-  override val mergingQueues = List(blastRes)
-
+  //override val mergingQueues = List(blastRes)
+  override val mergingQueues = List()
   //todo think about buffered writing!!
 
   //todo bucket thing!!!
   val flashNispero = nispero(
     inputQueue = pairedSample,
     outputQueue = processedSample,
-    instructions = new FlashInstructions(aws, nisperonConfiguration.id.replace("_", "-").toLowerCase),
+    instructions = new FlashInstructions(aws, nisperonConfiguration.bucket),
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flashNispero")
   )
 
@@ -67,7 +70,7 @@ object Metapasta extends Nisperon {
     inputQueue = parsedSample,
     outputQueue = blastRes,
     instructions = new BlastInstructions(aws, new NTDatabase(aws)),
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "blast")
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "blast", workerGroup = Group(size = 2, max = 15, instanceType = InstanceType.T1Micro, purchaseModel = OnDemand))
   )
 
 
@@ -82,7 +85,15 @@ object Metapasta extends Nisperon {
     //noderetr.
 
 
-    pairedSample.init()
+    val list = aws.s3.listObjects("releases.era7.com", "ohnosequences")
+    println(list.size)
+
+    val set = list.toSet
+    println(set.size)
+
+
+
+   // pairedSample.init()
 
     val t1 = System.currentTimeMillis()
 
@@ -97,7 +108,7 @@ object Metapasta extends Nisperon {
     val testBucket = "metapasta-test"
     val sample = PairedSample("test", ObjectAddress(testBucket, "test1.fastq"), ObjectAddress(testBucket, "test2.fastq"))
 
-    pairedSample.put("000", List(List(sample)))
+  //  pairedSample.put("000", List(List(sample)))
 
     //todo fix this order!!!
     //added 232 ms
@@ -108,7 +119,7 @@ object Metapasta extends Nisperon {
 
     val t2 = System.currentTimeMillis()
 
-    println("added " + (t2-t1) + " ms")
+    logger.info("added " + (t2-t1) + " ms")
 
     //should be initialized
 

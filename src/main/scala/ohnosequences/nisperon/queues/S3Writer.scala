@@ -34,9 +34,10 @@ class S3Writer[T](aws: AWS, monoid: Monoid[T], queueName: String, serializer: Se
     stopped = true
   }
 
+  //todo think about flush!
   def flush() {
     if(stopped) throw new Error("queue is stopped")
-    for (i <- 1 to bufferSize) {
+    for (i <- 1 to bufferSize * 2) {
       buffer.put("id" -> monoid.unit)
     }
   }

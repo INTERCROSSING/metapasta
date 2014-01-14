@@ -34,7 +34,7 @@ class SQSWriter[T](aws: AWS, queueUrl: String, monoid: Monoid[T], queueName: Str
   }
 
   def flush() {
-    for (i <- 1 to bufferSize) {
+    for (i <- 1 to bufferSize * 2) {
       buffer.put("id" -> monoid.unit)
     }
   }

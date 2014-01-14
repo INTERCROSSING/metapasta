@@ -17,20 +17,17 @@ class ProductMessage[X, Y](mx: Message[X], my: Message[Y]) extends Message[(X, Y
     mx.changeMessageVisibility(secs)
     my.changeMessageVisibility(secs)
   }
-
 }
-
 
 case class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
   extends MonoidQueue[(X, Y)](xQueue.name + "_" + yQueue.name, new ProductMonoid(xQueue.monoid, yQueue.monoid)) {
-
 
 
   def list(): List[String] = xQueue.list() ++ yQueue.list()
 
   def read(id: String): Option[(X, Y)] = {
     (xQueue.read(id).getOrElse(xQueue.monoid.unit), yQueue.read(id).getOrElse(yQueue.monoid.unit)) match {
-      case (xQueue.monoid.unit, yQueue.monoid.unit) => None
+      case (x, y) if x.equals(xQueue.monoid.unit) && y.equals(yQueue.monoid.unit) => None
       case s => Some(s)
     }
   }

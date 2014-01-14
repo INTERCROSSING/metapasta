@@ -113,14 +113,17 @@ class Nispero[Input, Output, InputQueue <: MonoidQueue[Input], OutputQueue <: Mo
 
         aws.as.createAutoScalingGroup(workers)
 
+        logger.info("starting control queue handler")
+
+        manager.runControlQueueHandler()
+
         //todo tagging
       } catch {
-        case t: Throwable => t.printStackTrace()
+        case t: Throwable => Nisperon.terminateInstance(aws, nisperoConfiguration.nisperonConfiguration.bucket, logger, "worker", t)
+
       }
 
-      logger.info("starting control queue handler")
 
-      manager.runControlQueueHandler()
 
       success("manager finished")
     }

@@ -1,26 +1,45 @@
 package ohnosequences.nisperon
 
 import org.clapper.avsl.Logger
+import ohnosequences.nisperon.queues.Merger
 
 class TerminationDaemon(nisperon: Nisperon) extends Thread {
   val logger = Logger(this.getClass)
   @volatile var stopped = false
 
-
+  var mergerStarted = false
 
   override def run() {
     logger.info("termination daemon started")
-    while(!stopped) {
-      try {
-
+    try {
+      while(!stopped) {
         if(nisperon.nisperonConfiguration.autoTermination) {
           logger.info("checking queues")
           nisperon.checkQueues() match {
             case Some(queue) => logger.info(queue.name + " isn't empty")
             case None => {
-              logger.info("terminating")
-              nisperon.undeploy("solved")
-              stopped = true
+              logger.info("all queues are empty. terminating")
+
+              //asyn launching
+
+              if(!mergerStarted) {
+                mergerStarted = true
+                val mergerThread = new Thread("merger") {
+                  override def run() {
+                    try {
+                      logger.info("merging queues")
+                      nisperon.mergingQueues.foreach { queue =>
+                        new Merger(queue).merge()
+                      }
+                      nisperon.undeploy("solved")
+                      stopped = true
+                    } catch {
+                      case t: Throwable => logger.error("error during merging: " + t.toString + " " + t.getMessage)
+                      Nisperon.terminateInstance(nisperon.aws, nisperon.nisperonConfiguration.bucket, logger, "metamanager", t)
+                    }
+                  }
+                }.start()
+              }
             }
           }
         }
@@ -32,9 +51,10 @@ class TerminationDaemon(nisperon: Nisperon) extends Thread {
         }
 
         Thread.sleep(5000)
-      } catch {
-        case t: Throwable => logger.error(t.toString + " " + t.getMessage)
       }
+    } catch {
+      case t: Throwable => logger.error(t.toString + " " + t.getMessage)
+      Nisperon.terminateInstance(nisperon.aws, nisperon.nisperonConfiguration.bucket, logger, "metamanager", t)
     }
   }
 }

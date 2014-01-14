@@ -41,7 +41,9 @@ abstract class ManagerAux {
           logger.info("delete workers group")
           aws.as.deleteAutoScalingGroup(nisperoConfiguration.workersGroupName)
           } catch {
-            case t: Throwable => t.printStackTrace()
+            case t: Throwable =>
+              Nisperon.terminateInstance(aws, nisperoConfiguration.nisperonConfiguration.bucket, logger, "manager", t)
+
           }
 
           try {
@@ -49,14 +51,17 @@ abstract class ManagerAux {
           m0.delete()
           controlQueueWrap.delete()
           } catch {
-            case t: Throwable => t.printStackTrace()
+            case t: Throwable =>
+              Nisperon.terminateInstance(aws, nisperoConfiguration.nisperonConfiguration.bucket, logger, "manager", t)
+
           }
 
           try {
           logger.info("delete manager group")
           aws.as.deleteAutoScalingGroup(nisperoConfiguration.managerGroupName)
           } catch {
-            case t: Throwable => t.printStackTrace()
+            case t: Throwable =>
+              Nisperon.terminateInstance(aws, nisperoConfiguration.nisperonConfiguration.bucket, logger, "manager", t)
           }
 
         }

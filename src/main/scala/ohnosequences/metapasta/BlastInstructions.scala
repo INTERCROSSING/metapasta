@@ -70,7 +70,11 @@ class BlastInstructions(aws: AWS, database: Database) extends MapInstructions[Li
     val command = """blastn -task megablast -db $name$ -query reads.fasta -out result -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis"""
       .replace("$name$", database.name)
 
+    val startTime = System.currentTimeMillis()
     val code = command.!
+    val endTime = System.currentTimeMillis()
+
+    logger.info("blast: " + (endTime - startTime + 0.0) / chunk.fastqs.size + " ms per read")
 
     if(code != 0) {
       throw new Error("BLAST finished with error code " + code)

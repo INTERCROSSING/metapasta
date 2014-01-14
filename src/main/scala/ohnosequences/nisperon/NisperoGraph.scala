@@ -2,7 +2,7 @@ package ohnosequences.nisperon
 
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.ListBuffer
-import ohnosequences.nisperon.queues.MonoidQueueAux
+import ohnosequences.nisperon.queues.{ProductQueue, MonoidQueueAux}
 
 case class Node[N](label: N)
 
@@ -10,6 +10,11 @@ case class Edge[E, N](label: E, source: Node[N], target: Node[N])
 
 
 class Graph[N, E](val edges: List[Edge[E, N]]) {
+
+  override def toString() = {
+    "nodes: " + nodes + System.lineSeparator() + "edges: " + edges
+  }
+
   val nodes: Set[Node[N]] = {
     edges.toSet.flatMap { edge: Edge[E, N] =>
       Set(edge.source, edge.target)
@@ -61,20 +66,36 @@ class Graph[N, E](val edges: List[Edge[E, N]]) {
 
 
 class NisperoGraph(nisperos: HashMap[String, NisperoAux]) {
+
+  def flatQueue(queue: MonoidQueueAux): List[MonoidQueueAux] = {
+    queue match {
+      case ProductQueue(q1, q2) => flatQueue(q1) ++ flatQueue(q2)
+      case q => List(q)
+    }
+  }
+
   val queues = {
     val r = new HashMap[String, MonoidQueueAux]()
+
     nisperos.values.foreach { nispero =>
-      r += (nispero.inputQueue.name -> nispero.inputQueue)
-      r += (nispero.outputQueue.name -> nispero.outputQueue)
+      r ++= flatQueue(nispero.inputQueue).map{ q=>
+        q.name -> q
+      }
+      r ++= flatQueue(nispero.outputQueue).map{ q=>
+        q.name -> q
+      }
     }
     r
   }
 
-  val edges = nisperos.values.toList.map { nispero =>
-    Edge(
+  val edges = nisperos.values.toList.flatMap { nispero =>
+    for {
+      i <- flatQueue(nispero.inputQueue)
+      o <- flatQueue(nispero.outputQueue)
+    } yield Edge(
       label = nispero.nisperoConfiguration.name,
-      source = Node(nispero.inputQueue.name),
-      target = Node(nispero.outputQueue.name)
+      source = Node(i.name),
+      target = Node(o.name)
     )
   }
 

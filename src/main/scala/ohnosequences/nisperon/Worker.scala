@@ -26,20 +26,6 @@ abstract class WorkerAux {
 
   val logger = Logger(this.getClass)
 
-  def terminateInstance(t: Throwable) {
-    logger.error("terminating instance")
-    try {
-      val instanceId = aws.ec2.getCurrentInstanceId.getOrElse("undefined_" + System.currentTimeMillis())
-      val logAddress = ObjectAddress(nisperoConfiguration.nisperonConfiguration.bucket, "logs/" + instanceId)
-      //todo incorporate with ami
-      aws.s3.putObject(logAddress, new File("/root/log.txt"))
-    } catch {
-      case t: Throwable => logger.error("could't upload log")
-    }
-    aws.ec2.getCurrentInstance.foreach(_.terminate())
-  }
-
-
 
   def runInstructions() {
     try {
@@ -48,7 +34,7 @@ abstract class WorkerAux {
     } catch {
       case t: Throwable =>
         logger.error("error during preparing instructions")
-        terminateInstance(t)
+        Nisperon.terminateInstance(aws, nisperoConfiguration.nisperonConfiguration.bucket, logger, "worker", t)
     }
 
     try {
@@ -58,7 +44,7 @@ abstract class WorkerAux {
     } catch {
       case t: Throwable =>
         logger.error("error during initializing queues")
-        terminateInstance(t)
+        Nisperon.terminateInstance(aws, nisperoConfiguration.nisperonConfiguration.bucket, logger, "worker", t)
     }
 
     var startTime = 0L
@@ -78,7 +64,7 @@ abstract class WorkerAux {
       } catch {
         case t: Throwable => {
           logger.error("error during reading from the queue")
-          terminateInstance(t)
+          Nisperon.terminateInstance(aws, nisperoConfiguration.nisperonConfiguration.bucket, logger, "worker", t)
         }
       }
 
@@ -101,7 +87,7 @@ abstract class WorkerAux {
         } catch {
           case t: Throwable => {
             logger.error("error during writing to the queue")
-            terminateInstance(t)
+            Nisperon.terminateInstance(aws, nisperoConfiguration.nisperonConfiguration.bucket, logger, "worker", t)
           }
         }
 

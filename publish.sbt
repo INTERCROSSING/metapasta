@@ -27,7 +27,8 @@ addCommandAlias("metapasta-publish", ";reload; release with-defaults")
 mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
   case "about.html" => MergeStrategy.first
   case "avsl.conf" => MergeStrategy.first
- // case PathList(_*) => MergeStrategy.first
+  case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
+  // case PathList(_*) => MergeStrategy.first
  case PathList("META-INF", _*) => MergeStrategy.first
   case x => old(x)
 }
