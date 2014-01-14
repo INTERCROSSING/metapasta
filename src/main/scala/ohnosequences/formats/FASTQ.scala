@@ -71,5 +71,10 @@ case class FASTQ[H <: Header](header: H, sequence: String, optHeader: String, qu
   def toFasta: String = {
     ">" + header.toString.replaceAll("\\s+", "_") + "\r" + sequence
   }
+
+  def toFastq: String = {
+    header.toString + "\r" + sequence + "\r" + optHeader + "\r" + quality
+
+  }
 }
 

@@ -47,6 +47,10 @@ case class ParsedSampleChunk(name: String, fastqs: List[FASTQ[RawHeader]]) {
   def toFasta: String = {
     fastqs.map(_.toFasta).mkString("\r")
   }
+
+  def toFastq: String = {
+    fastqs.map(_.toFastq).mkString("\r")
+  }
 }
 
 class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List[PairedSample], List[ProcessedSampleChunk]] {

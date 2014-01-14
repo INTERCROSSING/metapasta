@@ -7,7 +7,7 @@ case class SNSMessage(Message: String)
 
 case class ManagerCommand(command: String, arg: String)
 
-abstract class ManagerAux {
+  abstract class ManagerAux {
 
   val nisperoConfiguration: NisperoConfiguration
 
