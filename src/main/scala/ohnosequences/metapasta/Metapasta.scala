@@ -16,61 +16,47 @@ object Metapasta extends Nisperon {
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
     metadataBuilder = new NisperonMetadataBuilder(new generated.metadata.metapasta()),
     email = "museeer@gmail.com",
-    autoTermination = false,
+    autoTermination = true,
     timeout = 36000
   )
 
-  val pairedSample = queue(
-    name = "pairedSample",
+  val pairedSamples = queue(
+    name = "pairedSamples",
     monoid = new ListMonoid[PairedSample],
     serializer = new JsonSerializer[List[PairedSample]],
     throughputs = (1, 1)
   )
 
-  val processedSample = queue(
-    name = "processedSample",
-    monoid = new ListMonoid[ProcessedSampleChunk](),
-    serializer = new JsonSerializer[List[ProcessedSampleChunk]]()
-  )
-
-  val parsedSample = queue(
-    name = "parsedSample",
-    monoid = new ListMonoid[ParsedSampleChunk](),
-    serializer = new JsonSerializer[List[ParsedSampleChunk]](),
-    writeBodyToTable = false
+  val mergedSampleChunks = queue(
+    name = "mergedSampleChunks",
+    monoid = new ListMonoid[MergedSampleChunk](),
+    serializer = new JsonSerializer[List[MergedSampleChunk]](),
+    throughputs = (1, 1)
   )
 
   val blastRes = s3queue(
-    name = "blastRes",
-    monoid = new ListMonoid[BlastResult],
-    serializer = new JsonSerializer[List[BlastResult]]
+    name = "lastRes",
+    monoid = BestHitMonoid,
+    serializer = new JsonSerializer[BestHit]
   )
 
-  //override val mergingQueues = List(blastRes)
-  override val mergingQueues = List()
+  override val mergingQueues = List(blastRes)
+
   //todo think about buffered writing!!
 
   //todo bucket thing!!!
   val flashNispero = nispero(
-    inputQueue = pairedSample,
-    outputQueue = processedSample,
+    inputQueue = pairedSamples,
+    outputQueue = mergedSampleChunks,
     instructions = new FlashInstructions(aws, nisperonConfiguration.bucket),
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flashNispero")
   )
 
-  val parseNispero = nispero(
-    inputQueue = processedSample,
-    outputQueue = parsedSample,
-    instructions = new ParseInstructions(aws),
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "parse")
-  )
-
-
   val blastNispero = nispero(
-    inputQueue = parsedSample,
+    inputQueue = mergedSampleChunks,
     outputQueue = blastRes,
-    instructions = new BlastInstructions(aws, new NTDatabase(aws)),
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "blast", workerGroup = Group(size = 2, max = 15, instanceType = InstanceType.T1Micro, purchaseModel = OnDemand))
+    instructions = new LastInstructions(aws, new NTLastDatabase(aws)),
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "blast", workerGroup = Group(size = 10, max = 15, instanceType = InstanceType.M1Medium, purchaseModel = OnDemand))
   )
 
 
@@ -85,15 +71,15 @@ object Metapasta extends Nisperon {
     //noderetr.
 
 
-    val list = aws.s3.listObjects("releases.era7.com", "ohnosequences")
-    println(list.size)
+   // val list = aws.s3.listObjects("releases.era7.com", "ohnosequences")
+   // println(list.size)
 
-    val set = list.toSet
-    println(set.size)
+  //  val set = list.toSet
+  //  println(set.size)
 
 
 
-   // pairedSample.init()
+    pairedSamples.init()
 
     val t1 = System.currentTimeMillis()
 
@@ -108,7 +94,7 @@ object Metapasta extends Nisperon {
     val testBucket = "metapasta-test"
     val sample = PairedSample("test", ObjectAddress(testBucket, "test1.fastq"), ObjectAddress(testBucket, "test2.fastq"))
 
-  //  pairedSample.put("000", List(List(sample)))
+    pairedSamples.put("000", List(List(sample)))
 
     //todo fix this order!!!
     //added 232 ms

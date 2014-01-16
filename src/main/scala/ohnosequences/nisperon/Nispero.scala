@@ -85,7 +85,7 @@ class Nispero[Input, Output, InputQueue <: MonoidQueue[Input], OutputQueue <: Mo
 
     val logger = Logger(this.getClass)
 
-    val metadata = nisperoConfiguration.nisperonConfiguration.metadataBuilder.build("worker", nisperoConfiguration.name)
+    val metadata = nisperoConfiguration.nisperonConfiguration.metadataBuilder.build("worker", nisperoConfiguration.name, "/media/ephemeral0")
 
     def test() {
       userScript(workerBundle)

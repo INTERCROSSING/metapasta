@@ -41,19 +41,19 @@ class S3Splitter(s3: S3, address: ObjectAddress, chunksSize: Long) {
 //  }
 }
 
-case class ProcessedSampleChunk(fastq: ObjectAddress, name: String, range: (Long, Long))
+case class MergedSampleChunk(fastq: ObjectAddress, name: String, range: (Long, Long))
 
-case class ParsedSampleChunk(name: String, fastqs: List[FASTQ[RawHeader]]) {
-  def toFasta: String = {
-    fastqs.map(_.toFasta).mkString("\r")
-  }
+//case class ParsedSampleChunk(name: String, fastqs: List[FASTQ[RawHeader]]) {
+//  def toFasta: String = {
+//    fastqs.map(_.toFasta).mkString("\r")
+//  }
+//
+//  def toFastq: String = {
+//    fastqs.map(_.toFastq).mkString("\r")
+//  }
+//}
 
-  def toFastq: String = {
-    fastqs.map(_.toFastq).mkString("\r")
-  }
-}
-
-class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List[PairedSample], List[ProcessedSampleChunk]] {
+class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List[PairedSample], List[MergedSampleChunk]] {
 
   import scala.sys.process._
 
@@ -93,7 +93,7 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
 
   }
 
-  def apply(input: List[PairedSample]): List[List[ProcessedSampleChunk]] = {
+  def apply(input: List[PairedSample]): List[List[MergedSampleChunk]] = {
     val sample = input.head
 
 
@@ -112,10 +112,10 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
     lm.upload(resultObject, new File("out.extendedFrags.fastq"))
 
 
-    val ranges = new S3Splitter(aws.s3, resultObject, 10000).chunks()
+    val ranges = new S3Splitter(aws.s3, resultObject, 1000000).chunks()
 
     ranges.map { range =>
-      List(ProcessedSampleChunk(resultObject, sample.name, range))
+      List(MergedSampleChunk(resultObject, sample.name, range))
     }
   }
 }

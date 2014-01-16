@@ -10,6 +10,7 @@ import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.sqs.model.DeleteQueueRequest
 import org.clapper.avsl.Logger
+import ohnosequences.awstools.ec2.InstanceType
 
 
 abstract class Nisperon {
@@ -132,9 +133,10 @@ abstract class Nisperon {
           val bundle = new WhateverBundle(Nisperon.this, "meta", "meta")
           val userdata = bundle.userScript(bundle)
 
+          //todo set metamanager instance
           val metagroup = nisperonConfiguration.managerGroups.autoScalingGroup(
             name = nisperonConfiguration.metamanagerGroup,
-            defaultInstanceSpecs = nisperonConfiguration.defaultSpecs,
+            defaultInstanceSpecs = (nisperonConfiguration.defaultSpecs.copy(instanceType = InstanceType.M1Large)),
             amiId = bundle.ami.id,
             userData = userdata
           )
@@ -160,7 +162,7 @@ abstract class Nisperon {
       case "undeploy" :: Nil => {
         //val undeployMessage = JSON.toJSON(ManagerCommand("undeploy", ""))
         //aws.sns.createTopic(nisperonConfiguration.controlTopic).publish(undeployMessage)
-        undeploy("")
+        undeploy("adhoc")
       }
 
       case "undeploy" :: "force" :: Nil => {

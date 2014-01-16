@@ -5,7 +5,7 @@ import org.clapper.avsl.Logger
 import ohnosequences.awstools.s3.ObjectAddress
 import java.io.File
 
-class NTDatabase(aws: AWS) extends Database {
+class NTLastDatabase(aws: AWS) extends Database {
 
   val logger = Logger(this.getClass)
 

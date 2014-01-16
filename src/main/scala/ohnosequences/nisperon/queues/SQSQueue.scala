@@ -10,7 +10,8 @@ import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.model._
 
 
-
+//todo change default visibility timeout
+//todo check s3 writing
 class SQSMessage[T](val sqs: AmazonSQS, val queueUrl: String, val id: String, val receiptHandle: String, val body: String, val serializer: Serializer[T]) extends Message[T] {
 
   def value(): T = {

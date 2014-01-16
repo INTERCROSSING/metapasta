@@ -22,7 +22,8 @@ case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email
     amiId = "",
     securityGroups = List("nispero"),
     keyName = "nispero",
-    instanceProfile = Some("nispero")
+    instanceProfile = Some("nispero"),
+    deviceMapping = Map("/dev/xvdb" -> "ephemeral0")
   )
 
   def id = metadataBuilder.id
