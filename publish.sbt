@@ -25,11 +25,16 @@ nextVersion := { ver => sbtrelease.Version(ver).map(_.bumpMinor.string).getOrEls
 addCommandAlias("metapasta-publish", ";reload; release with-defaults")
 
 mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
+  case "log4j.properties" => MergeStrategy.first
   case "about.html" => MergeStrategy.first
   case "avsl.conf" => MergeStrategy.first
   case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
   // case PathList(_*) => MergeStrategy.first
  case PathList("META-INF", _*) => MergeStrategy.first
+  case PathList("org", "apache", "commons", "beanutils", _*) => MergeStrategy.first
+  case PathList("org", "fusesource", "hawtjni", "runtime", "Library.class") => MergeStrategy.first
+  case PathList("org", "fusesource", "jansi", _*) => MergeStrategy.first
+  case PathList("org", "apache", "commons", "collections", _*) => MergeStrategy.first
   case x => old(x)
 }
 }
