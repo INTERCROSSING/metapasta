@@ -2,6 +2,8 @@ package ohnosequences.nisperon
 
 import org.clapper.avsl.Logger
 import ohnosequences.nisperon.queues.Merger
+import ohnosequences.awstools.s3.ObjectAddress
+import java.io.File
 
 class TerminationDaemon(nisperon: Nisperon) extends Thread {
   val logger = Logger(this.getClass)
@@ -32,6 +34,12 @@ class TerminationDaemon(nisperon: Nisperon) extends Thread {
                         new Merger(queue).merge()
                       }
                       nisperon.undeploy("solved")
+
+                      val instanceId = nisperon.aws.ec2.getCurrentInstanceId.getOrElse("undefined_" + System.currentTimeMillis())
+                      val logAddress = ObjectAddress(nisperon.nisperonConfiguration.bucket, "logs/" + "metamanager-" + instanceId)
+                      //todo incorporate with ami
+                      nisperon.aws.s3.putObject(logAddress, new File("/root/log.txt"))
+
                       stopped = true
                     } catch {
                       case t: Throwable => logger.error("error during merging: " + t.toString + " " + t.getMessage)
@@ -56,5 +64,7 @@ class TerminationDaemon(nisperon: Nisperon) extends Thread {
       case t: Throwable => logger.error(t.toString + " " + t.getMessage)
       Nisperon.terminateInstance(nisperon.aws, nisperon.nisperonConfiguration.bucket, logger, "metamanager", t)
     }
+
+
   }
 }

@@ -90,9 +90,9 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer
           .withTableName(name)
           .withKey(Map(idAttr -> new AttributeValue().withS(id)))
         )
-
-        visibilityExtender.clear()
         message.delete()
+        visibilityExtender.clear()
+
       }
 
       def changeMessageVisibility(secs: Int): Unit = message.changeMessageVisibility(secs)

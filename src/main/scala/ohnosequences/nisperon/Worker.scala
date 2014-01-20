@@ -71,7 +71,7 @@ abstract class WorkerAux {
 
       var output = List[outputQueue.MA]()
       try {
-        logger.info("executing " + instructions + " instructions on " + messages)
+        logger.info("executing " + instructions + " instructions on " + messages.toString().take(1000))
         startTime =  System.currentTimeMillis()
         output = instructions.solve(messages.map(_.value()))
         endTime =  System.currentTimeMillis()

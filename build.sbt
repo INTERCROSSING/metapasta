@@ -16,8 +16,8 @@ libraryDependencies ++= Seq(
   "ohnosequences" %% "aws-scala-tools" % "0.5.4-SNAPSHOT",
   "ohnosequences" %% "statika" % "1.0.0",
   "ohnosequences" %% "aws-statika" % "1.0.0",
-  "ohnosequences" %% "amazon-linux-ami" % "0.14.1",
-  "ohnosequences" % "bio4j-scala-distribution_2.10" % "0.1.0"  classifier("")
+  "ohnosequences" %% "amazon-linux-ami" % "0.14.1"//,
+ // "ohnosequences" % "bio4j-scala-distribution_2.10" % "0.1.0"  classifier("")
 )
 
 resolvers +=  Resolver.url("era7" + " public ivy releases",  url("http://releases.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)

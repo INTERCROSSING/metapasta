@@ -6,11 +6,9 @@ import ohnosequences.nisperon.NisperonConfiguration
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.awstools.ec2.InstanceType
 import ohnosequences.awstools.autoscaling.OnDemand
+import ohnosequences.nisperon.queues.{unitQueue, ProductQueue}
 
 
-object testInstructions extends MapInstructions[Int, Int] {
-  def apply(input: Int): Int = input * input
-}
 
 object Metapasta extends Nisperon {
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
@@ -34,13 +32,19 @@ object Metapasta extends Nisperon {
     throughputs = (1, 1)
   )
 
-  val blastRes = s3queue(
-    name = "lastRes",
-    monoid = BestHitMonoid,
-    serializer = new JsonSerializer[BestHit]
+  val readsInfo = s3queue(
+    name = "readsInfo",
+    monoid = new ListMonoid[ReadInfo],
+    serializer = new JsonSerializer[List[ReadInfo]]
   )
 
-  override val mergingQueues = List(blastRes)
+  val assignTable = s3queue(
+    name = "table",
+    monoid = AssignTableMonoid,
+    serializer = new JsonSerializer[AssignTable]
+  )
+
+  override val mergingQueues = List(assignTable)
 
   //todo think about buffered writing!!
 
@@ -52,11 +56,18 @@ object Metapasta extends Nisperon {
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flashNispero")
   )
 
-  val blastNispero = nispero(
+  val lastNispero = nispero(
     inputQueue = mergedSampleChunks,
-    outputQueue = blastRes,
+    outputQueue = ProductQueue(readsInfo, assignTable),
     instructions = new LastInstructions(aws, new NTLastDatabase(aws)),
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "blast", workerGroup = Group(size = 10, max = 15, instanceType = InstanceType.M1Medium, purchaseModel = OnDemand))
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "last", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.M1Medium, purchaseModel = OnDemand))
+  )
+
+  val uploaderNispero = nispero(
+    inputQueue = readsInfo,
+    outputQueue = unitQueue,
+    instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads"),
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "uploader", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.T1Micro))
   )
 
 

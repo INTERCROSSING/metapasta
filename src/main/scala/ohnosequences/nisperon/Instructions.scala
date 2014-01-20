@@ -13,7 +13,7 @@ trait InstructionsAux {
 
 trait Instructions[Input, Output] extends InstructionsAux {
 
-  def prepare() {}
+  def prepare()
 
   type I = Input
 
@@ -47,6 +47,9 @@ class MonoidReduceInstructions[Input](name: String, arity: Int, monoid: Monoid[I
 
   override def toString = name
 
+
+  def prepare() {}
+
   def apply(input: List[Input]): Input = {
     input.fold(monoid.unit)(monoid.mult)
   }
@@ -66,6 +69,9 @@ abstract class SplitInstructions[Input, Output] extends Instructions[Input, Outp
 }
 
 class SplitterSplitInstructions[Input](name: String, splitter: Splitter[Input]) extends SplitInstructions[Input, Input] {
+
+
+  def prepare() {}
 
   override def toString = name
 

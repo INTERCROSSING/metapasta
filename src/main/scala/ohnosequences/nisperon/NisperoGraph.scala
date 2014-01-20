@@ -103,7 +103,7 @@ class NisperoGraph(nisperos: HashMap[String, NisperoAux]) {
 
   def checkQueues(): Option[MonoidQueueAux] = {
     val sorted = graph.sort
-   // println(sorted)
+    println(sorted)
     sorted.filterNot(graph.out(_).isEmpty).find { node =>
       !queues(node.label).isEmpty
     } match {

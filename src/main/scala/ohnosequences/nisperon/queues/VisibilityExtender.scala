@@ -22,7 +22,7 @@ class VisibilityExtender[T](name: String) extends Thread("extender_" + name) {
       messages.values().foreach {
         m =>
           try {
-            m.changeMessageVisibility(20)
+            m.changeMessageVisibility(50)
           } catch {
             case t: Throwable => {
               println("warning: invalid id" + t.getLocalizedMessage)

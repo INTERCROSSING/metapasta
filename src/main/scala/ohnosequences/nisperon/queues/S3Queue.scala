@@ -56,7 +56,7 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
       //println("taked: " + message)
       //check timeout
       try {
-        message.changeMessageVisibility(20)
+        message.changeMessageVisibility(50)
         taken = true
       } catch {
         case t: Throwable => logger.warn("skipping expired message")
@@ -74,8 +74,15 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
         //val address = m.value()
         val address = ObjectAddress(name, id)
         logger.info("reading data from " + address)
+        var start = System.currentTimeMillis()
         val rawValue = aws.s3.readWholeObject(address)
-        serializer.fromString(rawValue)
+        var end = System.currentTimeMillis()
+        logger.info("read from s3: " + (end - start))
+        start = System.currentTimeMillis()
+        val t = serializer.fromString(rawValue)
+        end = System.currentTimeMillis()
+        logger.info("parsing: " + (end - start))
+        t
       }
 
       def delete() {

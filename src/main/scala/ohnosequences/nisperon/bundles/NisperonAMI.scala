@@ -6,7 +6,7 @@ import ohnosequences.awstools.s3.ObjectAddress
 
 //case class NisperonMetadata(s3Bucket: String)
 
-object NisperonAMI extends AMI[NisperonMetadata]("ami-149f7863", "2013.09") {
+object NisperonAMI extends AMI[NisperonMetadata]("ami-5256b825", "2013.09") {
 
  // type Metadata = NisperonMetadata
 

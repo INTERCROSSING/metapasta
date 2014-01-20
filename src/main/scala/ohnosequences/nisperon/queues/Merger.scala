@@ -2,7 +2,7 @@ package ohnosequences.nisperon.queues
 
 import org.clapper.avsl.Logger
 
-
+//todo write to other queue!!!
 class Merger(queue: MonoidQueueAux) {
 
   val logger = Logger(this.getClass)

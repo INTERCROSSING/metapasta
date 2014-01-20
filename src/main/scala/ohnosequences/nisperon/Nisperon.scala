@@ -134,12 +134,15 @@ abstract class Nisperon {
           val userdata = bundle.userScript(bundle)
 
           //todo set metamanager instance
-          val metagroup = nisperonConfiguration.managerGroups.autoScalingGroup(
+          val metagroup = SingleGroup(instanceType = InstanceType.M1Large).autoScalingGroup(
             name = nisperonConfiguration.metamanagerGroup,
-            defaultInstanceSpecs = (nisperonConfiguration.defaultSpecs.copy(instanceType = InstanceType.M1Large)),
             amiId = bundle.ami.id,
+            defaultInstanceSpecs = nisperonConfiguration.defaultSpecs,
             userData = userdata
           )
+
+          println("launching metamanager")
+          //println(metagroup)
 
           aws.as.createAutoScalingGroup(metagroup)
 
@@ -149,6 +152,10 @@ abstract class Nisperon {
           case e: AmazonServiceException if e.getErrorCode == "NoSuchKey"
             => println(nisperonConfiguration.artifactAddress + " doesn't exist: " + e.getMessage)
         }
+      }
+
+      case "check" :: "queues" :: Nil => {
+        println(checkQueues())
       }
 
       case "graph" :: Nil => {

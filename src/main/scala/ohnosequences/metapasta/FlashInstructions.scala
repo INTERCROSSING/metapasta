@@ -114,7 +114,7 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
 
     val ranges = new S3Splitter(aws.s3, resultObject, 1000000).chunks()
 
-    ranges.map { range =>
+    ranges.take(50).map { range =>
       List(MergedSampleChunk(resultObject, sample.name, range))
     }
   }
