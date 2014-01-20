@@ -98,6 +98,8 @@ abstract class WorkerAux {
           logger.error("instructions error: " + t.toString)
           t.printStackTrace()
         }
+      } finally {
+        inputQueue.reset()
       }
     }
   }

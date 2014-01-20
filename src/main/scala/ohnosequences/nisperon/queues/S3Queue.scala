@@ -5,6 +5,7 @@ import scala.collection.JavaConversions._
 import org.clapper.avsl.Logger
 import ohnosequences.awstools.s3.ObjectAddress
 import com.amazonaws.services.s3.model.ListObjectsRequest
+import com.amazonaws.AmazonClientException
 
 //
 //trait Trackable {
@@ -52,7 +53,11 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
 
     var taken = false
     while(!taken) {
+      var start = System.currentTimeMillis()
       message = sqsQueue.readRAW()
+      var end = System.currentTimeMillis()
+      logger.info("read from sqs: " + (end - start))
+
       //println("taked: " + message)
       //check timeout
       try {
@@ -74,10 +79,23 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
         //val address = m.value()
         val address = ObjectAddress(name, id)
         logger.info("reading data from " + address)
-        var start = System.currentTimeMillis()
-        val rawValue = aws.s3.readWholeObject(address)
-        var end = System.currentTimeMillis()
-        logger.info("read from s3: " + (end - start))
+        var start: Long = 0
+        var end: Long = 0
+        var rawValue: String = ""
+        try {
+          start = System.currentTimeMillis()
+          rawValue = aws.s3.readWholeObject(address)
+          end = System.currentTimeMillis()
+          logger.info("read from s3: " + (end - start))
+        } catch {
+          case t: AmazonClientException => {
+            logger.warn("can't read object waiting")
+            Thread.sleep(1000)
+            rawValue = aws.s3.readWholeObject(address)
+          }
+        }
+
+
         start = System.currentTimeMillis()
         val t = serializer.fromString(rawValue)
         end = System.currentTimeMillis()

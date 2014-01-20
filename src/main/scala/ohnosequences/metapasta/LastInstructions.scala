@@ -21,7 +21,6 @@ case class AssignTable(table: Map[String, Map[String, Int]])
 object AssignTableMonoid extends Monoid[AssignTable] {
   def unit: AssignTable = AssignTable(Map[String, Map[String, Int]]())
 
-  //todo think about map concatination!!!
   def mult(x: AssignTable, y: AssignTable): AssignTable = {
     val preRes = mutable.HashMap[String, Map[String, Int]]()
 
@@ -50,15 +49,7 @@ object AssignTableMonoid extends Monoid[AssignTable] {
 //[2014/01/16 05:01:04:543 UTC] (WARN) Nisperon$DynamoDBQueueLocal: skipping expir
 //ed message
 ////[2014/01/16 05:01:12:441 UTC] (INFO) Worker: message read in 9918
-//todo ask for contains!!!
-//case class ReadsInfo(reasds: Map[String, String])
-//
-//object BestHitMonoid extends Monoid[BestHit] {
-//  def unit: BestHit = BestHit(Map[String, String]())
-//
-//  //todo think about map concatination!!!
-//  def mult(x: BestHit, y: BestHit): BestHit = BestHit(x.map ++ y.map)
-//}
+
 //warning: invalid idStatus Code: 400, AWS Service: AmazonSQS, AWS Request ID: a40
 //f7ebc-9d9d-54bd-80b9-35ee84f811a7, AWS Error Code: InvalidParameterValue, AWS Er
 //ror Message: Value gH2qdC6bjNvmP5H/juIWKzYoWL9V7m+uHwgv+ycAU6XqxaR5xWXU+YkfnMUhw
