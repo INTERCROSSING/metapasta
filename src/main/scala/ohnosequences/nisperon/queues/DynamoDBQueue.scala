@@ -15,7 +15,7 @@ import scala.collection.mutable.ListBuffer
 
 
 //think about batch stuff latter
-class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Serializer[T], writeBodyToTable: Boolean, throughputs: (Int, Int)) extends MonoidQueue[T](name, monoid) {
+class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean, throughputs: (Int, Int)) extends MonoidQueue[T](name, monoid, serializer) {
 
   def createBatchWriteItemRequest(table: String, items: List[Map[String, AttributeValue]]): BatchWriteItemRequest = {
     val writeOperations = new java.util.ArrayList[WriteRequest]()
@@ -99,7 +99,8 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer
     }
   }
 
-  def init() {
+  def initRead() {
+    init()
     sqsQueue.init()
 
     if (!visibilityExtender.isAlive) {
@@ -110,10 +111,17 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer
       }
     }
 
+  }
+
+  def init() {
+    Utils.createTable(aws.ddb, name, new AttributeDefinition(idAttr, ScalarAttributeType.S), None, logger, throughputs._1, throughputs._2)
+
+  }
+
+  def initWrite() {
+    init()
     sqsWriter.init()
     ddbWriter.init()
-
-    Utils.createTable(aws.ddb, name, new AttributeDefinition(idAttr, ScalarAttributeType.S), None, logger, throughputs._1, throughputs._2)
   }
 
 

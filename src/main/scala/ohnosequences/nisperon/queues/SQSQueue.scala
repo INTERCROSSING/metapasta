@@ -100,14 +100,13 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
 
 
   def init() {
-    try {
-      sqs.setQueueAttributes(new SetQueueAttributesRequest()
-        .withQueueUrl(queueURL)
-        .withAttributes(Map(QueueAttributeName.VisibilityTimeout.toString -> "10"))
-      )
-    } catch {
-      case t: Throwable => logger.error("error during changing timeout for queue " + name + " " + t.toString)
-    }
+//    try {
+//      sqs.setQueueAttributes(new SetQueueAttributesRequest()
+//        .withQueueUrl(queueURL)
+//      )
+//    } catch {
+//      case t: Throwable => logger.error("error during changing timeout for queue " + name + " " + t.toString)
+//    }
 
     if(!SQSReader.isAlive) {
       try {

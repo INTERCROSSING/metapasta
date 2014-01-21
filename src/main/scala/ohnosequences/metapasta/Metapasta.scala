@@ -7,7 +7,7 @@ import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.awstools.ec2.InstanceType
 import ohnosequences.awstools.autoscaling.OnDemand
 import ohnosequences.nisperon.queues.{unitQueue, ProductQueue}
-
+import com.amazonaws.services.dynamodbv2.model.{AttributeValue, Condition, QueryRequest, ScanRequest, ComparisonOperator}
 
 
 object Metapasta extends Nisperon {
@@ -60,19 +60,69 @@ object Metapasta extends Nisperon {
     inputQueue = mergedSampleChunks,
     outputQueue = ProductQueue(readsInfo, assignTable),
     instructions = new LastInstructions(aws, new NTLastDatabase(aws)),
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "last", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.M1Medium, purchaseModel = OnDemand))
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "last", workerGroup = Group(size = 2, max = 15, instanceType = InstanceType.M1Medium, purchaseModel = OnDemand))
   )
 
   val uploaderNispero = nispero(
     inputQueue = readsInfo,
     outputQueue = unitQueue,
-    instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads"),
+    instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads", nisperonConfiguration.id + "_chunks"),
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "uploader", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.T1Micro))
   )
 
 
   def undeployActions() {
+
     println("undeploy!")
+  }
+
+  def checks() {
+    val sample = "test"
+    import scala.collection.JavaConversions._
+
+
+    val chunks: List[String] = aws.ddb.query(new QueryRequest()
+      .withTableName(nisperonConfiguration.id + "_chunks")
+      .withKeyConditions(Map("sample" ->
+      new Condition()
+        .withAttributeValueList(new AttributeValue().withS(sample))
+        .withComparisonOperator(ComparisonOperator.EQ)
+       ))
+    ).getItems.map(_.get("chunk").getS).toList
+
+    var a = 0
+    var b = 0
+    for(chunk <- chunks) {
+      var stopped = false
+      while(!stopped) {
+        try{
+          val reads = aws.ddb.query(new QueryRequest()
+            .withTableName(nisperonConfiguration.id + "_reads")
+            .withAttributesToGet("header", "gi")
+            .withKeyConditions(Map("chunk" ->
+            new Condition()
+            .withAttributeValueList(new AttributeValue().withS(chunk))
+            .withComparisonOperator(ComparisonOperator.EQ)
+          ))
+          ).getItems.map(_.get("gi").getS).toList
+
+           val n =  reads.filter(_.equals("unassigned")).size
+          val t  = reads.size
+
+
+
+          a += n
+          b += t
+        //  println("n: " + n)
+          stopped = true
+        } catch {
+          case t: Throwable => Thread.sleep(1000); println("retry")
+        }
+      }
+    }
+
+    println("unassigned:  " + a)
+    println("total:  " + b)
   }
 
   def addTasks() {
@@ -90,7 +140,7 @@ object Metapasta extends Nisperon {
 
 
 
-    pairedSamples.init()
+    pairedSamples.initWrite()
 
     val t1 = System.currentTimeMillis()
 

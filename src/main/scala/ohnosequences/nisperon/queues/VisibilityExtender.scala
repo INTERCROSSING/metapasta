@@ -1,9 +1,13 @@
 package ohnosequences.nisperon.queues
 
 import scala.collection.JavaConversions._
+import org.clapper.avsl.Logger
 
 
 class VisibilityExtender[T](name: String) extends Thread("extender_" + name) {
+
+  val logger = Logger(this.getClass)
+
 
   val messages = new java.util.concurrent.ConcurrentHashMap[String, SQSMessage[T]]()
 
@@ -22,6 +26,7 @@ class VisibilityExtender[T](name: String) extends Thread("extender_" + name) {
       messages.values().foreach {
         m =>
           try {
+            logger.info("extending")
             m.changeMessageVisibility(50)
           } catch {
             case t: Throwable => {

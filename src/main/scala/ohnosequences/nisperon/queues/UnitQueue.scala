@@ -1,6 +1,6 @@
 package ohnosequences.nisperon.queues
 
-import ohnosequences.nisperon.unitMonoid
+import ohnosequences.nisperon.{unitSerializer, unitMonoid}
 
 
 object unitMessage extends Message[Unit] {
@@ -13,9 +13,10 @@ object unitMessage extends Message[Unit] {
   def changeMessageVisibility(secs: Int) {}
 }
 
-object unitQueue extends MonoidQueue[Unit]("unit", unitMonoid) {
+object unitQueue extends MonoidQueue[Unit]("unit", unitMonoid, unitSerializer) {
 
-  def init() {}
+  def initRead() {}
+  def initWrite() {}
 
   def put(id: String, values: List[Unit]) {}
 

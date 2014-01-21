@@ -13,11 +13,15 @@ trait MonoidQueueAux {
   type MA
   val monoid: Monoid[MA]
 
+  val serializer: Serializer[MA]
+
   val name: String
 
   //todo message class
 
-  def init()
+  def initRead()
+
+  def initWrite()
 
   def put(id: String, values: List[MA])
 
@@ -39,7 +43,7 @@ trait MonoidQueueAux {
 
 
 
-abstract class MonoidQueue[M](val name: String, val monoid: Monoid[M]) extends MonoidQueueAux {
+abstract class MonoidQueue[M](val name: String, val monoid: Monoid[M], val serializer: Serializer[M]) extends MonoidQueueAux {
   type MA = M
 }
 

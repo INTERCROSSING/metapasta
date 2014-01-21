@@ -39,8 +39,8 @@ abstract class WorkerAux {
 
     try {
       logger.info("initializing queues")
-      inputQueue.init()
-      outputQueue.init()
+      inputQueue.initRead()
+      outputQueue.initWrite()
     } catch {
       case t: Throwable =>
         logger.error("error during initializing queues")
@@ -71,8 +71,11 @@ abstract class WorkerAux {
 
       var output = List[outputQueue.MA]()
       try {
-        logger.info("executing " + instructions + " instructions on " + messages.toString().take(1000))
+        logger.info("executing " + instructions + " instructions on " + messages.map(_.id).take(1000))
+
+
         startTime =  System.currentTimeMillis()
+
         output = instructions.solve(messages.map(_.value()))
         endTime =  System.currentTimeMillis()
         logger.info("executed in " + (endTime - startTime))
@@ -91,7 +94,7 @@ abstract class WorkerAux {
           }
         }
 
-        inputQueue.reset()
+
 
       } catch {
         case t: Throwable => {
@@ -100,6 +103,7 @@ abstract class WorkerAux {
         }
       } finally {
         inputQueue.reset()
+        outputQueue.reset()
       }
     }
   }

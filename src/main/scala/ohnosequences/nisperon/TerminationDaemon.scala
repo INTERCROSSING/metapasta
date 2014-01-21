@@ -31,7 +31,7 @@ class TerminationDaemon(nisperon: Nisperon) extends Thread {
                     try {
                       logger.info("merging queues")
                       nisperon.mergingQueues.foreach { queue =>
-                        new Merger(queue).merge()
+                        new Merger(queue, nisperon).merge()
                       }
                       nisperon.undeploy("solved")
 

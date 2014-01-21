@@ -12,10 +12,10 @@ import com.amazonaws.AmazonClientException
 //  def resultsIds: Set[String]
 //
 //}
-
+//todo flush!
 
 //think about batch stuff latter
-class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Serializer[T]) extends MonoidQueue[T](name, monoid) {
+class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializer[T]) extends MonoidQueue[T](name, monoid, serializer) {
 
   val logger = Logger(this.getClass)
 
@@ -114,10 +114,10 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
     }
   }
 
-  def init() {
+  def initRead() {
+    init()
+
     sqsQueue.init()
-    sqsWriter.init()
-    s3Writer.init()
 
     if (!visibilityExtender.isAlive) {
       try {
@@ -127,10 +127,19 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], val serializer: Seri
       }
     }
 
-    aws.s3.createBucket(name)
-    //todo create table
   }
 
+  def init() {
+    aws.s3.createBucket(name)
+  }
+
+  def initWrite() {
+    init()
+    sqsWriter.init()
+    s3Writer.init()
+
+
+  }
 
   //need for reset state...
   def reset() {

@@ -41,7 +41,9 @@ class S3Splitter(s3: S3, address: ObjectAddress, chunksSize: Long) {
 //  }
 }
 
-case class MergedSampleChunk(fastq: ObjectAddress, name: String, range: (Long, Long))
+case class MergedSampleChunk(fastq: ObjectAddress, sample: String, range: (Long, Long)) {
+  def chunkId = range._1 + "-" + sample
+}
 
 //case class ParsedSampleChunk(name: String, fastqs: List[FASTQ[RawHeader]]) {
 //  def toFasta: String = {
@@ -112,9 +114,9 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
     lm.upload(resultObject, new File("out.extendedFrags.fastq"))
 
 
-    val ranges = new S3Splitter(aws.s3, resultObject, 1000000).chunks()
+    val ranges = new S3Splitter(aws.s3, resultObject, 2000000).chunks()
 
-    ranges.take(50).map { range =>
+    ranges.map { range =>
       List(MergedSampleChunk(resultObject, sample.name, range))
     }
   }

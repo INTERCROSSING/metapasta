@@ -25,6 +25,8 @@ abstract class Nisperon {
 
   val logger = Logger(this.getClass)
 
+  def checks()
+
  // val addressCreator: AddressCreator = DefaultAddressCreator
 
   class S3QueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
@@ -189,6 +191,8 @@ abstract class Nisperon {
           case (id, nispero) => println( id + " -> " + nispero.nisperoConfiguration.workersGroupName)
         }
       }
+
+      case "checks":: Nil => checks()
 
       case "dot" :: "dot" :: Nil => {
         val dotFile = new StringBuilder()

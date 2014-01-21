@@ -59,21 +59,23 @@ object AssignTableMonoid extends Monoid[AssignTable] {
 //for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not
 //available for visibility timeout change.
 
-case class ReadInfo(readId: String, gi: String, sequence: String, quality: String) {
-
+case class ReadInfo(readId: String, gi: String, sequence: String, quality: String, sample: String, chunk: String) {
 
   import ReadInfo._
 
-  def toDynamoItem: java.util.Map[String, AttributeValue] = {
+  def chunkId(c: Int) = c + "-" + chunk
+
+  def toDynamoItem(c: Int): java.util.Map[String, AttributeValue] = {
     val r = new java.util.HashMap[String, AttributeValue]()
 
       r.put(idAttr, new AttributeValue().withS(readId))
       r.put(sequenceAttr, new AttributeValue().withS(sequence))
       r.put(qualityAttr, new AttributeValue().withS(quality))
+      r.put(chunkAttr, new AttributeValue().withS(chunkId(c)))
     if(!gi.isEmpty) {
       r.put(giAttr, new AttributeValue().withS(gi))
     } else {
-      r.put(giAttr, new AttributeValue().withS("unassigned"))
+      r.put(giAttr, new AttributeValue().withS(unassigned))
     }
       r
 
@@ -82,13 +84,16 @@ case class ReadInfo(readId: String, gi: String, sequence: String, quality: Strin
 
 object ReadInfo {
 
+  val unassigned = "unassigned"
+
   val idAttr = "header"
   val sequenceAttr = "seq"
   val qualityAttr = "qual"
   val giAttr = "gi"
+  val chunkAttr = "chunk"
 
-  val hash = new AttributeDefinition().withAttributeName(idAttr).withAttributeType(ScalarAttributeType.S)
-  val range = new AttributeDefinition().withAttributeName(giAttr).withAttributeType(ScalarAttributeType.S)
+  val hash = new AttributeDefinition().withAttributeName(chunkAttr).withAttributeType(ScalarAttributeType.S)
+  val range = new AttributeDefinition().withAttributeName(idAttr).withAttributeType(ScalarAttributeType.S)
 
 }
 
@@ -205,7 +210,7 @@ class LastInstructions(aws: AWS, database: Database) extends
 //    }
 
     resultRaw.linesIterator.foreach {
-      case comment(c) => logger.info("skipping comment: " + c)
+      case comment(c) => //logger.info("skipping comment: " + c)
       case lastHit(score, name1, start1, algSize1, strand1, seqSize1, name2) =>
         try {
           val readId = extractHeader(name2)
@@ -254,14 +259,14 @@ class LastInstructions(aws: AWS, database: Database) extends
       val readId = extractHeader(fastq.header.toString)
       bestHits.get(readId) match {
         case None => {
-          readsInfo += ReadInfo(readId, "", fastq.sequence, fastq.quality)
+          readsInfo += ReadInfo(readId, "", fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId)
           unassigned += 1
         }
-        case Some(g) => readsInfo += ReadInfo(readId, g, fastq.sequence, fastq.quality)
+        case Some(g) => readsInfo += ReadInfo(readId, g, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId)
       }
     }
     assignTable.put("unassigned", unassigned)
-    readsInfo.toList -> AssignTable(Map(chunk.name -> assignTable.toMap))
+    readsInfo.toList -> AssignTable(Map(chunk.sample -> assignTable.toMap))
     //result.toList
   }
 

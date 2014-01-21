@@ -1,6 +1,13 @@
 package ohnosequences.nisperon.queues
 
-import ohnosequences.nisperon.ProductMonoid
+import ohnosequences.nisperon.{Monoid, Serializer, ProductMonoid}
+
+//todo check it
+class ProductSerializer[X, Y](x: Monoid[X], y: Monoid[Y]) extends Serializer[(X, Y)] {
+  def fromString(s: String): (X, Y) = (x.unit, y.unit)
+
+  def toString(t: (X, Y)): String = ""
+}
 
 class ProductMessage[X, Y](mx: Message[X], my: Message[Y]) extends Message[(X, Y)] {
 
@@ -20,7 +27,7 @@ class ProductMessage[X, Y](mx: Message[X], my: Message[Y]) extends Message[(X, Y
 }
 
 case class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
-  extends MonoidQueue[(X, Y)](xQueue.name + "_" + yQueue.name, new ProductMonoid(xQueue.monoid, yQueue.monoid)) {
+  extends MonoidQueue[(X, Y)](xQueue.name + "_" + yQueue.name, new ProductMonoid(xQueue.monoid, yQueue.monoid), new ProductSerializer[X, Y](xQueue.monoid, yQueue.monoid)) {
 
 
   def list(): List[String] = xQueue.list() ++ yQueue.list()
@@ -36,9 +43,14 @@ case class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
     yQueue.delete(id)
   }
 
-  def init() {
-    xQueue.init()
-    yQueue.init()
+  def initRead() {
+    xQueue.initRead()
+    yQueue.initRead()
+  }
+
+  def initWrite() {
+    xQueue.initWrite()
+    yQueue.initWrite()
   }
 
   def put(id: String, values: List[(X, Y)]) {
