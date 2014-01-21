@@ -71,7 +71,7 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Se
       //println("taked: " + message)
       //check timeout
       try {
-        message.changeMessageVisibility(20)
+        message.changeMessageVisibility(100)
         taken = true
       } catch {
         case t: Throwable => logger.warn("skipping expired message")

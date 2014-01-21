@@ -106,14 +106,14 @@ object Metapasta extends Nisperon {
           ))
           ).getItems.map(_.get("gi").getS).toList
 
-           val n =  reads.filter(_.equals("unassigned")).size
+           val n =  reads.filter(_.equals("118136038")).size
           val t  = reads.size
 
 
 
           a += n
           b += t
-        //  println("n: " + n)
+          println("n: " + n)
           stopped = true
         } catch {
           case t: Throwable => Thread.sleep(1000); println("retry")

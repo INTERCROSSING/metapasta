@@ -12,7 +12,7 @@ import com.amazonaws.AmazonClientException
 //  def resultsIds: Set[String]
 //
 //}
-//todo flush!
+//todo flush! workaround 1 thread!
 
 //think about batch stuff latter
 class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializer[T]) extends MonoidQueue[T](name, monoid, serializer) {
@@ -61,7 +61,7 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializ
       //println("taked: " + message)
       //check timeout
       try {
-        message.changeMessageVisibility(50)
+        message.changeMessageVisibility(100)
         taken = true
       } catch {
         case t: Throwable => logger.warn("skipping expired message")
