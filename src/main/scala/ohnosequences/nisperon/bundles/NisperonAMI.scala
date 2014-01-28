@@ -18,33 +18,36 @@ object NisperonAMI extends AMI[NisperonMetadata]("ami-5256b825", "2013.09") {
                   , creds: AWSCredentials = RoleCredentials
                   ): String = {
 
-
+//
+//    echo " -- Installing git -- "
+//    echo
+//    yum install git -y
+//
+//    echo
+//    echo " -- Installing s3cmd -- "
+//    echo
+//    git clone https://github.com/s3tools/s3cmd.git
+//    cd s3cmd/
+//    python setup.py install
+//      echo "[default]" > /root/.s3cfg
+//
+//    cd /root
+//
+//    s3cmd --config /root/.s3cfg get s3://$bucket$/$key$
+// java -jar /root/$jarFile$ $component$ $name$
     val raw = """
                 |#!/bin/sh
                 |cd /root
                 |exec &> log.txt
                 |yum install java-1.7.0-openjdk.x86_64 -y
+                |chmod a+r log.txt
                 |alternatives --install /usr/bin/java java /usr/lib/jvm/jre-1.7.0-openjdk.x86_64/bin/java 20000
                 |alternatives --auto java
-                |echo " -- Installing git -- "
-                |echo
-                |yum install git -y
-                |
-                |echo
-                |echo " -- Installing s3cmd -- "
-                |echo
-                |git clone https://github.com/s3tools/s3cmd.git
-                |cd s3cmd/
-                |python setup.py install
-                |echo "[default]" > /root/.s3cfg
-                |
-                |cd /root
-                |
-                |s3cmd --config /root/.s3cfg get s3://$bucket$/$key$
                 |
                 |cd $workingDir$
-                |
-                |java -jar /root/$jarFile$ $component$ $name$
+                |aws s3 cp s3://$bucket$/$key$ /root/$jarFile$ --region eu-west-1
+                |aws s3 cp s3://snapshots.era7.com/ohnosequences/bio4j-scala-distribution_2.10/0.2.0-SNAPSHOT/jars/bio4j-scala-distribution_2.10-fat.jar /root/bio4j.jar --region eu-west-1
+                |java -cp /root/$jarFile$:/root/bio4j.jar ohnosequences.metapasta.Metapasta $component$ $name$
                 |
               """.stripMargin
       .replace("$bucket$", metadata.jarAddress.bucket)

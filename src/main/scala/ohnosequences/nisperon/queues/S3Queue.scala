@@ -20,13 +20,12 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializ
   val logger = Logger(this.getClass)
 
 
-
   val sqsQueue = new SQSQueue(aws.sqs.sqs, name, stringSerializer)
 
   val visibilityExtender = new VisibilityExtender[String](name)
 
   val sqsWriter = new SQSWriter(aws, sqsQueue.queueURL, stringMonoid, name, stringSerializer)
-  val s3Writer = new S3Writer(aws, monoid, name, serializer, 5)
+  val s3Writer = new S3Writer(aws, monoid, name, serializer, 1)
 
   def put(taskId: String, values: List[T]) {
     var c = 0

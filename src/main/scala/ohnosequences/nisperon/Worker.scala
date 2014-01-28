@@ -71,21 +71,33 @@ abstract class WorkerAux {
 
       var output = List[outputQueue.MA]()
       try {
+        //todo move it
+        val solved = outputQueue.read(messages.head.id + ".1").isDefined
+
         logger.info("executing " + instructions + " instructions on " + messages.map(_.id).take(1000))
 
 
-        startTime =  System.currentTimeMillis()
 
-        output = instructions.solve(messages.map(_.value()))
-        endTime =  System.currentTimeMillis()
-        logger.info("executed in " + (endTime - startTime))
+
+        //todo fix this check for a productqueue
+       // if (!solved) {
+          startTime =  System.currentTimeMillis()
+          output = instructions.solve(messages.map(_.value()))
+          endTime =  System.currentTimeMillis()
+          logger.info("executed in " + (endTime - startTime))
+       // } else {
+       //   logger.info("skipping solved task")
+       // }
+
 
 
         try {
-          startTime =  System.currentTimeMillis()
-          outputQueue.put(messages.head.id, output)
-          endTime =  System.currentTimeMillis()
-          logger.info("message written in " + (endTime - startTime))
+        //  if (!solved) {
+            startTime =  System.currentTimeMillis()
+            outputQueue.put(messages.head.id, output)
+            endTime =  System.currentTimeMillis()
+            logger.info("message written in " + (endTime - startTime))
+        //  }
           messages.foreach(_.delete())
         } catch {
           case t: Throwable => {

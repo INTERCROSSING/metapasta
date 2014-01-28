@@ -26,16 +26,16 @@ class VisibilityExtender[T](name: String) extends Thread("extender_" + name) {
       messages.values().foreach {
         m =>
           try {
-            logger.info("extending")
+           // logger.info("extending")
             m.changeMessageVisibility(50)
           } catch {
             case t: Throwable => {
               println("warning: invalid id" + t.getLocalizedMessage)
-              messages.remove(m.receiptHandle)
+             // messages.remove(m.receiptHandle)
             }
           }
       }
-      Thread.sleep(10 * 1000)
+      Thread.sleep(30 * 1000)
     }
   }
 }

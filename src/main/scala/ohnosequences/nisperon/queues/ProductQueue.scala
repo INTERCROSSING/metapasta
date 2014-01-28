@@ -32,7 +32,9 @@ case class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
 
   def list(): List[String] = xQueue.list() ++ yQueue.list()
 
+  //todo it's wrong!
   def read(id: String): Option[(X, Y)] = {
+    //val pairP = """"""
     (xQueue.read(id).getOrElse(xQueue.monoid.unit), yQueue.read(id).getOrElse(yQueue.monoid.unit)) match {
       case (x, y) if x.equals(xQueue.monoid.unit) && y.equals(yQueue.monoid.unit) => None
       case s => Some(s)

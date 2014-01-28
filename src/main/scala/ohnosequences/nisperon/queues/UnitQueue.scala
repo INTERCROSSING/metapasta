@@ -24,6 +24,7 @@ object unitQueue extends MonoidQueue[Unit]("unit", unitMonoid, unitSerializer) {
 
   def reset() {}
 
+
   def isEmpty = true
 
   def list(): List[String] = List()

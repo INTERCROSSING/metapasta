@@ -13,6 +13,7 @@ import scala.collection.mutable.ListBuffer
 //
 //}
 
+//todo remove body from tables
 
 //think about batch stuff latter
 class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean, throughputs: (Int, Int)) extends MonoidQueue[T](name, monoid, serializer) {
@@ -72,6 +73,7 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Se
       //check timeout
       try {
         message.changeMessageVisibility(100)
+
         taken = true
       } catch {
         case t: Throwable => logger.warn("skipping expired message")

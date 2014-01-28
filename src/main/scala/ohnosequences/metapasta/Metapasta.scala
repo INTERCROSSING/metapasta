@@ -2,31 +2,18 @@ package ohnosequences.metapasta
 
 import ohnosequences.nisperon._
 import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
-import ohnosequences.nisperon.NisperonConfiguration
-import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.awstools.ec2.InstanceType
 import ohnosequences.awstools.autoscaling.OnDemand
-import ohnosequences.nisperon.queues.{unitQueue, ProductQueue}
+import ohnosequences.nisperon.queues.{unitQueue}
 import com.amazonaws.services.dynamodbv2.model._
 import java.io.{PrintWriter, File}
 import scala.collection.mutable
 import ohnosequences.nisperon.Group
-import ohnosequences.metapasta.MergedSampleChunk
 import ohnosequences.nisperon.NisperonConfiguration
 import ohnosequences.nisperon.NisperoConfiguration
-import ohnosequences.metapasta.PairedSample
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.nisperon.queues.ProductQueue
-import ohnosequences.metapasta.AssignTable
-import ohnosequences.nisperon.Group
-import ohnosequences.metapasta.MergedSampleChunk
-import ohnosequences.nisperon.NisperonConfiguration
-import ohnosequences.nisperon.NisperoConfiguration
-import ohnosequences.metapasta.PairedSample
-import ohnosequences.awstools.s3.ObjectAddress
-import ohnosequences.nisperon.queues.ProductQueue
-import ohnosequences.metapasta.AssignTable
-import java.util
+
 
 
 object Metapasta extends Nisperon {
@@ -79,7 +66,7 @@ object Metapasta extends Nisperon {
     inputQueue = mergedSampleChunks,
     outputQueue = ProductQueue(readsInfo, assignTable),
     instructions = new LastInstructions(aws, new NTLastDatabase(aws)),
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "last", workerGroup = Group(size = 4, max = 15, instanceType = InstanceType.M1Medium, purchaseModel = OnDemand))
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "last", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.M1Large, purchaseModel = OnDemand))
   )
 
   val uploaderNispero = nispero(
@@ -91,8 +78,96 @@ object Metapasta extends Nisperon {
 
 
   def undeployActions() {
-
+    //todo think about order
     //create csv
+    logger.info("reading assign table")
+    val resultTableJSON = ObjectAddress(nisperonConfiguration.bucket, "results/" + assignTable.name)
+    val table = assignTable.serializer.fromString(aws.s3.readWholeObject(resultTableJSON)).table
+
+    //tax -> (sample -> taxinfo)
+    val resultCSV = new mutable.StringBuilder()
+    logger.info("transposing table")
+    val finalTaxInfo = mutable.HashMap[String, mutable.HashMap[String, TaxInfo]]()
+
+    val perSampleTotal = mutable.HashMap[String, TaxInfo]()
+    var totalCount0 = 0
+    var totalAcc0 = 0
+    table.foreach { case (sample, map) =>
+      var sampleTotal = TaxInfoMonoid.unit
+
+      map.foreach { case (tax, taxInfo) =>
+        sampleTotal = TaxInfoMonoid.mult(taxInfo, sampleTotal)
+        finalTaxInfo.get(tax) match {
+          case None => {
+            val initMap = mutable.HashMap[String, TaxInfo](sample -> taxInfo)
+            finalTaxInfo.put(tax, initMap)
+          }
+          case Some(sampleMap) => {
+            sampleMap.get(sample) match {
+              case None => sampleMap.put(sample, taxInfo)
+              case Some(oldTaxInfo) => {
+                sampleMap.put(sample, TaxInfoMonoid.mult(taxInfo, oldTaxInfo))
+              }
+            }
+          }
+        }
+        perSampleTotal.put(sample, sampleTotal)
+        totalCount0 += sampleTotal.count
+        totalAcc0 += sampleTotal.acc
+      }
+    }
+    resultCSV.append("#\ttaxId\t")
+    table.keys.foreach { sample =>
+      resultCSV.append(sample + ".count\t")
+      resultCSV.append(sample + ".acc\t")
+    }
+    resultCSV.append("total.count\ttotal.acc\n")
+
+    var totalCount1 = 0
+    var totalAcc1 = 0
+    finalTaxInfo.foreach { case (taxid, map) =>
+      resultCSV.append(taxid + "\t")
+      var taxCount = 0
+      var taxAcc = 0
+      table.keys.foreach { sample =>
+        map.get(sample) match {
+          case Some(taxInfo) => {
+            resultCSV.append(taxInfo.count + "\t" + taxInfo.acc + "\t")
+            taxCount += taxInfo.count
+            taxAcc += taxInfo.acc
+          }
+          case None => {
+            resultCSV.append(0 + "\t" + 0 + "\t")
+          }
+        }
+      }
+      resultCSV.append(taxCount + "\t" + taxAcc + "\n")
+      totalCount1 += taxCount
+      totalAcc1 += taxAcc
+      //calculating total
+    }
+    resultCSV.append("total\t")
+    table.keys.foreach { sample =>
+      resultCSV.append(perSampleTotal(sample).count + "\t")
+      resultCSV.append(perSampleTotal(sample).acc + "\t")
+    }
+
+    if(totalCount0 == totalCount1) {
+      resultCSV.append(totalCount0 + "\n")
+    } else {
+      resultCSV.append("\n# " + totalCount0 + "!=" + totalCount1 + "\n")
+    }
+
+    if(totalAcc0 == totalAcc1) {
+      resultCSV.append(totalAcc0 + "\t")
+    } else {
+      resultCSV.append("\n# " + totalAcc0 + "!=" + totalAcc1 + "\n")
+    }
+
+
+    val result = ObjectAddress(nisperonConfiguration.bucket, "results/" + "result.csv")
+    aws.s3.putWholeObject(result, resultCSV.toString())
+
 
     println("undeploy!")
   }
@@ -248,7 +323,8 @@ object Metapasta extends Nisperon {
   }
 
   def additionalHandler(args: List[String]) {
-    ntgi()
+    undeployActions()
+    //ntgi()
 //    logger.info("additional" + args)
 //    args match {
 //    case "bio4j" :: Nil => {

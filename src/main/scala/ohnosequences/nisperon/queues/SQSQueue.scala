@@ -12,7 +12,7 @@ import com.amazonaws.services.sqs.model._
 
 //todo change default visibility timeout
 //todo check s3 writing
-class SQSMessage[T](val sqs: AmazonSQS, val queueUrl: String, val id: String, val receiptHandle: String, val body: String, val serializer: Serializer[T]) extends Message[T] {
+class SQSMessage[T](val sqs: AmazonSQS, val queueUrl: String, val id: String, val receiptHandle: String, val body: String, val serializer: Serializer[T], val sqsMessageId: String) extends Message[T] {
 
   def value(): T = {
     serializer.fromString(body)
@@ -32,6 +32,8 @@ class SQSMessage[T](val sqs: AmazonSQS, val queueUrl: String, val id: String, va
       .withReceiptHandle(receiptHandle)
       .withVisibilityTimeout(secs)
     )
+
+    println(sqsMessageId + " >> +" + secs)
   }
 }
 
@@ -56,7 +58,7 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
     stopped = true
   }
 
-  val bufferSize = 20
+  val bufferSize = 10
   val buffer = new ArrayBlockingQueue[SQSMessage[T]](bufferSize)
 
   object SQSReader extends Thread("sqs reader") {
@@ -77,7 +79,7 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
                 m.getBody
               }
               val valueWrap = valueWrapSerializer.fromString(body)
-              buffer.put(new SQSMessage[T](sqs, queueURL, valueWrap.id, m.getReceiptHandle, valueWrap.body, serializer))
+              buffer.put(new SQSMessage[T](sqs, queueURL, valueWrap.id, m.getReceiptHandle, valueWrap.body, serializer, m.getMessageId))
             }
 
             if(messages.isEmpty) {
@@ -86,7 +88,6 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
               Thread.sleep(5)
             }
         } catch {
-
           case t: Throwable => {
               logger.error("error during reading from queue " + name + " " + t.toString + " " + t.getMessage)
               terminate()
@@ -100,13 +101,14 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
 
 
   def init() {
-//    try {
-//      sqs.setQueueAttributes(new SetQueueAttributesRequest()
-//        .withQueueUrl(queueURL)
-//      )
-//    } catch {
-//      case t: Throwable => logger.error("error during changing timeout for queue " + name + " " + t.toString)
-//    }
+    try {
+      sqs.setQueueAttributes(new SetQueueAttributesRequest()
+        .withQueueUrl(queueURL)
+        .withAttributes(Map(QueueAttributeName.VisibilityTimeout.toString -> "100"))
+      )
+    } catch {
+      case t: Throwable => logger.error("error during changing timeout for queue " + name + " " + t.toString)
+    }
 
     if(!SQSReader.isAlive) {
       try {
@@ -115,7 +117,6 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
         case t: IllegalThreadStateException => ()
       }
     }
-
   }
 
   def put(id: String, t: T): String = {

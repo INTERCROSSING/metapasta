@@ -14,26 +14,41 @@ import com.amazonaws.services.dynamodbv2.model.{ScalarAttributeType, AttributeDe
 //import ohnosequences.bio4j.distributions.Bio4jDistribution.GITaxonomyIndex
 
 
+//todo rank, name ...
+case class TaxInfo(count: Int, acc: Int)
 
-case class AssignTable(table: Map[String, Map[String, Int]])
+object TaxInfoMonoid extends Monoid[TaxInfo] {
+  def unit: TaxInfo = TaxInfo(0, 0)
+
+  def mult(x: TaxInfo, y: TaxInfo): TaxInfo = TaxInfo(x.count + y.count, x.acc + y.acc)
+}
+
+//sample -> (tax -> taxinfo)
+case class AssignTable(table: Map[String, Map[String, TaxInfo]])
 
 
 object AssignTableMonoid extends Monoid[AssignTable] {
-  def unit: AssignTable = AssignTable(Map[String, Map[String, Int]]())
+  def unit: AssignTable = AssignTable(Map[String, Map[String, TaxInfo]]())
 
   def mult(x: AssignTable, y: AssignTable): AssignTable = {
-    val preRes = mutable.HashMap[String, Map[String, Int]]()
+    val preRes = mutable.HashMap[String, Map[String, TaxInfo]]()
 
     for (sample <- x.table.keySet ++ y.table.keySet) {
-      val prepreRes = mutable.HashMap[String, Int]()
-      x.table.getOrElse(sample, Map[String, Int]()).foreach { case (gi, n) =>
-        prepreRes.put(gi, n)
+
+      val prepreRes = mutable.HashMap[String, TaxInfo]()
+
+      x.table.getOrElse(sample,  Map[String, TaxInfo]()).foreach { case (tax, taxInfo) =>
+        prepreRes.get(tax) match {
+          case None => prepreRes.put(tax, taxInfo)
+          case Some(taxInfo2) => prepreRes.put(tax, TaxInfoMonoid.mult(taxInfo, taxInfo2))
+        }
+        ///prepreRes.put(gi, n)
       }
 
-      y.table.getOrElse(sample, Map[String, Int]()).foreach { case (gi, n) =>
-        prepreRes.get(gi) match {
-          case None => prepreRes.put(gi, n)
-          case Some(m) => prepreRes.put(gi, m + n)
+      y.table.getOrElse(sample, Map[String, TaxInfo]()).foreach { case (tax, taxInfo) =>
+        prepreRes.get(tax) match {
+          case None => prepreRes.put(tax, taxInfo)
+          case Some(taxInfo2) => prepreRes.put(tax, TaxInfoMonoid.mult(taxInfo, taxInfo2))
         }
       }
       preRes.put(sample, prepreRes.toMap)
@@ -59,7 +74,7 @@ object AssignTableMonoid extends Monoid[AssignTable] {
 //for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not
 //available for visibility timeout change.
 
-case class ReadInfo(readId: String, gi: String, sequence: String, quality: String, sample: String, chunk: String) {
+case class ReadInfo(readId: String, gi: String, sequence: String, quality: String, sample: String, chunk: String, tax: String) {
 
   import ReadInfo._
 
@@ -77,6 +92,12 @@ case class ReadInfo(readId: String, gi: String, sequence: String, quality: Strin
     } else {
       r.put(giAttr, new AttributeValue().withS(unassigned))
     }
+
+    if(!tax.isEmpty) {
+      r.put(taxAttr, new AttributeValue().withS(tax))
+    } else {
+      r.put(taxAttr, new AttributeValue().withS(unassigned))
+    }
       r
 
   }
@@ -90,6 +111,7 @@ object ReadInfo {
   val sequenceAttr = "seq"
   val qualityAttr = "qual"
   val giAttr = "gi"
+  val taxAttr = "tax"
   val chunkAttr = "chunk"
 
   val hash = new AttributeDefinition().withAttributeName(chunkAttr).withAttributeType(ScalarAttributeType.S)
@@ -106,16 +128,17 @@ class LastInstructions(aws: AWS, database: Database) extends
 
   val logger = Logger(this.getClass)
 
+  val giMap = new mutable.HashMap[String, String]()
 
- // var nodeRetriver: NodeRetrieverTitan = null
+  var nodeRetriver: com.ohnosequences.bio4j.titan.model.util.NodeRetrieverTitan = null
 
   override def prepare() {
 
-//    import ohnosequences.bio4j.distributions._
-//    logger.info("installing bio4j")
-//    println(Bio4jDistributionDist2.installWithDeps(Bio4jDistribution.GITaxonomyIndex))
- //   logger.info("getting database connection")
-//    nodeRetriver = GITaxonomyIndex.nodeRetriever
+    import ohnosequences.bio4j.distributions._
+    logger.info("installing bio4j")
+    println(Bio4jDistributionDist2.installWithDeps(Bio4jDistribution.NCBITaxonomy))
+    logger.info("getting database connection")
+    nodeRetriver = Bio4jDistribution.NCBITaxonomy.nodeRetriever
 
     logger.info("installing database")
     database.install()
@@ -129,11 +152,50 @@ class LastInstructions(aws: AWS, database: Database) extends
     f.setExecutable(true)
     // Runtime.getRuntime.exec("""cp ./ncbi-blast-2.2.25+/bin/* /usr/bin""").exitValue()
 
+    logger.info("downloading gi mapping")
+    val mappingFile = new File("gi.map")
+    lm.download(ObjectAddress("metapasta", "gi.map"), mappingFile)
+    val giP = """(\d+)\s+(\d+).*""".r
+    for(line <- io.Source.fromFile(mappingFile).getLines()) {
+      line match {
+        case giP(gi, tax) => giMap.put(gi, tax)
+        case l => logger.error("can't parse " + l)
+      }
+    }
+
+  }
 
 
+//  def getParerntAssigment(tax: String): List[(String, TaxInfo)] = {
+//    val res = mutable.ListBuffer[(String, TaxInfo)]()
+//    val node = nodeRetriver.getNCBITaxonByTaxId(tax)
+//    if(node==null) {
+//      logger.error("can't receive node for " + tax)
+//    } else {
+//      var parent = node.getParent()
+//      while (parent != null) {
+//        res += (parent.getTaxId(), TaxInfo(0, 1))
+//        parent = node.getParent()
+//      }
+//    }
+//    res.toList
+//  }
 
-
-
+  def getParerntsIds(tax: String): List[String] = {
+    val res = mutable.ListBuffer[String]()
+    val node = nodeRetriver.getNCBITaxonByTaxId(tax)
+    if(node==null) {
+      logger.error("can't receive node for " + tax)
+    } else {
+      var parent = node.getParent()
+      while (parent != null) {
+        res += parent.getTaxId()
+        //println(parent.getTaxId())
+        parent = parent.getParent()
+      }
+    }
+   // println(res.size)
+    res.toList
   }
 
   def writeFile(s: String, file: File) {
@@ -197,13 +259,13 @@ class LastInstructions(aws: AWS, database: Database) extends
 
     //last
     //1027    gi|130750839|gb|EF434347.1|     497     253     +       1354    M00476:38:000000000-A3FHW:1:1101:15679:1771     0       253     +       253     253
-    val blastHit = """\s*([^\s]+)\s+([^\s]+)\s+([^\s]+).+""".r
+   // val blastHit = """\s*([^\s]+)\s+([^\s]+)\s+([^\s]+).+""".r
     val lastHit = """\s*([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+.+""".r
     val comment = """#(.*)""".r
 
     val bestHits = mutable.HashMap[String, String]()
 
-    val assignTable = mutable.HashMap[String, Int]()
+    val assignTable = mutable.HashMap[String, TaxInfo]()
 
 //    parsed.foreach { fastq =>
 //      bestHits.put(extractHeader(fastq.header.toString), "")
@@ -221,9 +283,16 @@ class LastInstructions(aws: AWS, database: Database) extends
             bestHits.put(readId, database.parseGI(name1))
 
             val gi = database.parseGI(name1)
-//            logger.info("receiving node " + gi)
-//            val node = nodeRetriver.getNCBITaxonByGiId(gi)
-//
+          //  logger.info("receiving node " + gi)
+
+            val tax = giMap.getOrElse(gi, "gi_" + gi)
+
+
+           // val node = nodeRetriver.getNCBITaxonByTaxId(gi)
+
+            //todo parent
+
+
 //            if (node != null) {
 //              println("name: " + node.getName())
 //              println("taxid: " + node.getTaxId())
@@ -237,10 +306,21 @@ class LastInstructions(aws: AWS, database: Database) extends
 //              logger.info("received null")
 //            }
 
-            assignTable.get(gi) match {
-              case None => assignTable.put(gi, 1)
-              case Some(n) => assignTable.put(gi, n + 1)
+            assignTable.get(tax) match {
+              case None => assignTable.put(tax, TaxInfo(1, 1))
+              case Some(TaxInfo(count, acc)) => assignTable.put(tax, TaxInfo(count + 1, acc + 1))
             }
+
+
+            //adding parents
+            if(!tax.startsWith("gi_")) {
+              getParerntsIds(tax).foreach { p =>
+                assignTable.get(p) match {
+                  case None => assignTable.put(p, TaxInfo(0, 1))
+                  case Some(TaxInfo(count, acc)) => assignTable.put(p, TaxInfo(count, acc + 1))
+                }
+              }
+             }
 
 
            // println(neandertal)
@@ -259,13 +339,16 @@ class LastInstructions(aws: AWS, database: Database) extends
       val readId = extractHeader(fastq.header.toString)
       bestHits.get(readId) match {
         case None => {
-          readsInfo += ReadInfo(readId, "", fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId)
+          readsInfo += ReadInfo(readId, ReadInfo.unassigned, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId, ReadInfo.unassigned)
           unassigned += 1
         }
-        case Some(g) => readsInfo += ReadInfo(readId, g, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId)
+        case Some(g) => {
+          val tax = giMap.getOrElse(g, "gi_" + g)
+          readsInfo += ReadInfo(readId, g, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId, tax)
+        }
       }
     }
-    assignTable.put("unassigned", unassigned)
+    assignTable.put(ReadInfo.unassigned, TaxInfo(unassigned, unassigned))
     readsInfo.toList -> AssignTable(Map(chunk.sample -> assignTable.toMap))
     //result.toList
   }

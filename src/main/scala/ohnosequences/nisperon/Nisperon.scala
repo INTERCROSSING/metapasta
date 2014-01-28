@@ -223,10 +223,12 @@ abstract class Nisperon {
         nisperos(nispero)
       }
 
-      case _ => println("wrong command")
+      case args => println("wrong command"); additionalHandler(args)
 
     }
   }
+
+  def additionalHandler(args: List[String])
 
 
 }
