@@ -4,10 +4,9 @@ import scala.collection.JavaConversions._
 import org.clapper.avsl.Logger
 
 
-class VisibilityExtender[T](name: String) extends Thread("extender_" + name) {
+class VisibilityExtender[T](sqsQueue: SQSQueue[T]) extends Thread("extender_" + sqsQueue.name) {
 
   val logger = Logger(this.getClass)
-
 
   val messages = new java.util.concurrent.ConcurrentHashMap[String, SQSMessage[T]]()
 
@@ -27,7 +26,7 @@ class VisibilityExtender[T](name: String) extends Thread("extender_" + name) {
         m =>
           try {
            // logger.info("extending")
-            m.changeMessageVisibility(50)
+            m.changeMessageVisibility(sqsQueue.visibilityTimeout.getOrElse(100))
           } catch {
             case t: Throwable => {
               println("warning: invalid id" + t.getLocalizedMessage)

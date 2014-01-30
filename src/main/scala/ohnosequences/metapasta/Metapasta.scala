@@ -35,7 +35,7 @@ object Metapasta extends Nisperon {
     name = "mergedSampleChunks",
     monoid = new ListMonoid[MergedSampleChunk](),
     serializer = new JsonSerializer[List[MergedSampleChunk]](),
-    throughputs = (1, 1)
+    throughputs = (5, 1)
   )
 
   val readsInfo = s3queue(
@@ -62,26 +62,32 @@ object Metapasta extends Nisperon {
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flashNispero")
   )
 
+  val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws))
   val lastNispero = nispero(
     inputQueue = mergedSampleChunks,
     outputQueue = ProductQueue(readsInfo, assignTable),
-    instructions = new LastInstructions(aws, new NTLastDatabase(aws)),
+    instructions = lastInstructions,
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "last", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.M1Large, purchaseModel = OnDemand))
   )
 
-  val uploaderNispero = nispero(
-    inputQueue = readsInfo,
-    outputQueue = unitQueue,
-    instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads", nisperonConfiguration.id + "_chunks"),
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "uploader", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.T1Micro))
-  )
+//  val uploaderNispero = nispero(
+//    inputQueue = readsInfo,
+//    outputQueue = unitQueue,
+//    instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads", nisperonConfiguration.id + "_chunks"),
+//    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "uploader", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.T1Micro))
+//  )
 
 
-  def undeployActions() {
+  def undeployActions(solved: Boolean) {
+    if (!solved) {
+      return
+    }
+    lastInstructions.prepare()
     //todo think about order
     //create csv
-    logger.info("reading assign table")
     val resultTableJSON = ObjectAddress(nisperonConfiguration.bucket, "results/" + assignTable.name)
+
+    logger.info("reading assign table " + resultTableJSON)
     val table = assignTable.serializer.fromString(aws.s3.readWholeObject(resultTableJSON)).table
 
     //tax -> (sample -> taxinfo)
@@ -112,54 +118,64 @@ object Metapasta extends Nisperon {
           }
         }
         perSampleTotal.put(sample, sampleTotal)
-        totalCount0 += sampleTotal.count
-        totalAcc0 += sampleTotal.acc
       }
+      totalCount0 += sampleTotal.count
+      totalAcc0 += sampleTotal.acc
     }
-    resultCSV.append("#\ttaxId\t")
+    
+    
+    resultCSV.append("#;taxId;")
+    resultCSV.append("name;")
     table.keys.foreach { sample =>
-      resultCSV.append(sample + ".count\t")
-      resultCSV.append(sample + ".acc\t")
+      resultCSV.append(sample + ".count;")
+      resultCSV.append(sample + ".acc;")
     }
-    resultCSV.append("total.count\ttotal.acc\n")
+    resultCSV.append("total.count;total.acc\n")
 
     var totalCount1 = 0
     var totalAcc1 = 0
     finalTaxInfo.foreach { case (taxid, map) =>
-      resultCSV.append(taxid + "\t")
+      resultCSV.append(taxid + ";")
+      val name = try {
+        lastInstructions.nodeRetriver.getNCBITaxonByTaxId(taxid).getScientificName()
+      } catch {
+        case t: Throwable => ""
+      }
+
+      resultCSV.append(name + ";")
       var taxCount = 0
       var taxAcc = 0
       table.keys.foreach { sample =>
         map.get(sample) match {
           case Some(taxInfo) => {
-            resultCSV.append(taxInfo.count + "\t" + taxInfo.acc + "\t")
+            resultCSV.append(taxInfo.count + ";" + taxInfo.acc + ";")
             taxCount += taxInfo.count
             taxAcc += taxInfo.acc
           }
           case None => {
-            resultCSV.append(0 + "\t" + 0 + "\t")
+            resultCSV.append(0 + ";" + 0 + ";")
           }
         }
       }
-      resultCSV.append(taxCount + "\t" + taxAcc + "\n")
+      resultCSV.append(taxCount + ";" + taxAcc + "\n")
       totalCount1 += taxCount
       totalAcc1 += taxAcc
       //calculating total
     }
-    resultCSV.append("total\t")
+    resultCSV.append("total; ;")
     table.keys.foreach { sample =>
-      resultCSV.append(perSampleTotal(sample).count + "\t")
-      resultCSV.append(perSampleTotal(sample).acc + "\t")
+      resultCSV.append(perSampleTotal(sample).count + ";")
+      resultCSV.append(perSampleTotal(sample).acc + ";")
     }
 
     if(totalCount0 == totalCount1) {
-      resultCSV.append(totalCount0 + "\n")
+      resultCSV.append(totalCount0 + ";")
     } else {
-      resultCSV.append("\n# " + totalCount0 + "!=" + totalCount1 + "\n")
+      resultCSV.append("\n# " + totalCount0 + "!=" + totalCount1 + ";")
     }
 
     if(totalAcc0 == totalAcc1) {
-      resultCSV.append(totalAcc0 + "\t")
+      resultCSV.append(totalAcc0 + "\n")
     } else {
       resultCSV.append("\n# " + totalAcc0 + "!=" + totalAcc1 + "\n")
     }
@@ -323,7 +339,7 @@ object Metapasta extends Nisperon {
   }
 
   def additionalHandler(args: List[String]) {
-    undeployActions()
+    undeployActions(true)
     //ntgi()
 //    logger.info("additional" + args)
 //    args match {
@@ -382,9 +398,15 @@ object Metapasta extends Nisperon {
 //    }
 
     val testBucket = "metapasta-test"
-    val sample = PairedSample("test", ObjectAddress(testBucket, "test1.fastq"), ObjectAddress(testBucket, "test2.fastq"))
 
-    pairedSamples.put("000", List(List(sample)))
+    val ss1 = "SRR172902"
+    val s1 = PairedSample(ss1, ObjectAddress(testBucket, "mock/" + ss1 + ".fastq"), ObjectAddress(testBucket, "mock/" + ss1 + ".fastq"))
+
+    val ss2 = "SRR172903"
+    val s2 = PairedSample(ss2, ObjectAddress(testBucket, "mock/" + ss2 + ".fastq"), ObjectAddress(testBucket, "mock/" + ss2 + ".fastq"))
+  //  val sample = PairedSample("test", ObjectAddress(testBucket, "test1.fastq"), ObjectAddress(testBucket, "test2.fastq"))
+
+    pairedSamples.put("0", List(List(s1), List(s2)))
 
     //todo fix this order!!!
     //added 232 ms

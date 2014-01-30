@@ -82,6 +82,7 @@ abstract class WorkerAux {
         //todo fix this check for a productqueue
        // if (!solved) {
           startTime =  System.currentTimeMillis()
+
           output = instructions.solve(messages.map(_.value()))
           endTime =  System.currentTimeMillis()
           logger.info("executed in " + (endTime - startTime))

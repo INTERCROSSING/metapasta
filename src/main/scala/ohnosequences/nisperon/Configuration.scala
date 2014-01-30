@@ -7,6 +7,7 @@ import ohnosequences.statika._
 import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
 import scala.Some
 import org.clapper.avsl.Logger
+import ohnosequences.nisperon.queues.SQSQueue
 
 
 case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email: String, managerGroups: GroupConfiguration = SingleGroup(InstanceType.T1Micro, OnDemand), timeout: Int = 3600, autoTermination: Boolean = true) {
@@ -33,9 +34,7 @@ case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email
 
   def bucket = metadataBuilder.id.replace("_", "-").toLowerCase
 
-
-
-
+  def deadLettersQueue = metadataBuilder.id + "_deadLetters"
 }
 
 

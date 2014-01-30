@@ -16,7 +16,14 @@ import scala.collection.mutable.ListBuffer
 //todo remove body from tables
 
 //think about batch stuff latter
-class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean, throughputs: (Int, Int)) extends MonoidQueue[T](name, monoid, serializer) {
+class DynamoDBQueue[T](
+                        aws: AWS,
+                        name: String,
+                        monoid: Monoid[T],
+                        serializer: Serializer[T],
+                        throughputs: (Int, Int),
+                        deadLetterQueueName: String
+                        ) extends MonoidQueue[T](name, monoid, serializer) {
 
   def createBatchWriteItemRequest(table: String, items: List[Map[String, AttributeValue]]): BatchWriteItemRequest = {
     val writeOperations = new java.util.ArrayList[WriteRequest]()
@@ -39,97 +46,82 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Se
 
   val logger = Logger(this.getClass)
 
-  val sqsQueue = new SQSQueue[T](aws.sqs.sqs, name, serializer)
-  
-  val visibilityExtender = new VisibilityExtender[T](name)
-  
-  val sqsWriter = new SQSWriter(aws, sqsQueue.queueURL, monoid, name, serializer)
-  val ddbWriter = new DynamoDBWriter(aws, monoid, name, serializer, idAttr, valueAttr, writeBodyToTable)
+  val sqsQueue = new SQSQueue[T](aws.sqs.sqs, name, serializer, deadLetterQueueName = Some(deadLetterQueueName))
+
+  var sqsWriter: Option[SQSWriter[T]] = None
+  var sqsReader: Option[SQSReader[T]] = None
+
+
+  val ddbWriter = new DynamoDBWriter(aws, monoid, name, serializer, idAttr, valueAttr, true)
   
 
-  //todo think about this order!
+
   def put(taskId: String, values: List[T]) {
-    var c = 0
-    values.filter(!_.equals(monoid.unit)).map {
-      value =>
-        c += 1
-        val id = taskId + "." + c
-        sqsWriter.put(id, value)
-        ddbWriter.put(id, value)
+    sqsWriter match {
+      case Some(writer) => {
+        var c = 0
+        values.filter(!_.equals(monoid.unit)).map {
+          value =>
+            c += 1
+            val id = taskId + "." + c
+            writer.write(id, value)
+            ddbWriter.put(id, value)
+        }
+        ddbWriter.flush()
+        writer.flush()
+      }
+      case None => throw new Error("write to a not initialized queue")
     }
-    sqsWriter.flush()
-    ddbWriter.flush()
   }
 
 
   def read(): Message[T] = {
+    sqsReader match {
+      case Some(reader) => {
+        val rawMessage = reader.read
 
-    var message: SQSMessage[T] = null
+        new Message[T] {
+          val id: String = rawMessage.id
 
-    var taken = false
-    while(!taken) {
-      message = sqsQueue.readRAW()
-      //println("taked: " + message)
-      //check timeout
-      try {
-        message.changeMessageVisibility(100)
+          def value(): T = rawMessage.value()
 
-        taken = true
-      } catch {
-        case t: Throwable => logger.warn("skipping expired message")
+          def delete() {
+            aws.ddb.deleteItem(new DeleteItemRequest()
+              .withTableName(name)
+              .withKey(Map(idAttr -> new AttributeValue().withS(id)))
+            )
+            rawMessage.delete()
+
+          }
+
+          def changeMessageVisibility(secs: Int): Unit = rawMessage.changeMessageVisibility(secs)
+        }
       }
-    }
-
-    visibilityExtender.addMessage(message)
-
-    new Message[T] {
-      val id: String = message.id
-
-      def value(): T = message.value()
-
-      def delete() {
-        aws.ddb.deleteItem(new DeleteItemRequest()
-          .withTableName(name)
-          .withKey(Map(idAttr -> new AttributeValue().withS(id)))
-        )
-        message.delete()
-        visibilityExtender.clear()
-
-      }
-
-      def changeMessageVisibility(secs: Int): Unit = message.changeMessageVisibility(secs)
+      case None => throw new Error("read from a not initialized queue")
     }
   }
 
   def initRead() {
     init()
-    sqsQueue.init()
-
-    if (!visibilityExtender.isAlive) {
-      try {
-        visibilityExtender.start()
-      } catch {
-        case t: IllegalThreadStateException => ()
-      }
-    }
-
+    sqsReader = Some(sqsQueue.getReader(false))
   }
 
   def init() {
     Utils.createTable(aws.ddb, name, new AttributeDefinition(idAttr, ScalarAttributeType.S), None, logger, throughputs._1, throughputs._2)
-
   }
 
   def initWrite() {
     init()
-    sqsWriter.init()
+    sqsWriter = Some(sqsQueue.getWriter(monoid))
     ddbWriter.init()
   }
 
-
   //need for reset state...
   def reset() {
-    visibilityExtender.clear()
+    sqsReader match {
+      case Some(reader) => reader.reset()
+      case None => throw new Error("reset a not initialized queue")
+    }
   }
 
   def isEmpty: Boolean = {
@@ -181,18 +173,3 @@ class DynamoDBQueue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Se
     }
   }
 }
-
-//
-// //why init is needed:
-//object T {
-//  println("initialization")
-//}
-//
-//
-//
-//object M {
-//  def main(args: Array[String]) {
-//    val t = Some(T)
-//    println("T")
-//  }
-//}

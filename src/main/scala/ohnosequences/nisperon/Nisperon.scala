@@ -27,17 +27,20 @@ abstract class Nisperon {
 
   def checks()
 
+
+
  // val addressCreator: AddressCreator = DefaultAddressCreator
 
   class S3QueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
-     S3Queue(aws, (nisperonConfiguration.id + name).replace("_", "-").toLowerCase, monoid, serializer)
+     S3Queue(aws, (nisperonConfiguration.id + name).replace("_", "-").toLowerCase, monoid, serializer,
+       deadLetterQueueName = nisperonConfiguration.deadLettersQueue)
 
   def s3queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) = {
     new S3QueueLocal(name, monoid, serializer)
   }
 
   class DynamoDBQueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean, throughputs: (Int, Int)) extends
-    DynamoDBQueue(aws, nisperonConfiguration.id + name, monoid, serializer, writeBodyToTable, throughputs)
+    DynamoDBQueue(aws, nisperonConfiguration.id + name, monoid, serializer, throughputs, deadLetterQueueName = nisperonConfiguration.deadLettersQueue)
 
   def queue[T](name: String, monoid: Monoid[T], serializer: Serializer[T], writeBodyToTable: Boolean = true, throughputs: (Int, Int) = (100, 100)) = {
     new DynamoDBQueueLocal(name, monoid, serializer, writeBodyToTable, throughputs)
@@ -70,7 +73,7 @@ abstract class Nisperon {
     r
   }
 
-  def undeployActions()
+  def undeployActions(solved: Boolean)
 
   def undeploy(reason: String) {
 
@@ -108,6 +111,9 @@ abstract class Nisperon {
           logger.info("creating notification topic: " + nisperonConfiguration.notificationTopic)
           val topic = aws.sns.createTopic(nisperonConfiguration.notificationTopic)
 
+          logger.info("creating dead letter queue: " + nisperonConfiguration.deadLettersQueue)
+          val deadLettersQueue = new SQSQueue[Unit](aws.sqs.sqs, nisperonConfiguration.deadLettersQueue, unitSerializer).createQueue()
+
           if (!topic.isEmailSubscribed(nisperonConfiguration.email)) {
             logger.info("subscribing " + nisperonConfiguration.email + " to notification topic")
             topic.subscribeEmail(nisperonConfiguration.email)
@@ -136,7 +142,7 @@ abstract class Nisperon {
           val userdata = bundle.userScript(bundle)
 
           //todo set metamanager instance
-          val metagroup = SingleGroup(instanceType = InstanceType.M1Large).autoScalingGroup(
+          val metagroup = SingleGroup(instanceType = InstanceType.M1Medium).autoScalingGroup(
             name = nisperonConfiguration.metamanagerGroup,
             amiId = bundle.ami.id,
             defaultInstanceSpecs = nisperonConfiguration.defaultSpecs,
@@ -179,7 +185,7 @@ abstract class Nisperon {
 
         nisperos.foreach {
           case (id, nispero) =>
-            undeployActions()
+            undeployActions(false)
             aws.as.deleteAutoScalingGroup(nispero.nisperoConfiguration.managerGroupName)
             aws.as.deleteAutoScalingGroup(nispero.nisperoConfiguration.workersGroupName)
             aws.sqs.createQueue(nispero.nisperoConfiguration.controlQueueName).delete()

@@ -5,6 +5,7 @@ import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.nisperon.{Nisperon, Serializer}
 
 //todo write to other queue!!! ??
+//todo use previous results!!
 class Merger(queue: MonoidQueueAux, nisperon: Nisperon) {
 
   val logger = Logger(this.getClass)

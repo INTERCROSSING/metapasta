@@ -8,6 +8,7 @@ import scala.collection.JavaConversions._
 
 
 class DynamoDBWriter[T](aws: AWS, monoid: Monoid[T], queueName: String, serializer: Serializer[T], idAttr: String, valueAttr: String, writeBodyToTable: Boolean, threads: Int = 1) {
+
   val batchSize = 25
   val bufferSize = batchSize * (threads + 1)
   val buffer = new ArrayBlockingQueue[(String, T)](bufferSize)

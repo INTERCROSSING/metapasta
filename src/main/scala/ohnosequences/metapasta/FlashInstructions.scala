@@ -65,25 +65,6 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
 
   override def prepare() {
 
-//
-//    old installing with building
-//
-//    logger.info("downloading FLASH")
-//    val flash = "FLASH-1.2.8.tar.gz"
-//    lm.download(ObjectAddress("metapasta", flash), new File(flash))
-//
-//    logger.info("extracting FLASH")
-//    ("tar xzf " + flash).!
-//
-//    logger.info("installing gcc")
-//    "yum install gcc -y".!
-//
-//    logger.info("installing zlib-devel")
-//    "yum install zlib-devel -y".!
-//
-//    logger.info("building FLASH")
-//    Process(Seq("make"), new java.io.File(flash.replace(".tar.gz", ""))).!
-
     logger.info("creating bucket " + bucket)
     aws.s3.createBucket(bucket)
 
@@ -99,24 +80,34 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
     val sample = input.head
 
 
-    logger.info("downloading " + sample.fastq1)
-    lm.download(sample.fastq1, new File("1.fastq"))
-
-    logger.info("downloading " + sample.fastq2)
-    lm.download(sample.fastq2, new File("2.fastq"))
 
 
-    logger.info("executing FLASh")
-    "flash 1.fastq 2.fastq".!
 
-    logger.info("uploading results")
-    val resultObject = ObjectAddress(bucket, "merged/" + sample.name + ".fastq")
-    lm.upload(resultObject, new File("out.extendedFrags.fastq"))
+
+    val resultObject = if (sample.fastq1.equals(sample.fastq2)) {
+      logger.info("not paired-ended")
+      sample.fastq1
+    } else {
+      logger.info("downloading " + sample.fastq1)
+      lm.download(sample.fastq1, new File("1.fastq"))
+
+      logger.info("downloading " + sample.fastq2)
+      lm.download(sample.fastq2, new File("2.fastq"))
+
+      logger.info("executing FLASh")
+      "flash 1.fastq 2.fastq".!
+
+      logger.info("uploading results")
+      val resultObject2 = ObjectAddress(bucket, "merged/" + sample.name + ".fastq")
+      lm.upload(resultObject2, new File("out.extendedFrags.fastq"))
+      resultObject2
+    }
 
 
     val ranges = new S3Splitter(aws.s3, resultObject, 2000000).chunks()
 
-    ranges.map { range =>
+    //todo remove limit
+    ranges.take(10).map { range =>
       List(MergedSampleChunk(resultObject, sample.name, range))
     }
   }

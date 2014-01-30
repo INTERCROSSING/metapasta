@@ -15,60 +15,46 @@ import com.amazonaws.AmazonClientException
 //todo flush! workaround 1 thread!
 
 //think about batch stuff latter
-class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializer[T]) extends MonoidQueue[T](name, monoid, serializer) {
+class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializer[T], deadLetterQueueName: String) extends MonoidQueue[T](name, monoid, serializer) {
 
   val logger = Logger(this.getClass)
 
+  val sqsQueue = new SQSQueue[String](aws.sqs.sqs, name, stringSerializer, deadLetterQueueName = Some(deadLetterQueueName))
 
-  val sqsQueue = new SQSQueue(aws.sqs.sqs, name, stringSerializer)
+  var sqsWriter: Option[SQSWriter[String]] = None
+  var sqsReader: Option[SQSReader[String]] = None
 
-  val visibilityExtender = new VisibilityExtender[String](name)
 
-  val sqsWriter = new SQSWriter(aws, sqsQueue.queueURL, stringMonoid, name, stringSerializer)
   val s3Writer = new S3Writer(aws, monoid, name, serializer, 1)
 
   def put(taskId: String, values: List[T]) {
-    var c = 0
-    values.filter(!_.equals(monoid.unit)).map {
-      value =>
-        c += 1
-        val id = taskId + "." + c
-        s3Writer.put(id, value)
+    sqsWriter match {
+      case Some(writer) => {
+        var c = 0
+        values.filter(!_.equals(monoid.unit)).map {
+          value =>
+            c += 1
+            val id = taskId + "." + c
+            s3Writer.put(id, value)
+        }
+        s3Writer.flush()
+        c = 0
+        values.filter(!_.equals(monoid.unit)).map {
+          value =>
+            c += 1
+            val id = taskId + "." + c
+            writer.write(id, id)
+        }
+        writer.flush()
+      }
+      case None => throw new Error("unitilized")
     }
-    s3Writer.flush()
-    c = 0
-    values.filter(!_.equals(monoid.unit)).map {
-      value =>
-        c += 1
-        val id = taskId + "." + c
-        sqsWriter.put(id, id)
-    }
-    sqsWriter.flush()
+
   }
 
 
   def read(): Message[T] = {
-    var message: SQSMessage[String] = null
-
-    var taken = false
-    while(!taken) {
-      var start = System.currentTimeMillis()
-      message = sqsQueue.readRAW()
-      var end = System.currentTimeMillis()
-      logger.info("read from sqs: " + (end - start))
-
-      //println("taked: " + message)
-      //check timeout
-      try {
-        message.changeMessageVisibility(100)
-        taken = true
-      } catch {
-        case t: Throwable => logger.warn("skipping expired message")
-      }
-    }
-
-    visibilityExtender.addMessage(message)
-
+    val message = sqsReader.get.read
 
     new Message[T] {
       val id: String = message.id
@@ -80,31 +66,22 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializ
         logger.info("reading data from " + address)
         var start: Long = 0
         var end: Long = 0
-        var rawValue: String = ""
-        try {
-          start = System.currentTimeMillis()
-          rawValue = aws.s3.readWholeObject(address)
-          end = System.currentTimeMillis()
-          logger.info("read from s3: " + (end - start))
-        } catch {
-          case t: AmazonClientException => {
-            logger.warn("can't read object waiting")
-            Thread.sleep(1000)
-            rawValue = aws.s3.readWholeObject(address)
-          }
-        }
 
-
+       // try {
+        start = System.currentTimeMillis()
+        val rawValue = aws.s3.readWholeObject(address)
+        end = System.currentTimeMillis()
+        logger.info("read from s3: " + (end - start))
         start = System.currentTimeMillis()
         val t = serializer.fromString(rawValue)
         end = System.currentTimeMillis()
         logger.info("parsing: " + (end - start))
+
         t
       }
 
       def delete() {
         aws.s3.deleteObject(ObjectAddress(name, id))
-        visibilityExtender.clear()
         message.delete()
 
       }
@@ -115,17 +92,7 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializ
 
   def initRead() {
     init()
-
-    sqsQueue.init()
-
-    if (!visibilityExtender.isAlive) {
-      try {
-        visibilityExtender.start()
-      } catch {
-        case t: IllegalThreadStateException => ()
-      }
-    }
-
+    sqsReader = Some(sqsQueue.getReader(false))
   }
 
   def init() {
@@ -134,15 +101,13 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializ
 
   def initWrite() {
     init()
-    sqsWriter.init()
     s3Writer.init()
-
-
+    sqsWriter = Some(sqsQueue.getWriter(stringMonoid))
   }
 
   //need for reset state...
   def reset() {
-    visibilityExtender.clear()
+    sqsReader.get.reset()
   }
 
   def isEmpty: Boolean = {

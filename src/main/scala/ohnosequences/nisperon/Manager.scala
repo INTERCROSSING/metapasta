@@ -18,8 +18,8 @@ case class ManagerCommand(command: String, arg: String)
 
   def runControlQueueHandler() {
     //it is needed for sns redirected messages
-    val controlQueue = new SQSQueue[ManagerCommand](aws.sqs.sqs, nisperoConfiguration.controlQueueName, new JsonSerializer[ManagerCommand](), snsRedirected = true)
-    controlQueue.init()
+    val controlQueue = new SQSQueue[ManagerCommand](aws.sqs.sqs, nisperoConfiguration.controlQueueName, new JsonSerializer[ManagerCommand]())
+    val reader = controlQueue.getReader(true)
 
     val controlTopic = aws.sns.createTopic(nisperoConfiguration.nisperonConfiguration.controlTopic)
     val controlQueueWrap = aws.sqs.createQueue(controlQueue.name)
@@ -28,7 +28,7 @@ case class ManagerCommand(command: String, arg: String)
     var stopped = false
 
     while(!stopped) {
-      val m0 = controlQueue.read()
+      val m0 = reader.read
       val command: ManagerCommand= m0.value()
 
       command match {
@@ -69,6 +69,7 @@ case class ManagerCommand(command: String, arg: String)
           logger.error(nisperoConfiguration.name + " unknown command")
         }
       }
+      reader.reset()
     }
   }
 

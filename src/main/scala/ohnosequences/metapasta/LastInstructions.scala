@@ -134,11 +134,11 @@ class LastInstructions(aws: AWS, database: Database) extends
 
   override def prepare() {
 
-    import ohnosequences.bio4j.distributions._
+
     logger.info("installing bio4j")
-    println(Bio4jDistributionDist2.installWithDeps(Bio4jDistribution.NCBITaxonomy))
+    println(Bio4jDistributionDist2.installWithDeps(ohnosequences.bio4j.bundles.NCBITaxonomyDistribution))
     logger.info("getting database connection")
-    nodeRetriver = Bio4jDistribution.NCBITaxonomy.nodeRetriever
+    nodeRetriver = ohnosequences.bio4j.bundles.NCBITaxonomyDistribution.nodeRetriever
 
     logger.info("installing database")
     database.install()
@@ -235,7 +235,7 @@ class LastInstructions(aws: AWS, database: Database) extends
     writer.close()
 
     logger.info("running LAST")
-    val command =  """./lastal nt.last/$name$ reads.fastq -s 2 -T 1 -f 0 -r5 -q95 -a0 -b95 -e400 -Q2 -o out.last.maf"""
+    val command =  """./lastal nt.last/$name$ reads.fastq -s 2 -T1 -f 0 -r5 -q95 -a0 -b95 -e65 -Q2 -o out.last.maf"""
       .replace("$name$", database.name)
    // val command = """blastn -task megablast -db $name$ -query reads.fasta -out result -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis"""
    //   .replace("$name$", database.name)
