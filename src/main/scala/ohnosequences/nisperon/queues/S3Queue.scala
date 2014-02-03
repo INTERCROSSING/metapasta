@@ -67,10 +67,14 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializ
         var start: Long = 0
         var end: Long = 0
 
-       // try {
+      //  try {
         start = System.currentTimeMillis()
         val rawValue = aws.s3.readWholeObject(address)
         end = System.currentTimeMillis()
+      //  } catch {
+       //   case
+       //
+       // 0}
         logger.info("read from s3: " + (end - start))
         start = System.currentTimeMillis()
         val t = serializer.fromString(rawValue)

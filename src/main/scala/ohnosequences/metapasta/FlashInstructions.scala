@@ -81,9 +81,6 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
 
 
 
-
-
-
     val resultObject = if (sample.fastq1.equals(sample.fastq2)) {
       logger.info("not paired-ended")
       sample.fastq1
@@ -107,7 +104,7 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
     val ranges = new S3Splitter(aws.s3, resultObject, 2000000).chunks()
 
     //todo remove limit
-    ranges.take(10).map { range =>
+    ranges.map { range =>
       List(MergedSampleChunk(resultObject, sample.name, range))
     }
   }

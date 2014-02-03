@@ -235,7 +235,7 @@ class LastInstructions(aws: AWS, database: Database) extends
     writer.close()
 
     logger.info("running LAST")
-    val command =  """./lastal nt.last/$name$ reads.fastq -s 2 -T1 -f 0 -r5 -q95 -a0 -b95 -e65 -Q2 -o out.last.maf"""
+    val command =  """./lastal nt.last/$name$ reads.fastq -s 2 -T1 -f 0 -r5 -q95 -a0 -b95 -e70 -Q2 -o out.last.maf"""
       .replace("$name$", database.name)
    // val command = """blastn -task megablast -db $name$ -query reads.fasta -out result -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis"""
    //   .replace("$name$", database.name)

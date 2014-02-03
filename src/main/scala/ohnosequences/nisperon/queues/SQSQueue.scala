@@ -16,14 +16,24 @@ import ohnosequences.nisperon.queues.ValueWrap
 
 //todo change default visibility timeout
 //todo check s3 writing
-class SQSMessage[T](val sqs: AmazonSQS, val queueUrl: String, val id: String, val receiptHandle: String, val body: String, val serializer: Serializer[T], val sqsMessageId: String) extends Message[T] {
+class SQSMessage[T](
+                     val sqs: AmazonSQS,
+                     val queueUrl: String,
+                     val id: String,
+                     val receiptHandle: String,
+                     val body: String,
+                     val serializer: Serializer[T],
+                     val sqsMessageId: String,
+                     visibilityExtender: VisibilityExtender[T]) extends Message[T] {
 
   def value(): T = {
     serializer.fromString(body)
   }
 
   def delete() {
+    println("deleting " + sqsMessageId)
    // q.VisibilityExtender.deleteMessage(m)
+    visibilityExtender.deleteMessage(receiptHandle)
     sqs.deleteMessage(new DeleteMessageRequest()
       .withQueueUrl(queueUrl)
       .withReceiptHandle(receiptHandle)
@@ -81,7 +91,9 @@ class BufferedSQSReader[T](sqsQueue: SQSQueue[T], queueURL: String, visibilityEx
             m.getBody
           }
           val valueWrap = valueWrapSerializer.fromString(body)
-          buffer.put(new SQSMessage[T](sqsQueue.sqs, queueURL, valueWrap.id, m.getReceiptHandle, valueWrap.body, sqsQueue.serializer, m.getMessageId))
+          val sqsMessage = new SQSMessage[T](sqsQueue.sqs, queueURL, valueWrap.id, m.getReceiptHandle, valueWrap.body, sqsQueue.serializer, m.getMessageId, visibilityExtender)
+          buffer.put(sqsMessage)
+          visibilityExtender.addMessage(sqsMessage)
         }
 
         if(messages.isEmpty) {
@@ -99,7 +111,7 @@ class BufferedSQSReader[T](sqsQueue: SQSQueue[T], queueURL: String, visibilityEx
   }
 
   def reset() {
-    visibilityExtender.clear()
+    //visibilityExtender.clear()
   }
 
   def read: SQSMessage[T] = {
@@ -119,7 +131,7 @@ class BufferedSQSReader[T](sqsQueue: SQSQueue[T], queueURL: String, visibilityEx
           case t: Throwable => () //skipping
         }
       }
-      visibilityExtender.addMessage(message)
+     // visibilityExtender.addMessage(message)
       message
     }
   }

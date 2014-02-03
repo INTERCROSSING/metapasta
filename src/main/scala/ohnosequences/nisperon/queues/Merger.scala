@@ -12,7 +12,7 @@ class Merger(queue: MonoidQueueAux, nisperon: Nisperon) {
 
   def merge() = {
 
-    queue.initRead()
+   // queue.initRead()
 
     logger.info("retrieving messages from the queue " + queue.name)
     val ids = queue.list()

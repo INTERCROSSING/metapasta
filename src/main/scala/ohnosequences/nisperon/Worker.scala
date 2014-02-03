@@ -72,6 +72,7 @@ abstract class WorkerAux {
       var output = List[outputQueue.MA]()
       try {
         //todo move it
+        //todo it doesn't work because it can be solved further
         val solved = outputQueue.read(messages.head.id + ".1").isDefined
 
         logger.info("executing " + instructions + " instructions on " + messages.map(_.id).take(1000))
@@ -116,7 +117,8 @@ abstract class WorkerAux {
         }
       } finally {
         inputQueue.reset()
-        outputQueue.reset()
+
+        // outputQueue.reset()
       }
     }
   }

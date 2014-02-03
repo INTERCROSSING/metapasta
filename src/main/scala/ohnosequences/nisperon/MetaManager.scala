@@ -40,7 +40,6 @@ class MetaManager(nisperon: Nisperon) {
 
           case ManagerCommand("undeploy", reason) => {
 
-            nisperon.notification(nisperon.nisperonConfiguration.id + " terminated", "reason: " + reason)
             stopped = true
 
             var solved = false
@@ -62,12 +61,16 @@ class MetaManager(nisperon: Nisperon) {
              // }.start()
             }
 
+
+
             try {
               nisperon.undeployActions(solved)
             } catch {
               case t: Throwable => logger.error("error during performing undeploy actions " + t.toString)
                 Nisperon.terminateInstance(aws, nisperon.nisperonConfiguration.bucket, logger, "metamanager", t)
             }
+
+            nisperon.notification(nisperon.nisperonConfiguration.id + " terminated", "reason: " + reason)
 
 
             try {

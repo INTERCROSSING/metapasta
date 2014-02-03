@@ -112,7 +112,7 @@ abstract class Nisperon {
           val topic = aws.sns.createTopic(nisperonConfiguration.notificationTopic)
 
           logger.info("creating dead letter queue: " + nisperonConfiguration.deadLettersQueue)
-          val deadLettersQueue = new SQSQueue[Unit](aws.sqs.sqs, nisperonConfiguration.deadLettersQueue, unitSerializer).createQueue()
+        //  val deadLettersQueue = new SQSQueue[Unit](aws.sqs.sqs, nisperonConfiguration.deadLettersQueue, unitSerializer).createQueue()
 
           if (!topic.isEmailSubscribed(nisperonConfiguration.email)) {
             logger.info("subscribing " + nisperonConfiguration.email + " to notification topic")
