@@ -1,6 +1,6 @@
-### metapasta usage
+## metapasta usage
 
-#### samples
+### samples
 Reads should be either single or paired ended with intersection. Example for mock community:
 
 ```scala
@@ -19,6 +19,8 @@ object mockSamples {
 
 > FASTQ files should have solexa quality format.
 
+### installation
+
 #### cs and g8
 `conscript` and `g8` should be installed
 
@@ -26,7 +28,11 @@ object mockSamples {
 cs ohnosequences/metapasta
 ```
 
-#### usage
+#### credentials
+
+credentials should be placed in `~/metapasta.credentials`
+
+### commands 
 
 ##### publish
 
