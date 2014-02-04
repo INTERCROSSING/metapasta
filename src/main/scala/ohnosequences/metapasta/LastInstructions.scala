@@ -10,8 +10,6 @@ import ohnosequences.formats.{RawHeader, FASTQ}
 import scala.collection.mutable
 import com.amazonaws.services.dynamodbv2.model.{ScalarAttributeType, AttributeDefinition, AttributeValue}
 
-//import com.ohnosequences.bio4j.titan.model.util.NodeRetrieverTitan
-//import ohnosequences.bio4j.distributions.Bio4jDistribution.GITaxonomyIndex
 
 
 //todo rank, name ...
@@ -58,22 +56,6 @@ object AssignTableMonoid extends Monoid[AssignTable] {
   }
 }
 
-//ed message
-//[2014/01/16 05:01:04:509 UTC] (WARN) Nisperon$DynamoDBQueueLocal: skipping expir
-//ed message
-//[2014/01/16 05:01:04:543 UTC] (WARN) Nisperon$DynamoDBQueueLocal: skipping expir
-//ed message
-////[2014/01/16 05:01:12:441 UTC] (INFO) Worker: message read in 9918
-
-//warning: invalid idStatus Code: 400, AWS Service: AmazonSQS, AWS Request ID: a40
-//f7ebc-9d9d-54bd-80b9-35ee84f811a7, AWS Error Code: InvalidParameterValue, AWS Er
-//ror Message: Value gH2qdC6bjNvmP5H/juIWKzYoWL9V7m+uHwgv+ycAU6XqxaR5xWXU+YkfnMUhw
-//6cYdJYopXXLEQn3zvLYK7h+x24hkgFR9NcrkzUx3eO/IRaZjsuraWk/VyzNxMlO2wNsKvaEcOOZMAYtH
-//X9zxTRUbLUqyd86L+8E89itA0q3ybDDjAnHrd0ZjcpYtaxMBez6esYlMoyo/ZjQt+QCTBnp8WqHHxcvs
-//jK79JKl9Jyb5R9YPbKCLM4Lcs8JIpbsY7Ntgv1UPaxNv+vgegQP8Y/O0/mZSgGjVXhXW3B7Pai+dqE=
-//for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not
-//available for visibility timeout change.
-
 case class ReadInfo(readId: String, gi: String, sequence: String, quality: String, sample: String, chunk: String, tax: String) {
 
   import ReadInfo._
@@ -104,7 +86,6 @@ case class ReadInfo(readId: String, gi: String, sequence: String, quality: Strin
 }
 
 object ReadInfo {
-
   val unassigned = "unassigned"
 
   val idAttr = "header"
@@ -121,9 +102,9 @@ object ReadInfo {
 
 
 
-//todo message read in 1.5 sec with a lot of expired
-//todo mesages in the flight 1
-class LastInstructions(aws: AWS, database: Database) extends
+class LastInstructions(aws: AWS, database: Database, bio4j: Bio4jDistributionDist,
+                       lastTemplate: String
+                       ) extends
    MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] {
 
   val logger = Logger(this.getClass)
@@ -136,7 +117,7 @@ class LastInstructions(aws: AWS, database: Database) extends
 
 
     logger.info("installing bio4j")
-    println(Bio4jDistributionDist2.installWithDeps(ohnosequences.bio4j.bundles.NCBITaxonomyDistribution))
+    println(bio4j.installWithDeps(ohnosequences.bio4j.bundles.NCBITaxonomyDistribution))
     logger.info("getting database connection")
     nodeRetriver = ohnosequences.bio4j.bundles.NCBITaxonomyDistribution.nodeRetriever
 
@@ -165,21 +146,6 @@ class LastInstructions(aws: AWS, database: Database) extends
 
   }
 
-
-//  def getParerntAssigment(tax: String): List[(String, TaxInfo)] = {
-//    val res = mutable.ListBuffer[(String, TaxInfo)]()
-//    val node = nodeRetriver.getNCBITaxonByTaxId(tax)
-//    if(node==null) {
-//      logger.error("can't receive node for " + tax)
-//    } else {
-//      var parent = node.getParent()
-//      while (parent != null) {
-//        res += (parent.getTaxId(), TaxInfo(0, 1))
-//        parent = node.getParent()
-//      }
-//    }
-//    res.toList
-//  }
 
   def getParerntsIds(tax: String): List[String] = {
     val res = mutable.ListBuffer[String]()
@@ -235,8 +201,7 @@ class LastInstructions(aws: AWS, database: Database) extends
     writer.close()
 
     logger.info("running LAST")
-    val command =  """./lastal nt.last/$name$ reads.fastq -s 2 -T1 -f 0 -r5 -q95 -a0 -b95 -e70 -Q2 -o out.last.maf"""
-      .replace("$name$", database.name)
+    val command =  lastTemplate.replace("$name$", database.name)
    // val command = """blastn -task megablast -db $name$ -query reads.fasta -out result -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis"""
    //   .replace("$name$", database.name)
 

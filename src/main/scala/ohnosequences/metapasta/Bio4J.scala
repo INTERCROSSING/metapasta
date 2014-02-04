@@ -6,8 +6,8 @@ import ohnosequences.statika.aws._
 import ohnosequences.bio4j.bundles._
 import ohnosequences.nisperon.bundles._
 
-case object Bio4jDistributionDist2 extends AWSDistribution (
-  metadata = (new NisperonMetadataBuilder(new generated.metadata.metapasta())).build("bio", "bio", "."),
+class Bio4jDistributionDist(metadataBuilder: NisperonMetadataBuilder) extends AWSDistribution (
+  metadata = metadataBuilder.build("bio", "bio", "."),
   ami = NisperonAMI,
   members = NCBITaxonomyDistribution :~: ∅
 )

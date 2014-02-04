@@ -15,11 +15,11 @@ import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.nisperon.queues.ProductQueue
 
 
+abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
 
-object Metapasta extends Nisperon {
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
-    metadataBuilder = new NisperonMetadataBuilder(new generated.metadata.metapasta()),
-    email = "museeer@gmail.com",
+    metadataBuilder = configuration.metadataBuilder,
+    email = configuration.email,
     autoTermination = true,
     timeout = 36000
   )
@@ -52,9 +52,6 @@ object Metapasta extends Nisperon {
 
   override val mergingQueues = List(assignTable)
 
-  //todo think about buffered writing!!
-
-  //todo bucket thing!!!
   val flashNispero = nispero(
     inputQueue = pairedSamples,
     outputQueue = mergedSampleChunks,
@@ -62,20 +59,27 @@ object Metapasta extends Nisperon {
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flashNispero")
   )
 
-  val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws))
+  val bio4j = new Bio4jDistributionDist(configuration.metadataBuilder)
+
+  val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws), bio4j, configuration.lastTemplate)
+
   val lastNispero = nispero(
     inputQueue = mergedSampleChunks,
     outputQueue = ProductQueue(readsInfo, assignTable),
     instructions = lastInstructions,
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "last", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.M1Large, purchaseModel = OnDemand))
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "last", workerGroup = Group(size = configuration.lastWorkers, max = 20, instanceType = InstanceType.M1Large, purchaseModel = OnDemand))
   )
 
-//  val uploaderNispero = nispero(
-//    inputQueue = readsInfo,
-//    outputQueue = unitQueue,
-//    instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads", nisperonConfiguration.id + "_chunks"),
-//    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "uploader", workerGroup = Group(size = 1, max = 15, instanceType = InstanceType.T1Micro))
-//  )
+  configuration.uploadWorkers match {
+    case Some(workers) =>
+      val uploaderNispero = nispero(
+        inputQueue = readsInfo,
+        outputQueue = unitQueue,
+        instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads", nisperonConfiguration.id + "_chunks"),
+        nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "upload", workerGroup = Group(size = workers, max = 15, instanceType = InstanceType.T1Micro))
+      )
+    case None => ()
+  }
 
 
   def undeployActions(solved: Boolean) {
@@ -184,8 +188,6 @@ object Metapasta extends Nisperon {
     val result = ObjectAddress(nisperonConfiguration.bucket, "results/" + "result.csv")
     aws.s3.putWholeObject(result, resultCSV.toString())
 
-
-    println("undeploy!")
   }
 
   def checks() {
@@ -236,194 +238,18 @@ object Metapasta extends Nisperon {
     println("total:  " + b)
   }
 
-  def ntgi() {
-    val ntFile = new File("nt.fasta")
-    val s = scala.io.Source.fromFile(ntFile)
-    val l = new mutable.HashMap[String, String]()
-    val giP = """>gi\|(\d+)\|.+""".r
-    logger.info("processing " + ntFile.getPath)
-    var counter = 0
-    for(line <- s.getLines()) {
-      counter += 1
-      if(counter % 10000 ==0) {
-        logger.info("processed " + counter)
-      }
-      line match {
-        case giP(gi) => l.put(gi, "")
-        case ss if ss.startsWith(">") => logger.error(ss)
-        case _ =>
-      }
-    }
-    logger.info("finished processing " + ntFile.getPath)
-    logger.info("parsed " + l.size + " items")
 
-    val giFile = new File("gi.dmp")
-    val taxP = """\s*(\d+)\s+(\d+)\s*""".r
-    val taxSource = scala.io.Source.fromFile(giFile)
-    logger.info("parsing " + giFile.getPath)
-    counter = 0
-    val gimap = new PrintWriter(new File("gi.map"))
-    val undef = new PrintWriter(new File("gi.undef"))
-    for(line <- taxSource.getLines()) {
-      counter += 1
-      if(counter % 100000 ==0) {
-        logger.info("processed " + counter)
-      }
-      line match {
-        case taxP(gi, taxId) => {
-          if(l.contains(gi)) {
-            l.put(gi, taxId)
-            gimap.println(gi + " " + taxId)
-          }
-        }
-        case unparsed => logger.error(unparsed)
-      }
-    }
-
-    l.toList.foreach { case (gi, tax) =>
-      if(tax.isEmpty) {
-        undef.println(gi)
-      }
-    }
-    undef.close()
-    gimap.close()
-
-
-
-
-
-
-    logger.info("finished processing " + giFile.getPath)
-//    counter = 0
-//    l.toList.grouped(25).foreach { chunk =>
-//      counter += 1
-//      logger.info("chunk " + counter)
-//      val writeOperations = new java.util.ArrayList[WriteRequest]()
-//      chunk.foreach { case (gi, tax) =>
-//        val item = new util.HashMap[String, AttributeValue]()
-//        item.put("gi" , new AttributeValue().withS(gi))
-//        item.put("tax" , new AttributeValue().withS(tax))
-//
-//        if (!tax.isEmpty) {
-//        writeOperations.add(new WriteRequest()
-//          .withPutRequest(new PutRequest()
-//          .withItem(item)
-//          ))
-//        } else {
-//          logger.error(gi)
-//        }
-//      }
-//
-//      if (!writeOperations.isEmpty) {
-//
-//        var operations: java.util.Map[String, java.util.List[WriteRequest]] = new java.util.HashMap[String, java.util.List[WriteRequest]]()
-//        operations.put("nt_gi_index", writeOperations)
-//        do {
-//          //to
-//          try {
-//            val res = aws.ddb.batchWriteItem(new BatchWriteItemRequest()
-//              .withRequestItems(operations)            )
-//            operations = res.getUnprocessedItems
-//           // val size = operations.values().map(_.size()).sum
-//           // logger.info("unprocessed: " + size)
-//          } catch {
-//            case t: ProvisionedThroughputExceededException => logger.warn(t.toString + " " + t.getMessage)
-//          }
-//        } while (!operations.isEmpty)
-//      }
-//    }
-
-
-   // println(l.take(10).toList)
-
-  }
 
   def additionalHandler(args: List[String]) {
     undeployActions(true)
-    //ntgi()
-//    logger.info("additional" + args)
-//    args match {
-//    case "bio4j" :: Nil => {
-//      import ohnosequences.bio4j.distributions._
-//      logger.info("installing bio4j")
-//      println(Bio4jDistributionDist2.installWithDeps(Bio4jDistribution.GITaxonomyIndex))
-//      logger.info("getting database connection")
-//      val nodeRetriver =Bio4jDistribution.GITaxonomyIndex.nodeRetriever
-//      val gi = "23953857"
-//                  logger.info("receiving node " + gi)
-//                  val node = nodeRetriver.getNCBITaxonByGiId(gi)
-//
-//                  if (node != null) {
-//                    println("name: " + node.getName())
-//                    println("taxid: " + node.getTaxId())
-//                    println("rank: " + node.getRank())
-//
-//                    val parent = node.getParent()
-//                    println("name: " + parent.getName())
-//                    println("taxid: " + parent.getTaxId())
-//                    println("rank: " + parent.getRank())
-//                  } else {
-//                    logger.info("received null")
-//                  }
-//    }
-//  }
-
   }
 
   def addTasks() {
-  //  val bio4j = new Bio4jDistributionDist(blastNispero.managerDistribution.metadata)
-  //  val noderetr = bio4j.nodeRetriever
-
-    //noderetr.
-
-
-   // val list = aws.s3.listObjects("releases.era7.com", "ohnosequences")
-   // println(list.size)
-
-  //  val set = list.toSet
-  //  println(set.size)
-
-
-
     pairedSamples.initWrite()
-
     val t1 = System.currentTimeMillis()
-
-//    for (i <- 1 to n) {
-//      if(i % 100 == 0) {
-//        println((n - i) + " left")
-//
-//      }
-//      queue1.put("id" + i, List(i))
-//    }
-
-    val testBucket = "metapasta-test"
-
-    val ss1 = "SRR172902"
-    val s1 = PairedSample(ss1, ObjectAddress(testBucket, "mock/" + ss1 + ".fastq"), ObjectAddress(testBucket, "mock/" + ss1 + ".fastq"))
-
-    val ss2 = "SRR172903"
-    val s2 = PairedSample(ss2, ObjectAddress(testBucket, "mock/" + ss2 + ".fastq"), ObjectAddress(testBucket, "mock/" + ss2 + ".fastq"))
-  //  val sample = PairedSample("test", ObjectAddress(testBucket, "test1.fastq"), ObjectAddress(testBucket, "test2.fastq"))
-
-    pairedSamples.put("0", List(List(s1), List(s2)))
-
-    //todo fix this order!!!
-    //added 232 ms
-    //check you e-mail for further instructions
-    //  unprocessed:0
-   // pairedSample.put("0", List(io.Source.fromFile("f1.fasta").mkString, io.Source.fromFile("f2.fasta").mkString))
-
-
+    pairedSamples.put("0", configuration.samples.map(List(_)) )
     val t2 = System.currentTimeMillis()
-
     logger.info("added " + (t2-t1) + " ms")
-
-    //should be initialized
-
-   // checkQueues()
-
-   // println(queue1.list())
 
   }
 }

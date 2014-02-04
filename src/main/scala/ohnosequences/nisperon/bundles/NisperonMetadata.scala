@@ -2,8 +2,10 @@ package ohnosequences.nisperon.bundles
 
 import ohnosequences.statika.aws._
 import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.metapasta.Metapasta
 
 class NisperonMetadataBuilder(fatMetadata: SbtMetadata with FatJarMetadata) {
+
 
   def build(component: String, nisperoId: String, workingDir: String = "/root") = new NisperonMetadata(fatMetadata, component, nisperoId, workingDir)
 
