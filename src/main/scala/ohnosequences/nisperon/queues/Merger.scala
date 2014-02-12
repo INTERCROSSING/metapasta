@@ -59,7 +59,7 @@ class Merger(queue: MonoidQueueAux, nisperon: Nisperon) {
 //        case t: Throwable => logger.error("error during deleting message " + id)
 //      }
 //    }
-    queue.reset()
+   // queue.reset()
 
   }
 

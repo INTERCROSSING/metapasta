@@ -39,6 +39,8 @@ trait MonoidQueueAux {
 
   def delete(id: String)
 
+  def delete()
+
 }
 
 

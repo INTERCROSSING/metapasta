@@ -85,7 +85,7 @@ abstract class Nisperon {
     aws.sns.createTopic(nisperonConfiguration.controlTopic).publish(wrap)
   }
 
-  def checkQueues(): Option[MonoidQueueAux] = {
+  def checkQueues(): Either[MonoidQueueAux, List[MonoidQueueAux]] = {
     val graph = new NisperoGraph(nisperos)
     graph.checkQueues()
   }

@@ -10,5 +10,9 @@ trait Database {
   val name: String
 
   def parseGI(refId: String): String
-
 }
+
+trait LastDatabase extends Database {}
+
+trait BlastDatabase extends Database {}
+

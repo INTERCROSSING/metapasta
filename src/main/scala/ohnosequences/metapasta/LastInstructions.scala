@@ -102,24 +102,27 @@ object ReadInfo {
 
 
 
-class LastInstructions(aws: AWS, database: Database, bio4j: Bio4jDistributionDist,
-                       lastTemplate: String
+class LastInstructions(aws: AWS,
+                       database: LastDatabase,
+                       bio4j: Bio4jDistributionDist,
+                       lastTemplate: String = """./lastal nt.last/$name$ $input$ -s 2 -T1 -f 0 -r5 -q95 -a0 -b95 -e70 -Q2 -o $output$"""
                        ) extends
-   MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] {
+   MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever {
 
   val logger = Logger(this.getClass)
 
   val giMap = new mutable.HashMap[String, String]()
 
-  var nodeRetriver: com.ohnosequences.bio4j.titan.model.util.NodeRetrieverTitan = null
+  var nodeRetriever: com.ohnosequences.bio4j.titan.model.util.NodeRetrieverTitan = null
 
+  //todo fix downloading issues
   override def prepare() {
 
 
     logger.info("installing bio4j")
     println(bio4j.installWithDeps(ohnosequences.bio4j.bundles.NCBITaxonomyDistribution))
     logger.info("getting database connection")
-    nodeRetriver = ohnosequences.bio4j.bundles.NCBITaxonomyDistribution.nodeRetriever
+    nodeRetriever = ohnosequences.bio4j.bundles.NCBITaxonomyDistribution.nodeRetriever
 
     logger.info("installing database")
     database.install()
@@ -149,7 +152,7 @@ class LastInstructions(aws: AWS, database: Database, bio4j: Bio4jDistributionDis
 
   def getParerntsIds(tax: String): List[String] = {
     val res = mutable.ListBuffer[String]()
-    val node = nodeRetriver.getNCBITaxonByTaxId(tax)
+    val node = nodeRetriever.getNCBITaxonByTaxId(tax)
     if(node==null) {
       logger.error("can't receive node for " + tax)
     } else {
@@ -179,8 +182,6 @@ class LastInstructions(aws: AWS, database: Database, bio4j: Bio4jDistributionDis
 
   def apply(input: List[MergedSampleChunk]): (List[ReadInfo], AssignTable) = {
 
-
-
     import scala.sys.process._
 
     val chunk = input.head
@@ -189,19 +190,24 @@ class LastInstructions(aws: AWS, database: Database, bio4j: Bio4jDistributionDis
     val reader = S3ChunksReader(aws.s3, chunk.fastq)
     val parsed: List[FASTQ[RawHeader]] = reader.parseChunk[RawHeader](chunk.range._1, chunk.range._2)._1
 
-    val reads = mutable.HashMap[String, FASTQ[RawHeader]]()
+   // val reads = mutable.HashMap[String, FASTQ[RawHeader]]()
 
 
-    logger.info("saving reads to reads.fastq")
-    val writer = new PrintWriter(new File("reads.fastq"))
+    val readsFile = "reads.fastq"
+    logger.info("saving reads to " + readsFile)
+    val writer = new PrintWriter(new File(readsFile))
     parsed.foreach { fastq =>
-      reads.put(extractHeader(fastq.header.toString), fastq)
+      //reads.put(extractHeader(fastq.header.toString), fastq)
       writer.println(fastq.toFastq)
     }
     writer.close()
 
     logger.info("running LAST")
-    val command =  lastTemplate.replace("$name$", database.name)
+    val output = "out.last.maf"
+    val command =  lastTemplate
+      .replace("$name$", database.name)
+      .replace("$output$", output)
+      .replace("$input$", readsFile)
    // val command = """blastn -task megablast -db $name$ -query reads.fasta -out result -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis"""
    //   .replace("$name$", database.name)
 
@@ -215,10 +221,10 @@ class LastInstructions(aws: AWS, database: Database, bio4j: Bio4jDistributionDis
       throw new Error("LAST finished with error code " + code)
     }
 
-    logger.info("reading BLAST result")
-    val resultRaw = readFile(new File("out.last.maf"))
+    logger.info("reading LAST result")
+    val resultRaw = readFile(new File(output))
 
-    logger.info("parsing BLAST result")
+    logger.info("parsing LAST result")
     //todo reads without hits!!!
     //M00476_38_000000000_A3FHW_1_1101_20604_2554_1_N_0_28	gi|313494140|gb|GU939576.1|	99.21	253	2	0	1	253	362	614	3e-127	 457
 
@@ -252,32 +258,11 @@ class LastInstructions(aws: AWS, database: Database, bio4j: Bio4jDistributionDis
 
             val tax = giMap.getOrElse(gi, "gi_" + gi)
 
-
-           // val node = nodeRetriver.getNCBITaxonByTaxId(gi)
-
-            //todo parent
-
-
-//            if (node != null) {
-//              println("name: " + node.getName())
-//              println("taxid: " + node.getTaxId())
-//              println("rank: " + node.getRank())
-//
-//              val parent = node.getParent()
-//              println("name: " + parent.getName())
-//              println("taxid: " + parent.getTaxId())
-//              println("rank: " + parent.getRank())
-//            } else {
-//              logger.info("received null")
-//            }
-
             assignTable.get(tax) match {
               case None => assignTable.put(tax, TaxInfo(1, 1))
               case Some(TaxInfo(count, acc)) => assignTable.put(tax, TaxInfo(count + 1, acc + 1))
             }
 
-
-            //adding parents
             if(!tax.startsWith("gi_")) {
               getParerntsIds(tax).foreach { p =>
                 assignTable.get(p) match {
@@ -285,10 +270,7 @@ class LastInstructions(aws: AWS, database: Database, bio4j: Bio4jDistributionDis
                   case Some(TaxInfo(count, acc)) => assignTable.put(p, TaxInfo(count, acc + 1))
                 }
               }
-             }
-
-
-           // println(neandertal)
+            }
           }
         } catch {
           case t: Throwable => t.printStackTrace()
@@ -301,7 +283,7 @@ class LastInstructions(aws: AWS, database: Database, bio4j: Bio4jDistributionDis
     var unassigned = 0
 
     parsed.foreach { fastq =>
-      val readId = extractHeader(fastq.header.toString)
+      val readId = extractHeader(fastq.header.toString.replaceAll("\\s+", "_"))
       bestHits.get(readId) match {
         case None => {
           readsInfo += ReadInfo(readId, ReadInfo.unassigned, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId, ReadInfo.unassigned)

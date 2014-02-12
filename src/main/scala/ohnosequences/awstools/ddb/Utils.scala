@@ -9,6 +9,14 @@ import scala.collection.JavaConversions._
 
 object Utils {
 
+  def deleteTable(ddb: AmazonDynamoDB, table: String) {
+    try {
+      ddb.deleteTable(new DeleteTableRequest().withTableName(table))
+    } catch {
+      case t: Throwable => println("can't delete table " + table); t.printStackTrace()
+    }
+  }
+
   def waitForResource[A](resourceCheck: => Option[A]) : Option[A] = {
     var iteration = 1
     var current: Option[A] = None

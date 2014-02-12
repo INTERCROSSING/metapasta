@@ -103,6 +103,15 @@ class S3Queue[T](aws: AWS, name: String, monoid: Monoid[T], serializer: Serializ
     aws.s3.createBucket(name)
   }
 
+  def delete() {
+    try {
+      aws.s3.deleteBucket(name)
+    } catch {
+      case t: Throwable => logger.error("can't delete bucket " + name)
+    }
+    sqsQueue.delete()
+  }
+
   def initWrite() {
     init()
     s3Writer.init()

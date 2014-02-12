@@ -66,7 +66,8 @@ trait SQSWriter[T]  {
 }
 
 //todo OverLimitException
-class BufferedSQSReader[T](sqsQueue: SQSQueue[T], queueURL: String, visibilityExtender: VisibilityExtender[T], bufferSize: Int = 5, snsRedirected: Boolean = false) extends Thread("sqs reader " + sqsQueue.name) with SQSReader[T] {
+class BufferedSQSReader[T](sqsQueue: SQSQueue[T], queueURL: String, visibilityExtender: VisibilityExtender[T], bufferSize: Int = 1, snsRedirected: Boolean = false) extends Thread("sqs reader " + sqsQueue.name) with SQSReader[T] {
+
   val buffer = new ArrayBlockingQueue[SQSMessage[T]](bufferSize)
 
   val snsMessageParser = new JsonSerializer[SNSMessage]()
@@ -81,10 +82,10 @@ class BufferedSQSReader[T](sqsQueue: SQSQueue[T], queueURL: String, visibilityEx
       try {
         val messages = sqsQueue.sqs.receiveMessage(new ReceiveMessageRequest()
           .withQueueUrl(queueURL)
-          .withMaxNumberOfMessages(10)
+          .withMaxNumberOfMessages(bufferSize)
         ).getMessages
 
-        messages.foreach { m =>
+        val sqsMessages = messages.map { m =>
           val body = if (snsRedirected) {
             snsMessageParser.fromString(m.getBody).Message
           } else {
@@ -92,8 +93,15 @@ class BufferedSQSReader[T](sqsQueue: SQSQueue[T], queueURL: String, visibilityEx
           }
           val valueWrap = valueWrapSerializer.fromString(body)
           val sqsMessage = new SQSMessage[T](sqsQueue.sqs, queueURL, valueWrap.id, m.getReceiptHandle, valueWrap.body, sqsQueue.serializer, m.getMessageId, visibilityExtender)
-          buffer.put(sqsMessage)
+          sqsMessage
+        }
+
+        sqsMessages.foreach { sqsMessage =>
           visibilityExtender.addMessage(sqsMessage)
+        }
+
+        sqsMessages.foreach { sqsMessage =>
+          buffer.put(sqsMessage)
         }
 
         if(messages.isEmpty) {
@@ -264,8 +272,12 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
   }
 
   def delete() {
-    getURL.foreach { url =>
-      sqs.deleteQueue(new DeleteQueueRequest().withQueueUrl(url))
+    try {
+      getURL.foreach { url =>
+        sqs.deleteQueue(new DeleteQueueRequest().withQueueUrl(url))
+      }
+    } catch {
+      case t: Throwable => logger.error("can't delete queue " + name); t.printStackTrace()
     }
   }
 }

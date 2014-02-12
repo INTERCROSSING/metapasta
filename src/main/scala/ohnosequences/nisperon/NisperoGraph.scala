@@ -101,14 +101,21 @@ class NisperoGraph(nisperos: HashMap[String, NisperoAux]) {
 
   val graph: Graph[String, String] = new Graph(edges)
 
-  def checkQueues(): Option[MonoidQueueAux] = {
+
+  def checkQueues(): Either[MonoidQueueAux, List[MonoidQueueAux]] = {
     val sorted = graph.sort
     println(sorted)
-    sorted.filterNot(graph.out(_).isEmpty).find { node =>
-      !queues(node.label).isEmpty
+
+
+    val notLeafsQueues = sorted.filterNot(graph.out(_).isEmpty).map { node =>
+      queues(node.label)
+    }
+
+    notLeafsQueues.find { queue =>
+      !queue.isEmpty
     } match {
-      case None => println("all queues are empty"); None
-      case Some(node) => println("queue " + node.label + " isn't empty"); queues.get(node.label)
+      case None => println("all queues are empty"); Right(notLeafsQueues)
+      case Some(queue) => println("queue " + queue.name + " isn't empty"); Left(queue)
     }
 
 //    graph.sort.filterNot(graph.out(_).isEmpty).foreach { node =>

@@ -10,17 +10,19 @@ class TerminationDaemon(nisperon: Nisperon) extends Thread {
   val logger = Logger(this.getClass)
 
 
+  //todo add termination
   override def run() {
     logger.info("termination daemon started")
     try {
       var stopped = false
       while (!stopped) {
 
+
         if (nisperon.nisperonConfiguration.autoTermination) {
           logger.info("checking queues")
           nisperon.checkQueues() match {
-            case Some(queue) => logger.info(queue.name + " isn't empty")
-            case None => {
+            case Left(queue) => logger.info(queue.name + " isn't empty")
+            case Right(queues) => {
               logger.info("all queues are empty. terminating")
               nisperon.undeploy("solved")
               stopped = true

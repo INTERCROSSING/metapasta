@@ -7,14 +7,6 @@ import org.clapper.avsl.Logger
 import ohnosequences.awstools.ddb.Utils
 import scala.collection.mutable.ListBuffer
 
-//
-//trait Trackable {
-//  def resultsIds: Set[String]
-//
-//}
-
-//todo remove body from tables
-
 //think about batch stuff latter
 class DynamoDBQueue[T](
                         aws: AWS,
@@ -24,6 +16,8 @@ class DynamoDBQueue[T](
                         throughputs: (Int, Int),
                         deadLetterQueueName: String
                         ) extends MonoidQueue[T](name, monoid, serializer) {
+
+
 
   def createBatchWriteItemRequest(table: String, items: List[Map[String, AttributeValue]]): BatchWriteItemRequest = {
     val writeOperations = new java.util.ArrayList[WriteRequest]()
@@ -53,8 +47,11 @@ class DynamoDBQueue[T](
 
 
   val ddbWriter = new DynamoDBWriter(aws, monoid, name, serializer, idAttr, valueAttr, true)
-  
 
+  def delete() {
+    Utils.deleteTable(aws.ddb, name)
+    sqsQueue.delete()
+  }
 
   def put(taskId: String, values: List[T]) {
     sqsWriter match {

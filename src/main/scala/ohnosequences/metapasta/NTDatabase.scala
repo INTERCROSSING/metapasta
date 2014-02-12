@@ -6,7 +6,7 @@ import org.clapper.avsl.Logger
 import ohnosequences.awstools.s3.ObjectAddress
 
 
-class NTDatabase(aws: AWS) extends Database {
+class NTDatabase(aws: AWS) extends BlastDatabase {
 
   val logger = Logger(this.getClass)
 
@@ -15,14 +15,14 @@ class NTDatabase(aws: AWS) extends Database {
 
     logger.info("downloading database")
     val lm = aws.s3.createLoadingManager()
-    lm.download(ObjectAddress("metapasta", "nt.zip"), new File("database.zip"))
+    lm.download(ObjectAddress("metapasta", "nt.blast.zip"), new File("database.zip"))
 
     logger.info("extracting database")
     """unzip database.zip""".!
 
   }
 
-  val name: String = "nt.rdp.subset.filtered.by.ncbi.id.new.fasta"
+  val name: String = "nt.16S.fasta"
 
   //gi|313494140|gb|GU939576.1|
   val re = """\Qgi|\E(\d+)[^\d]+.*""".r

@@ -12,7 +12,7 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import java.io.File
 import com.amazonaws.regions.Regions
 
-class AWS(credentialsFile: File = new File(System.getProperty("user.home"), "fastapasta.credentials")) {
+class AWS(credentialsFile: File = new File(System.getProperty("user.home"), "metapasta.credentials")) {
   val AWS_ACCESS_KEY = "AWS_ACCESS_KEY"
   val AWS_SECRET_KEY = "AWS_SECRET_KEY"
 

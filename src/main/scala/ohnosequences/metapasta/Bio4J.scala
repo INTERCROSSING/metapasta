@@ -12,3 +12,7 @@ class Bio4jDistributionDist(metadataBuilder: NisperonMetadataBuilder) extends AW
   members = NCBITaxonomyDistribution :~: ∅
 )
 
+trait NodeRetriever {
+  var nodeRetriever: com.ohnosequences.bio4j.titan.model.util.NodeRetrieverTitan
+}
+

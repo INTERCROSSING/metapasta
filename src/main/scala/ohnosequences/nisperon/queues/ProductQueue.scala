@@ -66,6 +66,11 @@ case class ProductQueue[X, Y](xQueue: MonoidQueue[X], yQueue: MonoidQueue[Y])
     yQueue.delete(yId(id))
   }
 
+  def delete() {
+    xQueue.delete()
+    yQueue.delete()
+  }
+
   def initRead() {
     xQueue.initRead()
     yQueue.initRead()

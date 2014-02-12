@@ -55,7 +55,7 @@ case class MergedSampleChunk(fastq: ObjectAddress, sample: String, range: (Long,
 //  }
 //}
 
-class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List[PairedSample], List[MergedSampleChunk]] {
+class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends SplitInstructions[List[PairedSample], List[MergedSampleChunk]] {
 
   import scala.sys.process._
 
@@ -72,7 +72,6 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
     val flashDst = new File("/usr/bin", flash)
     lm.download(ObjectAddress("metapasta", flash), flashDst)
     flashDst.setExecutable(true)
-
 
   }
 
@@ -101,7 +100,7 @@ class FlashInstructions(aws: AWS, bucket: String) extends SplitInstructions[List
     }
 
 
-    val ranges = new S3Splitter(aws.s3, resultObject, 2000000).chunks()
+    val ranges = new S3Splitter(aws.s3, resultObject, chunkSize).chunks()
 
     //todo remove limit
     ranges.map { range =>

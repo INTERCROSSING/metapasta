@@ -31,4 +31,6 @@ object unitQueue extends MonoidQueue[Unit]("unit", unitMonoid, unitSerializer) {
   def read(id: String) = None
 
   def delete(id: String) {}
+
+  def delete() {}
 }

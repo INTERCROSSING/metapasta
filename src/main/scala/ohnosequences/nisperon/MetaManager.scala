@@ -61,6 +61,11 @@ class MetaManager(nisperon: Nisperon) {
              // }.start()
             }
 
+            nisperon.checkQueues() match {
+              case Right(queues) => logger.info("deleting queues"); queues.foreach(_.delete())
+              case Left(queue) => logger.info(queue.name + " isn't empty")
+            }
+
 
 
             try {

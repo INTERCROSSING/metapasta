@@ -55,19 +55,27 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   val flashNispero = nispero(
     inputQueue = pairedSamples,
     outputQueue = mergedSampleChunks,
-    instructions = new FlashInstructions(aws, nisperonConfiguration.bucket),
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flashNispero")
+    instructions = new FlashInstructions(aws, nisperonConfiguration.bucket, configuration.chunksSize),
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flash")
   )
 
   val bio4j = new Bio4jDistributionDist(configuration.metadataBuilder)
 
-  val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws), bio4j, configuration.lastTemplate)
+  //val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws), bio4j, configuration.lastTemplate)
+
+
+  val mappingInstructions: MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever =
+    configuration.mappingInstructions match {
+      case Blast(template) => new BlastInstructions(aws, new NTDatabase(aws), bio4j, template)
+      case Last(template) => new LastInstructions(aws, new NTLastDatabase(aws), bio4j, template)
+    }
+
 
   val lastNispero = nispero(
     inputQueue = mergedSampleChunks,
     outputQueue = ProductQueue(readsInfo, assignTable),
-    instructions = lastInstructions,
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "last", workerGroup = Group(size = configuration.lastWorkers, max = 20, instanceType = InstanceType.M1Large, purchaseModel = OnDemand))
+    instructions = mappingInstructions,
+    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "map", workerGroup = configuration.mappingWorkers)
   )
 
   configuration.uploadWorkers match {
@@ -86,7 +94,10 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     if (!solved) {
       return
     }
-    lastInstructions.prepare()
+
+    //todo write generic code about it
+    mergedSampleChunks.delete()
+    mappingInstructions.prepare()
     //todo think about order
     //create csv
     val resultTableJSON = ObjectAddress(nisperonConfiguration.bucket, "results/" + assignTable.name)
@@ -141,7 +152,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     finalTaxInfo.foreach { case (taxid, map) =>
       resultCSV.append(taxid + ";")
       val name = try {
-        lastInstructions.nodeRetriver.getNCBITaxonByTaxId(taxid).getScientificName()
+        mappingInstructions.nodeRetriever.getNCBITaxonByTaxId(taxid).getScientificName()
       } catch {
         case t: Throwable => ""
       }
@@ -237,7 +248,6 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     println("unassigned:  " + a)
     println("total:  " + b)
   }
-
 
 
   def additionalHandler(args: List[String]) {
