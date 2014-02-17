@@ -250,9 +250,24 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   }
 
 
-  def additionalHandler(args: List[String]) {
-    undeployActions(true)
-  }
+//  def additionalHandler(args: List[String]) {
+//    val file = ObjectAddress("metapasta-test", "microtest.fastq")
+//    val chunks = new S3Splitter(aws.s3, file, 10000).chunks()
+//    import ohnosequences.formats._
+//    import ohnosequences.parsers._
+//    val reader = S3ChunksReader(aws.s3, file)
+//    var left = chunks.size
+//    var size = 0
+//    for (chunk <- chunks) {
+//      println(left +  " chunks left")
+//      left -= 1
+//      val parsed: List[FASTQ[RawHeader]] = reader.parseChunk[RawHeader](chunk._1, chunk._2)._1
+//      size += parsed.size
+//    }
+//    println(size)
+//  }
+
+
 
   def addTasks() {
     pairedSamples.initWrite()
