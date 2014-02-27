@@ -10,7 +10,7 @@ import org.clapper.avsl.Logger
 import ohnosequences.nisperon.queues.SQSQueue
 
 
-case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email: String, managerGroups: GroupConfiguration = SingleGroup(InstanceType.T1Micro, OnDemand), timeout: Int = 3600, autoTermination: Boolean = true) {
+case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email: String, managerGroups: GroupConfiguration = SingleGroup(InstanceType.T1Micro, OnDemand), timeout: Int = 3600, autoTermination: Boolean = true, logging: Boolean) {
 
   def controlTopic: String = metadataBuilder.id + "controlTopic"
 

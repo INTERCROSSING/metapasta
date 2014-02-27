@@ -6,6 +6,7 @@ import scala.collection.JavaConversions._
 import org.clapper.avsl.Logger
 import ohnosequences.awstools.ddb.Utils
 import java.util
+import ohnosequences.awstools.s3.ObjectAddress
 
 
 class DynamoDBUploader(aws: AWS, readsTable: String, samplesTable: String) extends MapInstructions[List[ReadInfo], Unit] {
@@ -23,7 +24,7 @@ class DynamoDBUploader(aws: AWS, readsTable: String, samplesTable: String) exten
     Utils.createTable(aws.ddb, samplesTable, hash, Some(range), logger, 1, 1)
   }
 
-  def apply(input: List[ReadInfo]) {
+  def apply(input: List[ReadInfo], logs: Option[ObjectAddress]) {
     val batchSize = 40 // x25
 
     var c = -1

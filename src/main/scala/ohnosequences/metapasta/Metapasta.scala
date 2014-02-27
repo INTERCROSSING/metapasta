@@ -21,7 +21,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     metadataBuilder = configuration.metadataBuilder,
     email = configuration.email,
     autoTermination = true,
-    timeout = 36000
+    timeout = 36000,
+    logging = configuration.logging
   )
 
   val pairedSamples = queue(
@@ -67,7 +68,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   val mappingInstructions: MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever =
     configuration.mappingInstructions match {
       case Blast(template) => new BlastInstructions(aws, new NTDatabase(aws), bio4j, template)
-      case Last(template) => new LastInstructions(aws, new NTLastDatabase(aws), bio4j, template)
+      case Last(template, fasta) => new LastInstructions(aws, new NTLastDatabase(aws), bio4j, template, fasta)
     }
 
 
@@ -140,7 +141,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     
     
     resultCSV.append("#;taxId;")
-    resultCSV.append("name;")
+    resultCSV.append("name;rank;")
     table.keys.foreach { sample =>
       resultCSV.append(sample + ".count;")
       resultCSV.append(sample + ".acc;")
@@ -151,13 +152,18 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     var totalAcc1 = 0
     finalTaxInfo.foreach { case (taxid, map) =>
       resultCSV.append(taxid + ";")
-      val name = try {
-        mappingInstructions.nodeRetriever.getNCBITaxonByTaxId(taxid).getScientificName()
+      val (name, rank) = try {
+        val node = mappingInstructions.nodeRetriever.getNCBITaxonByTaxId(taxid)
+        (node.getScientificName(), node.getRank())
       } catch {
-        case t: Throwable => ""
+        case t: Throwable => ("", "")
       }
-
       resultCSV.append(name + ";")
+      resultCSV.append(rank + ";")
+
+
+      //mappingInstructions.nodeRetriever.g
+
       var taxCount = 0
       var taxAcc = 0
       table.keys.foreach { sample =>
@@ -177,7 +183,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       totalAcc1 += taxAcc
       //calculating total
     }
-    resultCSV.append("total; ;")
+    resultCSV.append("total; ; ;")
     table.keys.foreach { sample =>
       resultCSV.append(perSampleTotal(sample).count + ";")
       resultCSV.append(perSampleTotal(sample).acc + ";")
@@ -249,10 +255,27 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     println("total:  " + b)
   }
 
+  def additionalHandler(args: List[String]) {}
 
-  def additionalHandler(args: List[String]) {
-    undeployActions(true)
-  }
+
+//  def additionalHandler(args: List[String]) {
+//    val file = ObjectAddress("metapasta-test", "microtest.fastq")
+//    val chunks = new S3Splitter(aws.s3, file, 10000).chunks()
+//    import ohnosequences.formats._
+//    import ohnosequences.parsers._
+//    val reader = S3ChunksReader(aws.s3, file)
+//    var left = chunks.size
+//    var size = 0
+//    for (chunk <- chunks) {
+//      println(left +  " chunks left")
+//      left -= 1
+//      val parsed: List[FASTQ[RawHeader]] = reader.parseChunk[RawHeader](chunk._1, chunk._2)._1
+//      size += parsed.size
+//    }
+//    println(size)
+//  }
+
+
 
   def addTasks() {
     pairedSamples.initWrite()
