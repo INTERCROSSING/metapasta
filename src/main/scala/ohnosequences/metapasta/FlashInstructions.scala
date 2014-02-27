@@ -75,7 +75,7 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
 
   }
 
-  def apply(input: List[PairedSample]): List[List[MergedSampleChunk]] = {
+  def apply(input: List[PairedSample], logs: Option[ObjectAddress]): List[List[MergedSampleChunk]] = {
     val sample = input.head
 
 

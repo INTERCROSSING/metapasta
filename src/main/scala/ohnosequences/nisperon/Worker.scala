@@ -50,6 +50,9 @@ abstract class WorkerAux {
     var startTime = 0L
     var endTime = 0L
 
+
+
+
     while(true) {
       var messages = List[Message[inputQueue.MA]]()
 
@@ -84,7 +87,13 @@ abstract class WorkerAux {
        // if (!solved) {
           startTime =  System.currentTimeMillis()
 
-          output = instructions.solve(messages.map(_.value()))
+        val logs = if (nisperoConfiguration.nisperonConfiguration.logging) {
+          Some(ObjectAddress(nisperoConfiguration.nisperonConfiguration.bucket, nisperoConfiguration.name + "/" + messages.head.id))
+        } else {
+          None
+        }
+
+          output = instructions.solve(messages.map(_.value()), logs)
           endTime =  System.currentTimeMillis()
           logger.info("executed in " + (endTime - startTime))
        // } else {

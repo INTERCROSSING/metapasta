@@ -13,6 +13,8 @@ trait Header {
   val raw: String
   override def toString = raw
 
+  def getRaw = raw.replaceAll("^@", "")
+
   // full map that we write to the table:
   def toMap: Map[String, DynamoValue] = Map(
     "headerFormat" -> DynamoValue.string(format)
@@ -69,11 +71,11 @@ case class FASTQ[H <: Header](header: H, sequence: String, optHeader: String, qu
   ) mkString "\r"
 
   def toFasta: String = {
-    ">" + header.toString.replaceAll("\\s+", "_") + System.lineSeparator() + sequence
+    ">" + header.getRaw.replaceAll("\\s+", "_") + System.lineSeparator() + sequence
   }
 
   def toFastq: String = {
-    header.toString.replaceAll("\\s+", "_") + System.lineSeparator() + sequence + System.lineSeparator() + optHeader + System.lineSeparator() + quality
+    "@" + header.getRaw.replaceAll("\\s+", "_") + System.lineSeparator() + sequence + System.lineSeparator() + optHeader + System.lineSeparator() + quality
 
   }
 }

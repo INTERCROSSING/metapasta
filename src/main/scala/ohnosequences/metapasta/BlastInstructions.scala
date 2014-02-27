@@ -92,9 +92,7 @@ class BlastInstructions(aws: AWS,
   //todo think about this space
   def extractHeader(s: String) = s.replace("@", "").split("\\s")(0)
 
-  def apply(input: List[MergedSampleChunk]): (List[ReadInfo], AssignTable) = {
-
-
+  def apply(input: List[MergedSampleChunk], logs: Option[ObjectAddress]): (List[ReadInfo], AssignTable) = {
 
     import scala.sys.process._
 
@@ -136,6 +134,11 @@ class BlastInstructions(aws: AWS,
 
     logger.info("reading BLAST result")
     val resultRaw = readFile(new File(output))
+
+    logs.foreach { logs =>
+      logger.info("uploading result to S3")
+      aws.s3.putObject(ObjectAddress(logs.bucket, logs.key + "/" + output), new File(output))
+    }
 
     logger.info("parsing BLAST result")
     //todo reads without hits!!!
@@ -197,7 +200,7 @@ class BlastInstructions(aws: AWS,
     var unassigned = 0
 
     parsed.foreach { fastq =>
-      val readId = extractHeader(fastq.header.toString.replaceAll("\\s+", "_"))
+      val readId = extractHeader(fastq.header.getRaw.replaceAll("\\s+", "_"))
      // println("final: " + readId)
       bestHits.get(readId) match {
         case None => {

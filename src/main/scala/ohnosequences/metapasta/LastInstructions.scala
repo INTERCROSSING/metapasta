@@ -105,7 +105,8 @@ object ReadInfo {
 class LastInstructions(aws: AWS,
                        database: LastDatabase,
                        bio4j: Bio4jDistributionDist,
-                       lastTemplate: String = """./lastal nt.last/$name$ $input$ -s 2 -T1 -f 0 -r5 -q95 -a0 -b95 -e70 -Q2 -o $output$"""
+                       lastTemplate: String,
+                       fastaInput: Boolean = false
                        ) extends
    MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever {
 
@@ -180,7 +181,7 @@ class LastInstructions(aws: AWS,
   //todo think about this space
   def extractHeader(s: String) = s.replace("@", "").split("\\s")(0)
 
-  def apply(input: List[MergedSampleChunk]): (List[ReadInfo], AssignTable) = {
+  def apply(input: List[MergedSampleChunk], logs: Option[ObjectAddress]): (List[ReadInfo], AssignTable) = {
 
     import scala.sys.process._
 
@@ -193,21 +194,27 @@ class LastInstructions(aws: AWS,
    // val reads = mutable.HashMap[String, FASTQ[RawHeader]]()
 
 
-    val readsFile = "reads.fastq"
+    val readsFile = if (fastaInput) "reads.fasta" else "reads.fastq"
     logger.info("saving reads to " + readsFile)
     val writer = new PrintWriter(new File(readsFile))
     parsed.foreach { fastq =>
       //reads.put(extractHeader(fastq.header.toString), fastq)
-      writer.println(fastq.toFastq)
+      if (fastaInput) {
+        writer.println(fastq.toFasta)
+      } else {
+        writer.println(fastq.toFastq)
+      }
     }
     writer.close()
 
+    //todo fix quolity format!!!
     logger.info("running LAST")
     val output = "out.last.maf"
     val command =  lastTemplate
       .replace("$name$", database.name)
       .replace("$output$", output)
       .replace("$input$", readsFile)
+      .replace("$format$", if (fastaInput) "0" else "2")
    // val command = """blastn -task megablast -db $name$ -query reads.fasta -out result -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis"""
    //   .replace("$name$", database.name)
 
@@ -224,6 +231,13 @@ class LastInstructions(aws: AWS,
     logger.info("reading LAST result")
     val resultRaw = readFile(new File(output))
 
+    //logs.
+    logs.foreach { logs =>
+      logger.info("uploading result to S3")
+      aws.s3.putObject(ObjectAddress(logs.bucket, logs.key + "/" + output), new File(output))
+    }
+
+
     logger.info("parsing LAST result")
     //todo reads without hits!!!
     //M00476_38_000000000_A3FHW_1_1101_20604_2554_1_N_0_28	gi|313494140|gb|GU939576.1|	99.21	253	2	0	1	253	362	614	3e-127	 457
@@ -234,7 +248,7 @@ class LastInstructions(aws: AWS,
     val lastHit = """\s*([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+.+""".r
     val comment = """#(.*)""".r
 
-    val bestHits = mutable.HashMap[String, String]()
+    val bestHits = mutable.HashMap[String, (String, Int)]()
 
     val assignTable = mutable.HashMap[String, TaxInfo]()
 
@@ -250,28 +264,41 @@ class LastInstructions(aws: AWS,
           //result += BlastResult(name2, database.parseGI(name1))
 
           //todo best hit
-          if (!bestHits.contains(readId)) {
-            bestHits.put(readId, database.parseGI(name1))
 
-            val gi = database.parseGI(name1)
-          //  logger.info("receiving node " + gi)
+          val newScore: Int = try {
+            score.toInt
+          } catch {
+            case t: Throwable => 0
+          }
 
-            val tax = giMap.getOrElse(gi, "gi_" + gi)
-
-            assignTable.get(tax) match {
-              case None => assignTable.put(tax, TaxInfo(1, 1))
-              case Some(TaxInfo(count, acc)) => assignTable.put(tax, TaxInfo(count + 1, acc + 1))
+            val updateHit: Boolean = bestHits.get(readId) match {
+              case None => true
+              case Some((oldHit, oldScore)) if oldScore < newScore => println(newScore); true
+              case _ => false
             }
 
-            if(!tax.startsWith("gi_")) {
-              getParerntsIds(tax).foreach { p =>
-                assignTable.get(p) match {
-                  case None => assignTable.put(p, TaxInfo(0, 1))
-                  case Some(TaxInfo(count, acc)) => assignTable.put(p, TaxInfo(count, acc + 1))
+            if (updateHit ) {
+              bestHits.put(readId, (database.parseGI(name1), newScore))
+
+              val gi = database.parseGI(name1)
+              //  logger.info("receiving node " + gi)
+
+              val tax = giMap.getOrElse(gi, "gi_" + gi)
+
+              assignTable.get(tax) match {
+                case None => assignTable.put(tax, TaxInfo(1, 1))
+                case Some(TaxInfo(count, acc)) => assignTable.put(tax, TaxInfo(count + 1, acc + 1))
+              }
+
+              if(!tax.startsWith("gi_")) {
+                getParerntsIds(tax).foreach { p =>
+                  assignTable.get(p) match {
+                    case None => assignTable.put(p, TaxInfo(0, 1))
+                    case Some(TaxInfo(count, acc)) => assignTable.put(p, TaxInfo(count, acc + 1))
+                  }
                 }
               }
             }
-          }
         } catch {
           case t: Throwable => t.printStackTrace()
         }
@@ -283,13 +310,13 @@ class LastInstructions(aws: AWS,
     var unassigned = 0
 
     parsed.foreach { fastq =>
-      val readId = extractHeader(fastq.header.toString.replaceAll("\\s+", "_"))
+      val readId = extractHeader(fastq.header.getRaw.replaceAll("\\s+", "_"))
       bestHits.get(readId) match {
         case None => {
           readsInfo += ReadInfo(readId, ReadInfo.unassigned, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId, ReadInfo.unassigned)
           unassigned += 1
         }
-        case Some(g) => {
+        case Some((g, score)) => {
           val tax = giMap.getOrElse(g, "gi_" + g)
           readsInfo += ReadInfo(readId, g, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId, tax)
         }
