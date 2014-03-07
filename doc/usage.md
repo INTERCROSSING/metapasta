@@ -22,7 +22,7 @@ object mockSamples {
 ### installation
 
 #### cs and g8
-`conscript` and `g8` should be installed
+[`conscript`](https://github.com/n8han/conscript#installation) and [`g8`](https://github.com/n8han/giter8#installation) should be installed
 
 ```
 g8 ohnosequences/metapasta
