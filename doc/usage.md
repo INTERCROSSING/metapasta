@@ -25,7 +25,7 @@ object mockSamples {
 `conscript` and `g8` should be installed
 
 ```
-cs ohnosequences/metapasta
+g8 ohnosequences/metapasta
 ```
 
 #### credentials
