@@ -66,9 +66,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
 
   val mappingInstructions: MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever =
-    configuration.mappingInstructions match {
-      case Blast(template) => new BlastInstructions(aws, new NTDatabase(aws), bio4j, template)
-      case Last(template, fasta) => new LastInstructions(aws, new NTLastDatabase(aws), bio4j, template, fasta)
+    configuration match {
+      case b: BlastConfiguration => new BlastInstructions(aws, b.database, bio4j, b.blastTemplate, b.xmlOutput)
+      case l: LastConfiguration => new LastInstructions(aws, l.database, bio4j, l.lastTemplate, l.useFasta)
     }
 
 

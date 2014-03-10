@@ -6,11 +6,11 @@ import org.clapper.avsl.Logger
 import ohnosequences.awstools.s3.ObjectAddress
 
 
-class NTDatabase(aws: AWS) extends BlastDatabase {
+object NTDatabase extends BlastDatabase {
 
   val logger = Logger(this.getClass)
 
-  def install() {
+  def install(aws: AWS) {
     import scala.sys.process._
 
     logger.info("downloading database")

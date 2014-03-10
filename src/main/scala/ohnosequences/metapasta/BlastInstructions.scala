@@ -13,7 +13,8 @@ import scala.collection.mutable.ListBuffer
 class BlastInstructions(aws: AWS,
                        database: BlastDatabase,
                        bio4j: Bio4jDistributionDist,
-                       blastTemplate: String = """blastn -task megablast -db $name$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis"""
+                       blastTemplate: String = """blastn -task megablast -db $name$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis""",
+                       useXML: Boolean
                        ) extends
    MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever {
 
@@ -34,7 +35,7 @@ class BlastInstructions(aws: AWS,
         import scala.sys.process._
 
         logger.info("installing database")
-        database.install()
+        database.install(aws)
 
         logger.info("downloading BLAST")
         val blast = ObjectAddress("resources.ohnosequences.com", "blast/ncbi-blast-2.2.25.tar.gz")
@@ -120,6 +121,9 @@ class BlastInstructions(aws: AWS,
       .replace("$name$", database.name)
       .replace("$output$", output)
       .replace("$input$", readsFile)
+      .replace("$out_format$", if (useXML) "5" else "6")
+
+
 
 
     val startTime = System.currentTimeMillis()
@@ -133,7 +137,10 @@ class BlastInstructions(aws: AWS,
     }
 
     logger.info("reading BLAST result")
-    val resultRaw = readFile(new File(output))
+    val resultRaw = if (useXML) "" else readFile(new File(output))
+
+    //todo fix it!
+
 
     logs.foreach { logs =>
       logger.info("uploading result to S3")

@@ -1,10 +1,11 @@
 package ohnosequences.metapasta
 
 import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.nisperon.AWS
 
 trait Database {
 
-  def install()
+  def install(aws: AWS)
 
   //for blast
   val name: String
