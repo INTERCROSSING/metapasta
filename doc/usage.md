@@ -30,7 +30,15 @@ g8 ohnosequences/metapasta
 
 #### credentials
 
-credentials should be placed in `~/metapasta.credentials`
+credentials should be placed in `~/metapasta.credentials`, the file should have a format like this
+
+```bash
+accessKey = AKIAIG23IDH2AEPBEFVA
+#for example: accessKey = AKIAIG23IDH2AEPBEFVA
+
+secretKey = AZpGhgq6i4+m+TRXJ0W8nYmRJY3ejr5p5DQULTci
+#for example: secretKey = AZpGhgq6i4+m+TRXJ0W8nYmRJY3ejr5p5DQULTci
+```
 
 ### commands 
 
