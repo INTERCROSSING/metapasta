@@ -280,7 +280,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   def addTasks() {
     pairedSamples.initWrite()
     val t1 = System.currentTimeMillis()
-    pairedSamples.put("0", configuration.samples.map(List(_)) )
+    configuration.samples.foreach { sample =>
+      pairedSamples.put(sample.name, List(List(sample)))
+    }
     val t2 = System.currentTimeMillis()
     logger.info("added " + (t2-t1) + " ms")
 

@@ -156,6 +156,8 @@ abstract class Nisperon {
 
 
           notification(nisperonConfiguration.id + " started", "started")
+
+          System.exit(0)
         } catch {
           case e: AmazonServiceException if e.getErrorCode == "NoSuchKey"
             => println(nisperonConfiguration.artifactAddress + " doesn't exist: " + e.getMessage)
