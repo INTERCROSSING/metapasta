@@ -61,5 +61,10 @@ sbt "run run"
 *metapasta* will automatically when all assignments work will finish. Although it is possible to do force undeploy in case if autotermination doesn't work
 
 ```
-sbt "undeploy force"
+sbt "run undeploy force"
+```
+or
+
+```
+sbt "run undeploy undeploy"
 ```
