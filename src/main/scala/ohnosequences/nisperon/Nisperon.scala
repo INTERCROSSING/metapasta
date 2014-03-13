@@ -134,7 +134,7 @@ abstract class Nisperon {
             case (id, nispero) =>
               nispero.runManager()
           }
-          addTasks()
+          
 
           println("check you e-mail for further instructions")
 
@@ -149,12 +149,15 @@ abstract class Nisperon {
             userData = userdata
           )
 
+          addTasks()
+
           println("launching metamanager")
           //println(metagroup)
 
           aws.as.createAutoScalingGroup(metagroup)
 
 
+         
           notification(nisperonConfiguration.id + " started", "started")
 
           System.exit(0)

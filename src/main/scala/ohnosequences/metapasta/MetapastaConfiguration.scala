@@ -21,6 +21,8 @@ trait  MetapastaConfiguration {
    val  samples: List[PairedSample]
    val chunksSize: Int
    val logging: Boolean
+   val keyName: String
+  val removeAllQueues: Boolean
 }
 
 case class BlastConfiguration(
@@ -33,7 +35,9 @@ case class BlastConfiguration(
                                blastTemplate: String = """blastn -task megablast -db $name$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt $out_format$ -show_gis""",
                                xmlOutput: Boolean = false,
                                database: BlastDatabase = NTDatabase,
-                               logging: Boolean = true
+                               logging: Boolean = true,
+                               keyName: String = "nispero",
+                               removeAllQueues: Boolean = true
                                ) extends MetapastaConfiguration {
 }
 
@@ -48,7 +52,9 @@ case class LastConfiguration(
                                lastTemplate: String = """./lastal nt.last/$name$ $input$ -s2 -T0 -e70 -Q$format$ -f0 -o $output$""",
                                useFasta: Boolean = false,
                                database: LastDatabase = NTLastDatabase,
-                               logging: Boolean = true
+                               logging: Boolean = true,
+                               keyName: String = "nispero",
+                               removeAllQueues: Boolean = true
                                ) extends MetapastaConfiguration {
 }
 

@@ -10,7 +10,13 @@ import org.clapper.avsl.Logger
 import ohnosequences.nisperon.queues.SQSQueue
 
 
-case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email: String, managerGroups: GroupConfiguration = SingleGroup(InstanceType.T1Micro, OnDemand), timeout: Int = 3600, autoTermination: Boolean = true, logging: Boolean) {
+case class NisperonConfiguration(
+                                  metadataBuilder: NisperonMetadataBuilder, email: String,
+                                  managerGroups: GroupConfiguration = SingleGroup(InstanceType.T1Micro, OnDemand),
+                                  timeout: Int = 3600, autoTermination: Boolean = true,
+                                  logging: Boolean,
+                                  keyName: String = "nispero",
+                                  removeAllQueues: Boolean = false) {
 
   def controlTopic: String = metadataBuilder.id + "controlTopic"
 
@@ -18,11 +24,13 @@ case class NisperonConfiguration(metadataBuilder: NisperonMetadataBuilder, email
 
   def notificationTopic: String = "fastanotification" + email.hashCode
 
+
+
   val defaultSpecs = InstanceSpecs(
     instanceType = InstanceType.T1Micro,
     amiId = "",
     securityGroups = List("nispero"),
-    keyName = "nispero",
+    keyName = keyName,
     instanceProfile = Some("nispero"),
     deviceMapping = Map("/dev/xvdb" -> "ephemeral0")
   )
