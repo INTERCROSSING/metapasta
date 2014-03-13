@@ -22,7 +22,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     email = configuration.email,
     autoTermination = true,
     timeout = 36000,
-    logging = configuration.logging
+    logging = configuration.logging,
+    keyName = configuration.keyName,
+    removeAllQueues = configuration.removeAllQueues
   )
 
   val pairedSamples = queue(
@@ -66,9 +68,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
 
   val mappingInstructions: MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever =
-    configuration.mappingInstructions match {
-      case Blast(template) => new BlastInstructions(aws, new NTDatabase(aws), bio4j, template)
-      case Last(template, fasta) => new LastInstructions(aws, new NTLastDatabase(aws), bio4j, template, fasta)
+    configuration match {
+      case b: BlastConfiguration => new BlastInstructions(aws, b.database, bio4j, b.blastTemplate, b.xmlOutput)
+      case l: LastConfiguration => new LastInstructions(aws, l.database, bio4j, l.lastTemplate, l.useFasta)
     }
 
 
@@ -275,14 +277,61 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 //    println(size)
 //  }
 
+  def objectExists(objectAddress: ObjectAddress): Boolean = {
+   // try { 
+      // import com.amazonaws.services.s3.model.GetObjectRequest
+      // val request = new GetObjectRequest(objectAddress.bucket, objectAddress.key).withRange(0, 1)
+      // val res = aws.s3.s3.getObject(request)
+      // true
+      if(aws.s3.listObjects(objectAddress.bucket, objectAddress.key).contains(objectAddress)) {
+        true
+      } else {
+        throw new Error(objectAddress + " doesn't exist")
+        false
+      }
+    // } catch {
+    //   case t: Throwable=> logger.error("check sample " + objectAddress)          
+    //                       t.printStackTrace()
+    // }
+  }
 
+  def checkTasks(): Boolean = {
+    var res = true
+    logger.info("checking samples")
+    configuration.samples.foreach { sample =>
+      
+      try {
+        objectExists(sample.fastq1)
+      } catch {
+        case t: Throwable => {
+          res = false
+          logger.error("check sample " + sample.fastq1)          
+          t.printStackTrace()
+        }
+      }
+
+       try {
+        objectExists(sample.fastq2)
+      } catch {
+        case t: Throwable => {
+          res = false
+          logger.error("check sample " + sample.fastq2)          
+          t.printStackTrace()
+        }
+      }
+    }
+    res
+  }
 
   def addTasks() {
-    pairedSamples.initWrite()
-    val t1 = System.currentTimeMillis()
-    pairedSamples.put("0", configuration.samples.map(List(_)) )
-    val t2 = System.currentTimeMillis()
-    logger.info("added " + (t2-t1) + " ms")
-
+    if(checkTasks()) {
+      pairedSamples.initWrite()
+      val t1 = System.currentTimeMillis()
+      configuration.samples.foreach { sample =>
+        pairedSamples.put(sample.name, List(List(sample)))
+      }
+      val t2 = System.currentTimeMillis()
+      logger.info("added " + (t2-t1) + " ms")
+    }
   }
 }

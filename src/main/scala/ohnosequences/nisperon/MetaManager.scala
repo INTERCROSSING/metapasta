@@ -61,6 +61,7 @@ class MetaManager(nisperon: Nisperon) {
              // }.start()
             }
 
+            if(!nisperonConfiguration.removeAllQueues) {
             nisperon.checkQueues() match {
               case Right(queues) => logger.info("deleting queues"); {
                 queues.foreach { q =>
@@ -72,6 +73,21 @@ class MetaManager(nisperon: Nisperon) {
                 }
               }
               case Left(queue) => logger.info(queue.name + " isn't empty")
+            }
+            } else {
+              nisperon.nisperos.values.foreach { nispero =>
+                try {
+                  nispero.inputQueue.delete()
+                } catch {
+                  case t: Throwable => t.printStackTrace()
+                }
+                try {
+                  nispero.outputQueue.delete()
+                } catch {
+                  case t: Throwable => t.printStackTrace()
+                }
+              }
+
             }
 
 

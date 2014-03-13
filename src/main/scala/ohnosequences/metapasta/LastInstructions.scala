@@ -126,7 +126,7 @@ class LastInstructions(aws: AWS,
     nodeRetriever = ohnosequences.bio4j.bundles.NCBITaxonomyDistribution.nodeRetriever
 
     logger.info("installing database")
-    database.install()
+    database.install(aws)
 
     logger.info("downloading LAST")
     val last = ObjectAddress("metapasta", "lastal")

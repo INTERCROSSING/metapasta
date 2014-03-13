@@ -5,21 +5,16 @@ import org.clapper.avsl.Logger
 import ohnosequences.awstools.s3.ObjectAddress
 import java.io.File
 
-class NTLastDatabase(aws: AWS) extends LastDatabase {
+object NTLastDatabase extends LastDatabase {
 
   val logger = Logger(this.getClass)
 
-  def install() {
+  def install(aws: AWS) {
 
     logger.info("downloading database")
     val lm = aws.s3.createLoadingManager()
 
     lm.downloadDirectory(ObjectAddress("metapasta", "nt.last"), new File("."))
-
-
-
-   // logger.info("extracting database")
-   // """unzip database.zip""".!
 
   }
 
