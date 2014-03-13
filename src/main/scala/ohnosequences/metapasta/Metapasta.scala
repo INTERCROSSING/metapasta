@@ -21,7 +21,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     metadataBuilder = configuration.metadataBuilder,
     email = configuration.email,
     autoTermination = true,
-    timeout = 36000,
+    timeout = configuration.timeout,
     logging = configuration.logging,
     keyName = configuration.keyName,
     removeAllQueues = configuration.removeAllQueues

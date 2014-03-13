@@ -18,11 +18,12 @@ trait  MetapastaConfiguration {
    val mappingWorkers: GroupConfiguration
    val uploadWorkers: Option[Int]
    val email: String
-   val  samples: List[PairedSample]
+   val samples: List[PairedSample]
    val chunksSize: Int
    val logging: Boolean
    val keyName: String
-  val removeAllQueues: Boolean
+   val removeAllQueues: Boolean
+   val timeout: Int
 }
 
 case class BlastConfiguration(
@@ -37,7 +38,8 @@ case class BlastConfiguration(
                                database: BlastDatabase = NTDatabase,
                                logging: Boolean = true,
                                keyName: String = "nispero",
-                               removeAllQueues: Boolean = true
+                               removeAllQueues: Boolean = true,
+                               timeout: Int = 72000
                                ) extends MetapastaConfiguration {
 }
 
@@ -54,7 +56,8 @@ case class LastConfiguration(
                                database: LastDatabase = NTLastDatabase,
                                logging: Boolean = true,
                                keyName: String = "nispero",
-                               removeAllQueues: Boolean = true
+                               removeAllQueues: Boolean = true,
+                               timeout: Int = 72000
                                ) extends MetapastaConfiguration {
 }
 
