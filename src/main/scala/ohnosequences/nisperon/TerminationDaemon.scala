@@ -5,12 +5,33 @@ import ohnosequences.nisperon.queues.Merger
 import ohnosequences.awstools.s3.ObjectAddress
 import java.io.File
 
-//todo fix termination
 class TerminationDaemon(nisperon: Nisperon) extends Thread {
   val logger = Logger(this.getClass)
 
+  val initLaunchTime = {
 
-  //todo add termination
+    var ititTime= 0L
+    var attempt = 10
+    while (ititTime== 0 && attempt > 0) {
+      try {
+        attempt -= 1
+        ititTime = nisperon.launchTime
+
+      } catch {
+        case t: Throwable => t.printStackTrace()
+      }
+
+    }
+    ititTime
+
+  }
+  val t0 = System.currentTimeMillis() / 1000
+
+  def launchTime(): Long = {
+    val t1 = System.currentTimeMillis() / 1000
+    initLaunchTime + (t1 - t0)
+  }
+
   override def run() {
     logger.info("termination daemon started")
     try {
@@ -30,7 +51,7 @@ class TerminationDaemon(nisperon: Nisperon) extends Thread {
           }
         }
 
-        if (nisperon.launchTime > nisperon.nisperonConfiguration.timeout) {
+        if (launchTime() > nisperon.nisperonConfiguration.timeout) {
           logger.info("terminating due to timeout")
           nisperon.undeploy("timeout " + nisperon.nisperonConfiguration.timeout + " sec")
           stopped = true

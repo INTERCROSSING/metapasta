@@ -59,6 +59,7 @@ abstract class Nisperon {
     }
   }
 
+
   class NisperoWithDefaults[I, O, IQ <: MonoidQueue[I], OQ <: MonoidQueue[O]] (
     inputQueue: IQ, outputQueue: OQ, instructions: Instructions[I, O], nisperoConfiguration: NisperoConfiguration
   ) extends Nispero[I, O, IQ, OQ](aws, inputQueue, outputQueue, instructions, nisperoConfiguration)
@@ -141,7 +142,6 @@ abstract class Nisperon {
           val bundle = new WhateverBundle(Nisperon.this, "meta", "meta")
           val userdata = bundle.userScript(bundle)
 
-          //todo set metamanager instance
           val metagroup = SingleGroup(instanceType = InstanceType.M1Medium).autoScalingGroup(
             name = nisperonConfiguration.metamanagerGroup,
             amiId = bundle.ami.id,
