@@ -74,7 +74,7 @@ abstract class Nisperon {
     r
   }
 
-  def undeployActions(solved: Boolean)
+  def undeployActions(solved: Boolean): Option[String]
 
   def undeploy(reason: String) {
 
@@ -151,7 +151,7 @@ abstract class Nisperon {
 
           addTasks()
 
-          println("launching metamanager")
+          logger.info("launching metamanager")
           //println(metagroup)
 
           aws.as.createAutoScalingGroup(metagroup)
@@ -168,7 +168,7 @@ abstract class Nisperon {
       }
 
       case "check" :: "queues" :: Nil => {
-        println(checkQueues())
+        logger.info(checkQueues())
       }
 
       case "graph" :: Nil => {
@@ -186,15 +186,16 @@ abstract class Nisperon {
       }
 
       case "undeploy" :: "force" :: Nil => {
-        aws.as.deleteAutoScalingGroup(nisperonConfiguration.metamanagerGroup)
 
+        aws.as.deleteAutoScalingGroup(nisperonConfiguration.metamanagerGroup)
         nisperos.foreach {
           case (id, nispero) =>
-            undeployActions(false)
+
             aws.as.deleteAutoScalingGroup(nispero.nisperoConfiguration.managerGroupName)
             aws.as.deleteAutoScalingGroup(nispero.nisperoConfiguration.workersGroupName)
             aws.sqs.createQueue(nispero.nisperoConfiguration.controlQueueName).delete()
         }
+        logger.info("undeploy actions results: " + undeployActions(false))
       }
 
       case "list" :: Nil => {
@@ -234,7 +235,7 @@ abstract class Nisperon {
         nisperos(nispero)
       }
 
-      case args => println("wrong command"); additionalHandler(args)
+      case args => additionalHandler(args)
 
     }
   }

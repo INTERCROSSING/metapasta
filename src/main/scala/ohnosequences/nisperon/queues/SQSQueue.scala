@@ -239,7 +239,7 @@ class SQSQueue[T](val sqs: AmazonSQS, val name: String, val serializer: Serializ
       case Some(t) => attributes.put(QueueAttributeName.VisibilityTimeout.toString, t.toString)
       case None => ()
     }
-    println(attributes)
+    println("queue " + name + " attributes:" + attributes)
 
     sqs.createQueue(new CreateQueueRequest()
       .withQueueName(name)

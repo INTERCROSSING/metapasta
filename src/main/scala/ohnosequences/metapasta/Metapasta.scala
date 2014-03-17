@@ -93,9 +93,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   }
 
 
-  def undeployActions(solved: Boolean) {
+  override def undeployActions(solved: Boolean): Option[String] = {
     if (!solved) {
-      return
+      return None
     }
 
     //todo write generic code about it
@@ -206,6 +206,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
     val result = ObjectAddress(nisperonConfiguration.bucket, "results/" + "result.csv")
     aws.s3.putWholeObject(result, resultCSV.toString())
+
+    None
 
   }
 
