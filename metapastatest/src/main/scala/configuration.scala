@@ -62,9 +62,9 @@ object metapastatest extends Metapasta(configuration) {
       }
     }
 
+  }
 
-
-
-
+  override def additionalHandler(args: List[String]) {
+    undeployActions(false)
   }
 }
