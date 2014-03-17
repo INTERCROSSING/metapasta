@@ -24,8 +24,7 @@ resolvers +=  Resolver.url("era7" + " public ivy releases",  url("http://release
 resolvers +=  Resolver.url("era7" + " public ivy snapshots",  url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
 
 
-
-dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.6.1"
+dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.6.2"
 
 dependencyOverrides += "ohnosequences" % "aws-statika_2.10" % "1.0.1"
 

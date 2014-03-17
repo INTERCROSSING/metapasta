@@ -40,14 +40,15 @@ object metapastatest extends Metapasta(configuration) {
     //test xmls
 
     try {
-      val xml1 = ObjectAddress(mockSamples.testBucket, "map/" + mockSamples.ss2 + ".1.1/out.blast")
-      val xml2 = ObjectAddress(mockSamples.testBucket, "map/" + mockSamples.ss2 + ".1.2/out.blast")
+      val xml1 = ObjectAddress(nisperonConfiguration.bucket, "map/" + mockSamples.ss2 + ".1.1/out.blast")
+      val xml2 = ObjectAddress(nisperonConfiguration.bucket, "map/" + mockSamples.ss2 + ".1.2/out.blast")
 
       val query5 = "Query_5"
       val query6 = "Query_6"
       val query25 = "Query_25"
       val query26 = "Query_26"
 
+      println("checking " + xml1)
       check(aws.s3.readWholeObject(xml1).contains(query25), "BLAST xml " + xml1 + " should contain " + query25)
       check(!aws.s3.readWholeObject(xml1).contains(query26), "BLAST xml " + xml1 + " shouldn't contain " + query26)
       check(aws.s3.readWholeObject(xml2).contains(query5), "BLAST xml " + xml2 + " should contain " + query5)
