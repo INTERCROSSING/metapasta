@@ -24,7 +24,13 @@ trait  MetapastaConfiguration {
    val keyName: String
    val removeAllQueues: Boolean
    val timeout: Int
+   val mergeQueueThroughput: MergeQueueThroughput
 }
+
+abstract class MergeQueueThroughput
+
+case class Fixed(n: Int) extends MergeQueueThroughput
+case class SampleBased(ration: Double, max: Int = 100) extends MergeQueueThroughput
 
 case class BlastConfiguration(
                                metadataBuilder: NisperonMetadataBuilder,
@@ -39,7 +45,8 @@ case class BlastConfiguration(
                                logging: Boolean = true,
                                keyName: String = "nispero",
                                removeAllQueues: Boolean = true,
-                               timeout: Int = 72000
+                               timeout: Int = 72000,
+                               mergeQueueThroughput: MergeQueueThroughput = SampleBased(1)
                                ) extends MetapastaConfiguration {
 }
 
@@ -57,7 +64,8 @@ case class LastConfiguration(
                                logging: Boolean = true,
                                keyName: String = "nispero",
                                removeAllQueues: Boolean = true,
-                               timeout: Int = 72000
+                               timeout: Int = 72000,
+                               mergeQueueThroughput: MergeQueueThroughput = SampleBased(1)
                                ) extends MetapastaConfiguration {
 }
 

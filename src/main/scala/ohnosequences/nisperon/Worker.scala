@@ -109,7 +109,36 @@ abstract class WorkerAux {
             endTime =  System.currentTimeMillis()
             logger.info("message written in " + (endTime - startTime))
         //  }
-          messages.foreach(_.delete())
+
+
+
+
+
+
+              messages.foreach { message =>
+                var deleted = false
+                var attempt = 0
+                while(!deleted) {
+                  try {
+                    attempt += 1
+                    message.delete()
+                    deleted = true
+                  } catch {
+                    case t: Throwable => {
+                      if(attempt < 10) {
+                        logger.warn("couldn't delete massage " + message.id)
+                        Thread.sleep(attempt * 100)
+                      } else {
+                        throw t
+                      }
+                    }
+                  }
+                }
+
+          }
+
+
+
         } catch {
           case t: Throwable => {
             logger.error("error during writing to the queue")
@@ -131,6 +160,8 @@ abstract class WorkerAux {
       }
     }
   }
+
+
 }
 
 

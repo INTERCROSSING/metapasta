@@ -27,8 +27,6 @@ abstract class Nisperon {
 
   def checks()
 
-
-
  // val addressCreator: AddressCreator = DefaultAddressCreator
 
   class S3QueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
@@ -74,7 +72,7 @@ abstract class Nisperon {
     r
   }
 
-  def undeployActions(solved: Boolean)
+  def undeployActions(solved: Boolean): Option[String]
 
   def undeploy(reason: String) {
 
@@ -82,6 +80,8 @@ abstract class Nisperon {
     val undeployMessage = JSON.toJSON(ManagerCommand("undeploy", reason))
 
     val wrap = JSON.toJSON(ValueWrap("1", undeployMessage))
+
+    //aws.sns.sns.
 
     aws.sns.createTopic(nisperonConfiguration.controlTopic).publish(wrap)
   }
@@ -93,6 +93,7 @@ abstract class Nisperon {
 
   def notification(subject: String, message: String) {
     val topic = aws.sns.createTopic(nisperonConfiguration.notificationTopic)
+
     topic.publish(message, subject)
   }
 
@@ -151,7 +152,7 @@ abstract class Nisperon {
 
           addTasks()
 
-          println("launching metamanager")
+          logger.info("launching metamanager")
           //println(metagroup)
 
           aws.as.createAutoScalingGroup(metagroup)
@@ -168,7 +169,7 @@ abstract class Nisperon {
       }
 
       case "check" :: "queues" :: Nil => {
-        println(checkQueues())
+        logger.info(checkQueues())
       }
 
       case "graph" :: Nil => {
@@ -186,15 +187,16 @@ abstract class Nisperon {
       }
 
       case "undeploy" :: "force" :: Nil => {
-        aws.as.deleteAutoScalingGroup(nisperonConfiguration.metamanagerGroup)
 
+        aws.as.deleteAutoScalingGroup(nisperonConfiguration.metamanagerGroup)
         nisperos.foreach {
           case (id, nispero) =>
-            undeployActions(false)
+
             aws.as.deleteAutoScalingGroup(nispero.nisperoConfiguration.managerGroupName)
             aws.as.deleteAutoScalingGroup(nispero.nisperoConfiguration.workersGroupName)
             aws.sqs.createQueue(nispero.nisperoConfiguration.controlQueueName).delete()
         }
+        logger.info("undeploy actions results: " + undeployActions(false))
       }
 
       case "list" :: Nil => {
@@ -234,7 +236,7 @@ abstract class Nisperon {
         nisperos(nispero)
       }
 
-      case args => println("wrong command"); additionalHandler(args)
+      case args => additionalHandler(args)
 
     }
   }

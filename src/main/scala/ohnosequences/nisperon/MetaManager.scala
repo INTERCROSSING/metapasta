@@ -92,14 +92,21 @@ class MetaManager(nisperon: Nisperon) {
 
 
 
+            var result: Option[String] = None
+
+            ///todo add attempts!
             try {
-              nisperon.undeployActions(solved)
+              result = nisperon.undeployActions(solved)
             } catch {
               case t: Throwable => logger.error("error during performing undeploy actions " + t.toString)
                 Nisperon.terminateInstance(aws, nisperon.nisperonConfiguration.bucket, logger, "metamanager", t)
             }
 
-            nisperon.notification(nisperon.nisperonConfiguration.id + " terminated", "reason: " + reason)
+            result match {
+              case None => nisperon.notification(nisperon.nisperonConfiguration.id + " terminated", "reason: " + reason)
+              case Some(failure) =>
+                nisperon.notification(nisperon.nisperonConfiguration.id + " terminated", "failure of undeploy actions:" + reason)
+            }
 
 
             try {
