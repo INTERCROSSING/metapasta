@@ -20,8 +20,6 @@ abstract class WorkerAux {
 
   val nisperoConfiguration: NisperoConfiguration
 
-//  val addressCreator: AddressCreator
-
   val aws: AWS
 
   val logger = Logger(this.getClass)
@@ -51,18 +49,17 @@ abstract class WorkerAux {
     var endTime = 0L
 
 
-
-
-    while(true) {
+    while (true) {
       var messages = List[Message[inputQueue.MA]]()
 
       try {
-        startTime =  System.currentTimeMillis()
-        messages = (1 to instructions.arity).toList.map { n =>
-         // logger.info("waiting for message from: " + inputQueue.name + "[" + n + "]")
-          inputQueue.read()
+        startTime = System.currentTimeMillis()
+        messages = (1 to instructions.arity).toList.map {
+          n =>
+          // logger.info("waiting for message from: " + inputQueue.name + "[" + n + "]")
+            inputQueue.read()
         }
-        endTime =  System.currentTimeMillis()
+        endTime = System.currentTimeMillis()
         logger.info("message read in " + (endTime - startTime))
       } catch {
         case t: Throwable => {
@@ -84,8 +81,8 @@ abstract class WorkerAux {
 
 
         //todo fix this check for a productqueue
-       // if (!solved) {
-          startTime =  System.currentTimeMillis()
+        // if (!solved) {
+        startTime = System.currentTimeMillis()
 
         val logs = if (nisperoConfiguration.nisperonConfiguration.logging) {
           Some(ObjectAddress(nisperoConfiguration.nisperonConfiguration.bucket, nisperoConfiguration.name + "/" + messages.head.id))
@@ -93,50 +90,41 @@ abstract class WorkerAux {
           None
         }
 
-          output = instructions.solve(messages.map(_.value()), logs)
-          endTime =  System.currentTimeMillis()
-          logger.info("executed in " + (endTime - startTime))
-       // } else {
-       //   logger.info("skipping solved task")
-       // }
-
-
+        output = instructions.solve(messages.map(_.value()), logs)
+        endTime = System.currentTimeMillis()
+        logger.info("executed in " + (endTime - startTime))
+        // } else {
+        //   logger.info("skipping solved task")
+        // }
 
         try {
-        //  if (!solved) {
-            startTime =  System.currentTimeMillis()
-            outputQueue.put(messages.head.id, output)
-            endTime =  System.currentTimeMillis()
-            logger.info("message written in " + (endTime - startTime))
-        //  }
+          //  if (!solved) {
+          startTime = System.currentTimeMillis()
+          outputQueue.put(messages.head.id, output)
+          endTime = System.currentTimeMillis()
+          logger.info("message written in " + (endTime - startTime))
 
-
-
-
-
-
-              messages.foreach { message =>
-                var deleted = false
-                var attempt = 0
-                while(!deleted) {
-                  try {
-                    attempt += 1
-                    message.delete()
-                    deleted = true
-                  } catch {
-                    case t: Throwable => {
-                      if(attempt < 10) {
-                        logger.warn("couldn't delete massage " + message.id)
-                        Thread.sleep(attempt * 100)
-                      } else {
-                        throw t
-                      }
+          messages.foreach {
+            message =>
+              var deleted = false
+              var attempt = 0
+              while (!deleted) {
+                try {
+                  attempt += 1
+                  message.delete()
+                  deleted = true
+                } catch {
+                  case t: Throwable => {
+                    if (attempt < 10) {
+                      logger.warn("couldn't delete massage " + message.id)
+                      Thread.sleep(attempt * 100)
+                    } else {
+                      throw t
                     }
                   }
                 }
-
+              }
           }
-
 
 
         } catch {
@@ -146,8 +134,7 @@ abstract class WorkerAux {
           }
         }
 
-
-//todo fix reset
+        //todo fix reset
       } catch {
         case t: Throwable => {
           logger.error("instructions error: " + t.toString)
@@ -155,8 +142,6 @@ abstract class WorkerAux {
           inputQueue.reset()
         }
       } finally {
-
-
         // outputQueue.reset()
       }
     }
@@ -164,7 +149,6 @@ abstract class WorkerAux {
 
 
 }
-
 
 
 class Worker[Input, Output, InputQueue <: MonoidQueue[Input], OutputQueue <: MonoidQueue[Output]]

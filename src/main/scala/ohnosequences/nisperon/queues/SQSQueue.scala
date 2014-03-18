@@ -24,14 +24,15 @@ class SQSMessage[T](
                      val body: String,
                      val serializer: Serializer[T],
                      val sqsMessageId: String,
-                     visibilityExtender: VisibilityExtender[T]) extends Message[T] {
+                     val visibilityExtender: VisibilityExtender[T],
+                     val logger: Logger) extends Message[T] {
 
   def value(): T = {
     serializer.fromString(body)
   }
 
   def delete() {
-    println("deleting " + sqsMessageId)
+    logger.info("deleting " + sqsMessageId)
    // q.VisibilityExtender.deleteMessage(m)
     visibilityExtender.deleteMessage(receiptHandle)
     sqs.deleteMessage(new DeleteMessageRequest()
@@ -47,7 +48,7 @@ class SQSMessage[T](
       .withVisibilityTimeout(secs)
     )
 
-    println(sqsMessageId + " >> +" + secs)
+    logger.info(sqsMessageId + " >> +" + secs)
   }
 }
 
@@ -92,7 +93,7 @@ class BufferedSQSReader[T](sqsQueue: SQSQueue[T], queueURL: String, visibilityEx
             m.getBody
           }
           val valueWrap = valueWrapSerializer.fromString(body)
-          val sqsMessage = new SQSMessage[T](sqsQueue.sqs, queueURL, valueWrap.id, m.getReceiptHandle, valueWrap.body, sqsQueue.serializer, m.getMessageId, visibilityExtender)
+          val sqsMessage = new SQSMessage[T](sqsQueue.sqs, queueURL, valueWrap.id, m.getReceiptHandle, valueWrap.body, sqsQueue.serializer, m.getMessageId, visibilityExtender, logger)
           sqsMessage
         }
 
