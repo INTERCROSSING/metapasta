@@ -113,7 +113,7 @@ class BlastInstructions(aws: AWS,
     parsed.foreach { fastq =>
       //reads.put(extractHeader(fastq.header.toString), fastq)
       val s = fastq.toFasta
-      if(!emptyInput && !s.trim.isEmpty) {
+      if(emptyInput && !s.trim.isEmpty) {
         emptyInput = false
       }
       writer.println(s)
@@ -134,7 +134,9 @@ class BlastInstructions(aws: AWS,
     val startTime = System.currentTimeMillis()
     val code = if(emptyInput) {
       logger.warn("empty chunk.. skipping mapping")
-      new PrintWriter(new File(output)).println("")
+      val pw = new PrintWriter(new File(output))
+      pw.println("")
+      pw.close()
     } else {
       command.!
     }
