@@ -119,7 +119,7 @@ class BufferedSQSReader[T](sqsQueue: SQSQueue[T], queueURL: String, visibilityEx
   }
 
   def reset() {
-    //visibilityExtender.clear()
+    visibilityExtender.clear()
   }
 
   def read: SQSMessage[T] = {

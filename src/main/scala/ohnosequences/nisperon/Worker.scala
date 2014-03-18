@@ -147,14 +147,15 @@ abstract class WorkerAux {
         }
 
 
-
+//todo fix reset
       } catch {
         case t: Throwable => {
           logger.error("instructions error: " + t.toString)
           t.printStackTrace()
+          inputQueue.reset()
         }
       } finally {
-        inputQueue.reset()
+
 
         // outputQueue.reset()
       }
