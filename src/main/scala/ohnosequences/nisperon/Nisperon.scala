@@ -27,8 +27,6 @@ abstract class Nisperon {
 
   def checks()
 
-
-
  // val addressCreator: AddressCreator = DefaultAddressCreator
 
   class S3QueueLocal[T](name: String, monoid: Monoid[T], serializer: Serializer[T]) extends
@@ -83,6 +81,8 @@ abstract class Nisperon {
 
     val wrap = JSON.toJSON(ValueWrap("1", undeployMessage))
 
+    //aws.sns.sns.
+
     aws.sns.createTopic(nisperonConfiguration.controlTopic).publish(wrap)
   }
 
@@ -93,6 +93,7 @@ abstract class Nisperon {
 
   def notification(subject: String, message: String) {
     val topic = aws.sns.createTopic(nisperonConfiguration.notificationTopic)
+
     topic.publish(message, subject)
   }
 

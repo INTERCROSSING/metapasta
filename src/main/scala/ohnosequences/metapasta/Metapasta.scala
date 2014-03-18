@@ -34,11 +34,16 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     throughputs = (1, 1)
   )
 
+  val writeThrouput = configuration.mergeQueueThroughput match {
+    case Fixed(m) => m
+    case SampleBased(ratio, max) => math.max(ratio * configuration.samples.size, max).toInt
+  }
+
   val mergedSampleChunks = queue(
     name = "mergedSampleChunks",
     monoid = new ListMonoid[MergedSampleChunk](),
     serializer = new JsonSerializer[List[MergedSampleChunk]](),
-    throughputs = (5, 1)
+    throughputs = (writeThrouput, 1)
   )
 
   val readsInfo = s3queue(
