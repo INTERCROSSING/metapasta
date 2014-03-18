@@ -310,7 +310,7 @@ class LastInstructions(aws: AWS,
     var unassigned = 0
 
     parsed.foreach { fastq =>
-      val readId = extractHeader(fastq.header.getRaw.replaceAll("\\s+", "_"))
+      val readId = extractHeader(fastq.header.getRaw.split("\\s+")(0))
       bestHits.get(readId) match {
         case None => {
           readsInfo += ReadInfo(readId, ReadInfo.unassigned, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId, ReadInfo.unassigned)

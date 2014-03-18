@@ -137,6 +137,7 @@ class BlastInstructions(aws: AWS,
       val pw = new PrintWriter(new File(output))
       pw.println("")
       pw.close()
+      0
     } else {
       command.!
     }
@@ -219,7 +220,8 @@ class BlastInstructions(aws: AWS,
     var unassigned = 0
 
     parsed.foreach { fastq =>
-      val readId = extractHeader(fastq.header.getRaw.replaceAll("\\s+", "_"))
+     // val readId = extractHeader(fastq.header.getRaw.replaceAll("\\s+", "_"))
+      val readId = extractHeader(fastq.header.getRaw.split("\\s+")(0))
      // println("final: " + readId)
       bestHits.get(readId) match {
         case None => {
