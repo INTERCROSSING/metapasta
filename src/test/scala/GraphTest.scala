@@ -33,7 +33,7 @@ class GraphTest {
       )
     )
 
-    val s = g.sort()
+    val s = g.sort
 
     assertEquals(7, s.size)
 
@@ -63,10 +63,10 @@ class GraphTest {
       )
     )
 
-    val s = g.sort()
+    val s = g.sort
 
-    assertEquals(6, g.sort().size)
+    assertEquals(6, g.sort.size)
 
-    println(g.sort())
+    println(g.sort)
   }
 }

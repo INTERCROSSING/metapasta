@@ -14,8 +14,8 @@ import scala.io._
 import ohnosequences.formats._
 
 /* Type class which
-- requires to define header parser
-- provides parsers for reads
+   - requires to define header parser
+   - provides parsers for reads
 */
 trait ParsableHeaders[H <: Header] {
   def headerParser(line: String): Option[H]
@@ -24,7 +24,7 @@ trait ParsableHeaders[H <: Header] {
   def itemParser(ls: Seq[String]): Option[FASTQ[H]] = {
     headerParser(ls(0)) match {
       case Some(h) if (
-        ls.length == 4 &&             // 4 lines
+          ls.length == 4 &&             // 4 lines
           ls(2).startsWith("+") &&      // third is opt-header
           ls(1).length == ls(3).length  // sequence length == quality lienght
         ) => Some(FASTQ(h, ls(1), ls(2), ls(3)))
@@ -54,66 +54,90 @@ object ParsableHeaders {
 }
 
 /* Class which works reads S3 by chunks and parses them */
-case class S3ChunksReader(s3: S3, objectAddress: ObjectAddress) {
+case class S3ChunksReader(s3: S3, address: ObjectAddress) {
 
-  def readChunk(start: Long, end: Long): Iterator[String] = {
-    if (start >= end) return Nil.toIterator
+  /* This function reads part/chunk of an S3 object and returns it as `S3Object` */
+  def s3ObjectChunk(start: Long, end: Long): S3Object = {
+    val objSize = s3.s3.getObjectMetadata(address.bucket, address.key).getContentLength
+    val left = List(start, end, objSize).min // real left end of range
+    val right = List(start, List(end, objSize).min).max // real right end, but not further than the end of file
+    val request = new GetObjectRequest(address.bucket, address.key).withRange(left, right)
+    // TODO: deal somehow with `InvalidRange` exception
+    // try {
+    s3.s3.getObject(request)
+    // } catch {
+    //   case e: com.amazonaws.AmazonServiceException
+    //     if e.getErrorCode == "InvalidRange" => ???
+    // }
+  }
 
-    val request = new GetObjectRequest(objectAddress.bucket, objectAddress.key).withRange(start, end)
-    try {
-      val objectPortion: S3Object = s3.s3.getObject(request)
-      val objectStream = objectPortion.getObjectContent
-      Source.fromInputStream(objectStream).getLines()
-    } catch {
-      case e: com.amazonaws.AmazonServiceException
-        if e.getErrorCode == "InvalidRange" => Nil.toIterator
+  implicit class extS3Object(obj: S3Object) {
+    /* This adds a method to `S3Object` which returns an iterator over the object's content lines */
+    def lines: Iterator[String] = Source.fromInputStream(obj.getObjectContent).getLines()
+
+    /* This is a colvenience method, which helps not to forget to close the `S3Object` after using it */
+    def closeAfter[R](clos: S3Object => R): R = {
+      val r = clos(obj)
+      obj.close
+      r
     }
   }
 
-  type ParsedLength = Long
+  /* Just an alias */
   type ParsedNumber = Long
 
-  // takes an iterator over lines and returns:
-  // (parsed reads, length of prased piece, number of parsed reads)
+  /* Takes an iterator over lines and returns:
+     (parsed reads, the rest of unparsed lines, number of parsed reads) */
   def readsParser[H <: Header : ParsableHeaders](strm: Iterator[String]):
-  (List[FASTQ[H]], ParsedLength, ParsedNumber) = {
-
+  (List[FASTQ[H]], Seq[String], ParsedNumber) = {
+    // picking the right parser
     val parser = implicitly[ParsableHeaders[H]].itemParser _
 
-    // skip some trash in the beginning:
-    val (trash, slider) = strm.sliding(4).span{ parser(_).isEmpty }
-    val trashText = trash.flatMap(_.take(1)).mkString("\r")
-    val trashLength: ParsedLength = trashText.length + trash.take(1).length
-    // println("trash:      " + trashLength)
-    // println(trashText)
-
-    // sliding, parsing accumulating:
-    slider.foldLeft(List[FASTQ[H]](), trashLength, 0L) {
-      case ((acc, l, n), gr) =>
-        parser(gr) match {
-          case Some(read) =>
-            ( read :: acc
-              , l + gr.mkString("\r").length + 1
-              , n + 1
-              )
-          case _ => (acc, l, n)
+    // sliding, parsing, accumulating
+    strm.sliding(4).foldLeft(List[FASTQ[H]](), Seq[String](), 0L) {
+      case ((parsed, unparsed, parsedNumber), r) =>
+        parser(r) match {
+          case Some(read) => (read :: parsed, Seq[String](), parsedNumber + 1)
+          // TODO: this unparsed thing is a bit tricky, should write it more clear
+          case _          => (parsed, unparsed ++ r.drop(3), parsedNumber)
         }
     }
   }
 
+  /*  */
   def parseChunk[H <: Header : ParsableHeaders](start: Long, end: Long):
   (List[FASTQ[H]], ParsedNumber) = {
-    val (reads, l, n) = readsParser(readChunk(start, end))
-    val stopPoint = start + l
-    val avgLength = if (n == 0L) 0 else l / n
-    val anotherPiece = if (stopPoint == end) 0 else avgLength
-    // println("start:     " + start)
-    // println("stopPoint: " + stopPoint)
-    // println("end:       " + end)
-    // println("diff:      " + (end - stopPoint))
-    // println("avgLength: " + avgLength)
-    val (rest, _, _) = readsParser(readChunk(stopPoint, end + anotherPiece))
-    val mbLast = rest.take(1)
-    (reads ++ mbLast, n + mbLast.length)
+    s3ObjectChunk(start, end).closeAfter { chunk =>
+      val (reads, unparsed, n) = readsParser(chunk.lines)
+
+      /* Perfect match! */
+      if(unparsed.isEmpty) {
+        // println("Perfect match!!!")
+        (reads, n)
+      } else {
+        /* Reading the next chunk */
+        s3ObjectChunk(end + 1, end + 1 + (end-start)).closeAfter { chunk =>
+          /* but we want only to complete the `unparsed` part */
+          val lines = chunk.lines.take(4).toSeq
+          /* first we try just to add the new lines and parse */
+          val concatenated = unparsed ++ lines
+          val (psd, u, _) = readsParser(concatenated.toIterator)
+          /* maybe it's something... */
+          val mbLast = if (psd.nonEmpty) psd.take(1)
+          /* but if it didn't work, it's likely that the last line of `unparsed` was cut */
+            else {
+              /* so we glue it with the first of the new chunk*/
+              val glued = unparsed.init ++ ((unparsed.last + lines.head) +: lines.tail)
+              val (rest, u, _) = readsParser(glued.toIterator)
+              if (rest.nonEmpty) rest.take(1)
+              /* this can happen **only** if it was the end of file and there were no enough lines */
+              else if (concatenated.length < 4 || glued.length < 4) Seq()
+              /* otherwise there is probably a bug in the parser */
+              else throw new RuntimeException(s"Reads parser failed to parse additional read:\n ${glued}")
+            }
+          (reads ++ mbLast, n + mbLast.length)
+        }
+      }
+    }
   }
 }
