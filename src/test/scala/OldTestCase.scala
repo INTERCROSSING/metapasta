@@ -46,7 +46,7 @@ class OldTestCase {
       size += parsed.size
     }
     //print 10001 instead 10000 ( = amount of reads in microtest.fastq)
-    assertEquals(1000, size)
+    assertEquals(10000, size)
     println(size)
   }
 }
