@@ -43,13 +43,13 @@ nispero configure
 To download a template with metapasta project type:
 
 ```
-nispero ohnosequences/metapasta
+nispero ohnosequences/metapasta.g8
 ```
 
 or 
 
 ```
-nispero ohnosequences/metapasta/0.5.0
+nispero ohnosequences/metapasta.g8/0.5.0
 ```
 
 
