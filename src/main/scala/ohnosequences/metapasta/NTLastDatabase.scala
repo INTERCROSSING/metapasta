@@ -14,11 +14,11 @@ object NTLastDatabase extends LastDatabase {
     logger.info("downloading database")
     val lm = aws.s3.createLoadingManager()
 
-    lm.downloadDirectory(ObjectAddress("metapasta", "nt.last"), new File("."))
+    lm.downloadDirectory(ObjectAddress("metapasta", "nt.march.14.last"), new File("."))
 
   }
 
-  val name: String = "nt"
+  val name: String = "nt.march.14.last/nt.march.14"
 
   //gi|313494140|gb|GU939576.1|
   val re = """\Qgi|\E(\d+)[^\d]+.*""".r

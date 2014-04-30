@@ -13,7 +13,9 @@ import com.amazonaws.services.dynamodbv2.model.{ScalarAttributeType, AttributeDe
 
 
 //todo rank, name ...
-case class TaxInfo(count: Int, acc: Int)
+case class TaxInfo(count: Int, acc: Int) {
+  override def toString = count + ":" + acc
+}
 
 object TaxInfoMonoid extends Monoid[TaxInfo] {
   def unit: TaxInfo = TaxInfo(0, 0)
@@ -22,7 +24,7 @@ object TaxInfoMonoid extends Monoid[TaxInfo] {
 }
 
 //sample -> (tax -> taxinfo)
-case class AssignTable(table: Map[String, Map[String, TaxInfo]])
+case class  AssignTable(table: Map[String, Map[String, TaxInfo]])
 
 
 object AssignTableMonoid extends Monoid[AssignTable] {
@@ -211,10 +213,10 @@ class LastInstructions(aws: AWS,
     logger.info("running LAST")
     val output = "out.last.maf"
     val command =  lastTemplate
-      .replace("$name$", database.name)
+      .replace("$db$", database.name)
       .replace("$output$", output)
       .replace("$input$", readsFile)
-      .replace("$format$", if (fastaInput) "0" else "2")
+      .replace("$format$", if (fastaInput) "0" else "1") //sanger format is more similar to modern illumina!
    // val command = """blastn -task megablast -db $name$ -query reads.fasta -out result -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis"""
    //   .replace("$name$", database.name)
 

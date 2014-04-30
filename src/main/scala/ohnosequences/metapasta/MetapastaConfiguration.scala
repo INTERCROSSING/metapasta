@@ -25,6 +25,7 @@ trait  MetapastaConfiguration {
    val removeAllQueues: Boolean
    val timeout: Int
    val mergeQueueThroughput: MergeQueueThroughput
+   val generateDot: Boolean
 }
 
 abstract class MergeQueueThroughput
@@ -46,7 +47,8 @@ case class BlastConfiguration(
                                keyName: String = "nispero",
                                removeAllQueues: Boolean = true,
                                timeout: Int = 72000,
-                               mergeQueueThroughput: MergeQueueThroughput = SampleBased(1)
+                               mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
+                               generateDot: Boolean = true
                                ) extends MetapastaConfiguration {
 }
 
@@ -58,14 +60,15 @@ case class LastConfiguration(
                                email: String,
                                samples: List[PairedSample],
                                chunksSize: Int = 2000000,
-                               lastTemplate: String = """./lastal nt.last/$name$ $input$ -s2 -T0 -e70 -Q$format$ -f0 -o $output$""",
-                               useFasta: Boolean = false,
+                               lastTemplate: String = """./lastal $db$ $input$ -s2 -m100 -T0 -e70 -Q$format$ -f0 -o $output$""",
+                               useFasta: Boolean = true,
                                database: LastDatabase = NTLastDatabase,
                                logging: Boolean = true,
                                keyName: String = "nispero",
                                removeAllQueues: Boolean = true,
                                timeout: Int = 72000,
-                               mergeQueueThroughput: MergeQueueThroughput = SampleBased(1)
+                               mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
+                               generateDot: Boolean = true
                                ) extends MetapastaConfiguration {
 }
 

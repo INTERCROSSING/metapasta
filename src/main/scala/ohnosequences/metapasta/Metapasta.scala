@@ -212,6 +212,19 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     val result = ObjectAddress(nisperonConfiguration.bucket, "results/" + "result.csv")
     aws.s3.putWholeObject(result, resultCSV.toString())
 
+    if(configuration.generateDot) {
+      logger.info("generate dot files")
+      DOTExporter.installGraphiz()
+      table.foreach { case (sample, map) =>
+        val dotFile = new File(sample + ".dot")
+        val pdfFile = new File(sample + ".pdf")
+        DOTExporter.generateDot(map, mappingInstructions.nodeRetriever, new File(sample + ".dot"))
+        DOTExporter.generatePdf(dotFile, pdfFile)
+        val res = ObjectAddress(nisperonConfiguration.bucket, "results/viz/" + sample + ".pdf")
+        aws.s3.putObject(res, pdfFile)
+      }
+    }
+
     None
 
   }
@@ -264,7 +277,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     println("total:  " + b)
   }
 
-  def additionalHandler(args: List[String]) {}
+ def additionalHandler(args: List[String]) {undeployActions(true)}
 
 
 //  def additionalHandler(args: List[String]) {
