@@ -1,28 +1,57 @@
 ## metapasta usage
 
+
 ### installation
 
-#### cs and g8
-[`conscript`](https://github.com/n8han/conscript#installation) and [`g8`](https://github.com/n8han/giter8#installation) should be installed.
+#### nisperoCLI
 
-To create download a template with metapasta project type:
+The most convinient way to work with metapasta is [nisperoCLI](https://github.com/ohnosequences/nisperoCLI/blob/master/doc/universal-cli-tool.md).
+It can be installed either [manually](https://github.com/ohnosequences/nisperoCLI/blob/master/doc/installation.md) or using [`conscript`](https://github.com/n8han/conscript#installation) and [`g8`](https://github.com/n8han/giter8#installation):
 
 ```
-g8 ohnosequences/metapasta
+cs ohnosequences/nisperoCLI -b super-cli
 ```
 
+##### AWS credentials
 
-#### credentials
+nisperoCLI tries to resolve credentials from:
 
-AWS credentials should be placed in `~/metapasta.credentials`, the file should have a format like this
+* file `~/nispero.credentiasl` (path to credentials file can be specified as the last argument to nisperoCLI)
+* enviroment variables `AWS_ACCESS_KEY` and `AWS_SECRET_ACCESS_KEY`
+* instance profile credentials (so it means that everythinh will work automatically on instances with right IAM role)
+
+To configure your `~/nispero.credentials` just put these lines there
 
 ```bash
-accessKey = AKIAIG23IDH2AEPBEFVA
-#for example: accessKey = AKIAIG23IDH2AEPBEFVA
+accessKey = <access_key>
+#for example: accessKey = AKIAIG23IDH2AEPBEFVE
 
-secretKey = AZpGhgq6i4+m+TRXJ0W8nYmRJY3ejr5p5DQULTci
-#for example: secretKey = AZpGhgq6i4+m+TRXJ0W8nYmRJY3ejr5p5DQULTci
+secretKey = <secret_key>
+#for example: secretKey = AZpGhgq6i4+m+TRXJ0W8nYmRJY3eqr5p5DQULTci
 ```
+
+#### configuration of AWS account
+
+To use metapasta your AWS account should be configured.
+
+```
+nispero configure
+```
+
+### creating template
+
+To download a template with metapasta project type:
+
+```
+nispero ohnosequences/metapasta.g8
+```
+
+or 
+
+```
+nispero ohnosequences/metapasta.g8/0.5.0
+```
+
 
 ### configuration
 
