@@ -99,7 +99,7 @@ abstract class Nisperon {
 
   def addTasks(): Unit
 
-  def main(args: Array[String]) {
+  def main2(args: Array[String]) {
 
     args.toList match {
       case "meta" :: "meta" :: Nil => new MetaManager(Nisperon.this).run()

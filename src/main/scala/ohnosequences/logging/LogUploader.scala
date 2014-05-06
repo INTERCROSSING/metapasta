@@ -6,7 +6,6 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import ohnosequences.logging.LogMessage
 import scala.collection.JavaConversions._
-import com.twitter.finatra.{Controller, FinatraServer}
 
 
 //read messages from SQS and upload it to DynamoDB
@@ -197,33 +196,18 @@ case class LogUploader(aws: AWS, queueName: String) {
 
 
 object LogTest {
-  def main(args: Array[String]) {
+  def main2(args: Array[String]) {
     val aws = new AWS()
-    val logger = new Logger(aws, "log", "log1", "log2", "instance0", "test")
-    for (i <- 1 to 0) {
-      logger.log(Error("error " + i))
-    }
-    val logUploader = new LogUploader(aws, "log")
-    //Await.ready(logUploader.producer(List[ohnosequences.awstools.sqs.Message]()), 500 seconds)
-    new App(logger).main()
+//    val logger = new Logger(aws, "log", "log1", "log2", "instance1", "test")
+//    for (i <- 1 to 100) {
+//      logger.log(Error("error " + i))
+//    }
+//    val logUploader = new LogUploader(aws, "log")
+//    Await.ready(logUploader.producer(List[ohnosequences.awstools.sqs.Message]()), 500 seconds)
+    //new App(logger).main()
+
+    val writer = new Writer(aws, "log3")
+    writer.delete()
+
   }
-}
-
-class HelloWorld(logger: Logger) extends Controller {
-
-  val console = new LogConsole(logger.aws, logger.table1, logger.table2)
-
-  get("/log/:component/:instance") { request =>
-    val component = request.routeParams("component")
-    val instance = request.routeParams("instance")
-   // render.plain("component: " + component + " instance: " + instance).toFuture
-
-    render.html(console.getLastMessages(component, instance).map{ m => "<p>" + m + "</p>"
-    }.mkString).toFuture
-  }
-
-}
-
-class App(logger: Logger)  extends FinatraServer {
-  register(new HelloWorld(logger))
 }

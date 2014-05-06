@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>$name$ console</title>
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/main.css">
+    <!-- Latest compiled and minified JavaScript -->
+
+</head>
+<body>
+
+<div class="container-liquid white">
+    <div class="row-fluid">
+        <div class="col-md-2 sidebar">
+            <ul class="nav nav-sidebar">
+                @nisperos
+            </ul>
+            <ul class="nav nav-sidebar">
+                <li><a href="/shutdown">shutdown</a></li>
+            </ul>
+        </div>
+        <div class="col-md-10 col-md-offset-2 main">
+
+            <div class="page-header">
+                <h1>$name$ <small>$nispero$ nispero</small></h1>
+            </div>
+
+
+
+            <p>
+                <a class="btn btn-info" href="#" id="refresh"><i class="icon-refresh icon-white"></i>Refresh</a>
+            </p>
+
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>property</th>
+                    <th>value</th>
+                </tr>
+                </thead>
+                <tbody>
+                    @workersProperties
+                </tbody>
+            </table>
+
+
+            <div class="page-header">
+                <h3>instances</h3>
+            </div>
+
+
+
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>id</th>
+                        <th>status</th>
+                        <th>actions</th>
+                    </tr>
+                </thead>
+                <tbody id="workerInstances">
+                    @workerInstances
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="terminateInstanceModal" tabindex="-1" role="dialog" aria-labelledby="terminateInstanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title" id="terminateInstanceModalLabel">Terminate instance</h4>
+            </div>
+
+            <div class="modal-body terminateInstanceBody">
+
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary terminateFinal" id="">Terminate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+<script src="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script>
+    $(document).ready(function(){
+
+    if (!window.console) console = {};
+    console.log = console.log || function(){};
+    console.warn = console.warn || function(){};
+    console.error = console.error || function(){};
+    console.info = console.info || function(){};
+
+    $('#refresh').click(function(){
+        console.info("refresh:");
+        $('#workerInstances').load("/nispero/$nispero$/workerInstances", function() {
+        $('.terminate').click(function(event){
+        console.info("terminate: " + event.target.id);
+        $('.terminateFinal').attr("id", event.target.id)
+        $('.terminateInstanceBody').html("<p>Do you want to terminate instance " + event.target.id + "?</p>")
+        $('#terminateInstanceModal').modal('show')
+        });
+        });
+    });
+
+    $('.terminate').click(function(event){
+        console.info("terminate: " + event.target.id);
+        $('.terminateFinal').attr("id", event.target.id)
+        $('.terminateInstanceBody').html("<p>Do you want to terminate instance " + event.target.id + "?</p>")
+        $('#terminateInstanceModal').modal('show')
+    });
+
+   // $("#workerInstances .terminate").on( "click", function(event) {
+   //     console.info("terminate: " + event.target.id);
+   //     $('.terminateFinal').attr("id", event.target.id)
+   //     $('.terminateInstanceBody').html("<p>Do you want to terminate instance " + event.target.id + "?</p>")
+   //     $('#terminateInstanceModal').modal('show')
+   // });
+
+    $('.terminateFinal').click(function(event){
+        console.info("final terminate: " + event.target.id);
+        $('.terminateInstanceBody').load("/terminate/" + event.target.id)
+    });
+
+    });
+    </script>
+</body>
+</html>
