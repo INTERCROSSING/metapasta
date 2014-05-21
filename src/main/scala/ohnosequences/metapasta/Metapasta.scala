@@ -22,7 +22,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     email = configuration.email,
     autoTermination = true,
     timeout = configuration.timeout,
-    logging = configuration.logging,
+    password = configuration.password,
     keyName = configuration.keyName,
     removeAllQueues = configuration.removeAllQueues
   )
@@ -74,8 +74,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
   val mappingInstructions: MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever =
     configuration match {
-      case b: BlastConfiguration => new BlastInstructions(aws, b.database, bio4j, b.blastTemplate, b.xmlOutput)
-      case l: LastConfiguration => new LastInstructions(aws, l.database, bio4j, l.lastTemplate, l.useFasta)
+      case b: BlastConfiguration => new BlastInstructions(aws, b.database, bio4j, b.blastTemplate, b.xmlOutput, configuration.logging)
+      case l: LastConfiguration => new LastInstructions(aws, l.database, bio4j, l.lastTemplate, l.useFasta, configuration.logging)
     }
 
 
@@ -348,7 +348,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       pairedSamples.initWrite()
       val t1 = System.currentTimeMillis()
       configuration.samples.foreach { sample =>
-        pairedSamples.put(sample.name, List(List(sample)))
+        pairedSamples.put(sample.name, "", List(List(sample)))
       }
       val t2 = System.currentTimeMillis()
       logger.info("added " + (t2-t1) + " ms")

@@ -33,6 +33,7 @@ class meta4m(
 object configuration extends BlastConfiguration (
   metadataBuilder = new NisperonMetadataBuilder(new meta4m()),
   email = "$email$",
+  password = "$password$",
   mappingWorkers = Group(size = 10, max = 20, instanceType = InstanceType.T1Micro, purchaseModel = OnDemand),
   uploadWorkers = None,
   samples = mockSamples.samples,

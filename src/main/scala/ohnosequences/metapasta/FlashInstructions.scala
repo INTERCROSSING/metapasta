@@ -1,10 +1,11 @@
 package ohnosequences.metapasta
 
 import ohnosequences.awstools.s3.{S3, ObjectAddress}
-import ohnosequences.nisperon.{SplitInstructions, AWS, MapInstructions}
+import ohnosequences.nisperon.{Instructions, AWS, MapInstructions}
 import org.clapper.avsl.Logger
 import java.io.File
 import ohnosequences.formats.{RawHeader, FASTQ}
+import ohnosequences.nisperon.logging.S3Logger
 
 
 case class PairedSample(name: String, fastq1: ObjectAddress, fastq2: ObjectAddress)
@@ -55,7 +56,7 @@ case class MergedSampleChunk(fastq: ObjectAddress, sample: String, range: (Long,
 //  }
 //}
 
-class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends SplitInstructions[List[PairedSample], List[MergedSampleChunk]] {
+class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends Instructions[List[PairedSample], List[MergedSampleChunk]] {
 
   import scala.sys.process._
 
@@ -75,10 +76,8 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
 
   }
 
-  def apply(input: List[PairedSample], logs: Option[ObjectAddress]): List[List[MergedSampleChunk]] = {
+  def solve(input: List[PairedSample], s3logger: S3Logger): List[List[MergedSampleChunk]] = {
     val sample = input.head
-
-
 
     val resultObject = if (sample.fastq1.equals(sample.fastq2)) {
       logger.info("not paired-ended")

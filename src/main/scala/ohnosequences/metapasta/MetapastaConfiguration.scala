@@ -18,6 +18,7 @@ trait  MetapastaConfiguration {
    val mappingWorkers: GroupConfiguration
    val uploadWorkers: Option[Int]
    val email: String
+   val password: String
    val samples: List[PairedSample]
    val chunksSize: Int
    val logging: Boolean
@@ -42,6 +43,7 @@ case class BlastConfiguration(
                                chunksSize: Int = 20000,
                                blastTemplate: String = """blastn -task megablast -db $name$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt $out_format$ -show_gis""",
                                xmlOutput: Boolean = false,
+                               password: String,
                                database: BlastDatabase = NTDatabase,
                                logging: Boolean = true,
                                keyName: String = "nispero",
@@ -64,6 +66,7 @@ case class LastConfiguration(
                                useFasta: Boolean = true,
                                database: LastDatabase = NTLastDatabase,
                                logging: Boolean = true,
+                               password: String,
                                keyName: String = "nispero",
                                removeAllQueues: Boolean = true,
                                timeout: Int = 72000,

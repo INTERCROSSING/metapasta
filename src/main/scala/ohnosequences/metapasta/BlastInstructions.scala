@@ -8,13 +8,15 @@ import ohnosequences.formats.{RawHeader, FASTQ}
 import java.io.{File, PrintWriter}
 import ohnosequences.awstools.s3.ObjectAddress
 import scala.collection.mutable.ListBuffer
+import ohnosequences.nisperon.logging.S3Logger
 
 
 class BlastInstructions(aws: AWS,
                        database: BlastDatabase,
                        bio4j: Bio4jDistributionDist,
                        blastTemplate: String = """blastn -task megablast -db $name$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis""",
-                       useXML: Boolean
+                       useXML: Boolean,
+                       logging: Boolean
                        ) extends
    MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever {
 
@@ -93,7 +95,7 @@ class BlastInstructions(aws: AWS,
   //todo think about this space
   def extractHeader(s: String) = s.replace("@", "").split("\\s")(0)
 
-  def apply(input: List[MergedSampleChunk], logs: Option[ObjectAddress]): (List[ReadInfo], AssignTable) = {
+  def apply(input: List[MergedSampleChunk], s3logger: S3Logger): (List[ReadInfo], AssignTable) = {
 
     import scala.sys.process._
 
@@ -155,9 +157,8 @@ class BlastInstructions(aws: AWS,
     //todo fix it!
 
 
-    logs.foreach { logs =>
-      logger.info("uploading result to S3")
-      aws.s3.putObject(ObjectAddress(logs.bucket, logs.key + "/" + output), new File(output))
+    if(logging) {
+      s3logger.uploadFile(new File(output))
     }
 
     logger.info("parsing BLAST result")

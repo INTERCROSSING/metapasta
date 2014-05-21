@@ -7,6 +7,7 @@ import org.clapper.avsl.Logger
 import ohnosequences.awstools.ddb.Utils
 import java.util
 import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.nisperon.logging.S3Logger
 
 
 class DynamoDBUploader(aws: AWS, readsTable: String, samplesTable: String) extends MapInstructions[List[ReadInfo], Unit] {
@@ -19,12 +20,12 @@ class DynamoDBUploader(aws: AWS, readsTable: String, samplesTable: String) exten
   val hash = new AttributeDefinition().withAttributeName(sampleAttr).withAttributeType(ScalarAttributeType.S)
   val range = new AttributeDefinition().withAttributeName(chunkAttr).withAttributeType(ScalarAttributeType.S)
 
-  def prepare() {
+  override def prepare() {
     Utils.createTable(aws.ddb, readsTable, ReadInfo.hash, Some(ReadInfo.range), logger, 100, 1)
     Utils.createTable(aws.ddb, samplesTable, hash, Some(range), logger, 1, 1)
   }
 
-  def apply(input: List[ReadInfo], logs: Option[ObjectAddress]) {
+  def apply(input: List[ReadInfo], s3logger: S3Logger) {
     val batchSize = 40 // x25
 
     var c = -1

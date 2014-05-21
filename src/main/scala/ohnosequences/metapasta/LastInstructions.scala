@@ -9,7 +9,7 @@ import ohnosequences.parsers.S3ChunksReader
 import ohnosequences.formats.{RawHeader, FASTQ}
 import scala.collection.mutable
 import com.amazonaws.services.dynamodbv2.model.{ScalarAttributeType, AttributeDefinition, AttributeValue}
-
+import ohnosequences.nisperon.logging.S3Logger
 
 
 //todo rank, name ...
@@ -108,7 +108,8 @@ class LastInstructions(aws: AWS,
                        database: LastDatabase,
                        bio4j: Bio4jDistributionDist,
                        lastTemplate: String,
-                       fastaInput: Boolean = false
+                       fastaInput: Boolean = false,
+                       logging: Boolean
                        ) extends
    MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever {
 
@@ -183,7 +184,7 @@ class LastInstructions(aws: AWS,
   //todo think about this space
   def extractHeader(s: String) = s.replace("@", "").split("\\s")(0)
 
-  def apply(input: List[MergedSampleChunk], logs: Option[ObjectAddress]): (List[ReadInfo], AssignTable) = {
+  def apply(input: List[MergedSampleChunk], s3logger: S3Logger): (List[ReadInfo], AssignTable) = {
 
     import scala.sys.process._
 
@@ -234,9 +235,10 @@ class LastInstructions(aws: AWS,
     val resultRaw = readFile(new File(output))
 
     //logs.
-    logs.foreach { logs =>
+    if(logging) {
       logger.info("uploading result to S3")
-      aws.s3.putObject(ObjectAddress(logs.bucket, logs.key + "/" + output), new File(output))
+      s3logger.uploadFile(new File(output))
+     // aws.s3.putObject(ObjectAddress(logs.bucket, logs.key + "/" + output), new File(output))
     }
 
 
