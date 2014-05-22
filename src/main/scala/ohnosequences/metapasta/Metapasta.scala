@@ -98,8 +98,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   }
 
 
-  override def undeployActions(solved: Boolean): Option[String] = {
-    if (!solved) {
+  override def undeployActions(force: Boolean): Option[String] = {
+    if (force) {
       return None
     }
 
@@ -121,88 +121,94 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     val perSampleTotal = mutable.HashMap[String, TaxInfo]()
     var totalCount0 = 0
     var totalAcc0 = 0
-    table.foreach { case (sample, map) =>
-      var sampleTotal = TaxInfoMonoid.unit
+    table.foreach {
+      case (sample, map) =>
+        var sampleTotal = TaxInfoMonoid.unit
 
-      map.foreach { case (tax, taxInfo) =>
-        sampleTotal = TaxInfoMonoid.mult(taxInfo, sampleTotal)
-        finalTaxInfo.get(tax) match {
-          case None => {
-            val initMap = mutable.HashMap[String, TaxInfo](sample -> taxInfo)
-            finalTaxInfo.put(tax, initMap)
-          }
-          case Some(sampleMap) => {
-            sampleMap.get(sample) match {
-              case None => sampleMap.put(sample, taxInfo)
-              case Some(oldTaxInfo) => {
-                sampleMap.put(sample, TaxInfoMonoid.mult(taxInfo, oldTaxInfo))
+        map.foreach {
+          case (tax, taxInfo) =>
+            sampleTotal = TaxInfoMonoid.mult(taxInfo, sampleTotal)
+            finalTaxInfo.get(tax) match {
+              case None => {
+                val initMap = mutable.HashMap[String, TaxInfo](sample -> taxInfo)
+                finalTaxInfo.put(tax, initMap)
+              }
+              case Some(sampleMap) => {
+                sampleMap.get(sample) match {
+                  case None => sampleMap.put(sample, taxInfo)
+                  case Some(oldTaxInfo) => {
+                    sampleMap.put(sample, TaxInfoMonoid.mult(taxInfo, oldTaxInfo))
+                  }
+                }
               }
             }
-          }
+            perSampleTotal.put(sample, sampleTotal)
         }
-        perSampleTotal.put(sample, sampleTotal)
-      }
-      totalCount0 += sampleTotal.count
-      totalAcc0 += sampleTotal.acc
+        totalCount0 += sampleTotal.count
+        totalAcc0 += sampleTotal.acc
     }
-    
-    
+
+
     resultCSV.append("#;taxId;")
     resultCSV.append("name;rank;")
-    table.keys.foreach { sample =>
-      resultCSV.append(sample + ".count;")
-      resultCSV.append(sample + ".acc;")
+    table.keys.foreach {
+      sample =>
+        resultCSV.append(sample + ".count;")
+        resultCSV.append(sample + ".acc;")
     }
     resultCSV.append("total.count;total.acc\n")
 
     var totalCount1 = 0
     var totalAcc1 = 0
-    finalTaxInfo.foreach { case (taxid, map) =>
-      resultCSV.append(taxid + ";")
-      val (name, rank) = try {
-        val node = mappingInstructions.nodeRetriever.getNCBITaxonByTaxId(taxid)
-        (node.getScientificName(), node.getRank())
-      } catch {
-        case t: Throwable => ("", "")
-      }
-      resultCSV.append(name + ";")
-      resultCSV.append(rank + ";")
-
-
-      //mappingInstructions.nodeRetriever.g
-
-      var taxCount = 0
-      var taxAcc = 0
-      table.keys.foreach { sample =>
-        map.get(sample) match {
-          case Some(taxInfo) => {
-            resultCSV.append(taxInfo.count + ";" + taxInfo.acc + ";")
-            taxCount += taxInfo.count
-            taxAcc += taxInfo.acc
-          }
-          case None => {
-            resultCSV.append(0 + ";" + 0 + ";")
-          }
+    finalTaxInfo.foreach {
+      case (taxid, map) =>
+        resultCSV.append(taxid + ";")
+        val (name, rank) = try {
+          val node = mappingInstructions.nodeRetriever.getNCBITaxonByTaxId(taxid)
+          (node.getScientificName(), node.getRank())
+        } catch {
+          case t: Throwable => ("", "")
         }
-      }
-      resultCSV.append(taxCount + ";" + taxAcc + "\n")
-      totalCount1 += taxCount
-      totalAcc1 += taxAcc
+        resultCSV.append(name + ";")
+        resultCSV.append(rank + ";")
+
+
+        //mappingInstructions.nodeRetriever.g
+
+        var taxCount = 0
+        var taxAcc = 0
+        table.keys.foreach {
+          sample =>
+            map.get(sample) match {
+              case Some(taxInfo) => {
+                resultCSV.append(taxInfo.count + ";" + taxInfo.acc + ";")
+                taxCount += taxInfo.count
+                taxAcc += taxInfo.acc
+              }
+              case None => {
+                resultCSV.append(0 + ";" + 0 + ";")
+              }
+            }
+        }
+        resultCSV.append(taxCount + ";" + taxAcc + "\n")
+        totalCount1 += taxCount
+        totalAcc1 += taxAcc
       //calculating total
     }
     resultCSV.append("total; ; ;")
-    table.keys.foreach { sample =>
-      resultCSV.append(perSampleTotal(sample).count + ";")
-      resultCSV.append(perSampleTotal(sample).acc + ";")
+    table.keys.foreach {
+      sample =>
+        resultCSV.append(perSampleTotal(sample).count + ";")
+        resultCSV.append(perSampleTotal(sample).acc + ";")
     }
 
-    if(totalCount0 == totalCount1) {
+    if (totalCount0 == totalCount1) {
       resultCSV.append(totalCount0 + ";")
     } else {
       resultCSV.append("\n# " + totalCount0 + "!=" + totalCount1 + ";")
     }
 
-    if(totalAcc0 == totalAcc1) {
+    if (totalAcc0 == totalAcc1) {
       resultCSV.append(totalAcc0 + "\n")
     } else {
       resultCSV.append("\n# " + totalAcc0 + "!=" + totalAcc1 + "\n")
@@ -212,16 +218,17 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     val result = ObjectAddress(nisperonConfiguration.bucket, "results/" + "result.csv")
     aws.s3.putWholeObject(result, resultCSV.toString())
 
-    if(configuration.generateDot) {
+    if (configuration.generateDot) {
       logger.info("generate dot files")
       DOTExporter.installGraphiz()
-      table.foreach { case (sample, map) =>
-        val dotFile = new File(sample + ".dot")
-        val pdfFile = new File(sample + ".pdf")
-        DOTExporter.generateDot(map, mappingInstructions.nodeRetriever, new File(sample + ".dot"))
-        DOTExporter.generatePdf(dotFile, pdfFile)
-        val res = ObjectAddress(nisperonConfiguration.bucket, "results/viz/" + sample + ".pdf")
-        aws.s3.putObject(res, pdfFile)
+      table.foreach {
+        case (sample, map) =>
+          val dotFile = new File(sample + ".dot")
+          val pdfFile = new File(sample + ".pdf")
+          DOTExporter.generateDot(map, mappingInstructions.nodeRetriever, new File(sample + ".dot"))
+          DOTExporter.generatePdf(dotFile, pdfFile)
+          val res = ObjectAddress(nisperonConfiguration.bucket, "results/viz/" + sample + ".pdf")
+          aws.s3.putObject(res, pdfFile)
       }
     }
 
@@ -240,27 +247,27 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       new Condition()
         .withAttributeValueList(new AttributeValue().withS(sample))
         .withComparisonOperator(ComparisonOperator.EQ)
-       ))
+    ))
     ).getItems.map(_.get("chunk").getS).toList
 
     var a = 0
     var b = 0
-    for(chunk <- chunks) {
+    for (chunk <- chunks) {
       var stopped = false
-      while(!stopped) {
-        try{
+      while (!stopped) {
+        try {
           val reads = aws.ddb.query(new QueryRequest()
             .withTableName(nisperonConfiguration.id + "_reads")
             .withAttributesToGet("header", "gi")
             .withKeyConditions(Map("chunk" ->
             new Condition()
-            .withAttributeValueList(new AttributeValue().withS(chunk))
-            .withComparisonOperator(ComparisonOperator.EQ)
+              .withAttributeValueList(new AttributeValue().withS(chunk))
+              .withComparisonOperator(ComparisonOperator.EQ)
           ))
           ).getItems.map(_.get("gi").getS).toList
 
-           val n =  reads.filter(_.equals("118136038")).size
-          val t  = reads.size
+          val n = reads.filter(_.equals("118136038")).size
+          val t = reads.size
 
 
           a += n
@@ -277,81 +284,68 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     println("total:  " + b)
   }
 
- def additionalHandler(args: List[String]) {undeployActions(true)}
-
-
-//  def additionalHandler(args: List[String]) {
-//    val file = ObjectAddress("metapasta-test", "microtest.fastq")
-//    val chunks = new S3Splitter(aws.s3, file, 10000).chunks()
-//    import ohnosequences.formats._
-//    import ohnosequences.parsers._
-//    val reader = S3ChunksReader(aws.s3, file)
-//    var left = chunks.size
-//    var size = 0
-//    for (chunk <- chunks) {
-//      println(left +  " chunks left")
-//      left -= 1
-//      val parsed: List[FASTQ[RawHeader]] = reader.parseChunk[RawHeader](chunk._1, chunk._2)._1
-//      size += parsed.size
-//    }
-//    println(size)
-//  }
-
-  def objectExists(objectAddress: ObjectAddress): Boolean = {
-   // try { 
-      // import com.amazonaws.services.s3.model.GetObjectRequest
-      // val request = new GetObjectRequest(objectAddress.bucket, objectAddress.key).withRange(0, 1)
-      // val res = aws.s3.s3.getObject(request)
-      // true
-      if(aws.s3.listObjects(objectAddress.bucket, objectAddress.key).contains(objectAddress)) {
-        true
-      } else {
-        throw new Error(objectAddress + " doesn't exist")
-        false
-      }
-    // } catch {
-    //   case t: Throwable=> logger.error("check sample " + objectAddress)          
-    //                       t.printStackTrace()
-    // }
+  def additionalHandler(args: List[String]) {
+    undeployActions(true)
   }
+
+
+  //  def additionalHandler(args: List[String]) {
+  //    val file = ObjectAddress("metapasta-test", "microtest.fastq")
+  //    val chunks = new S3Splitter(aws.s3, file, 10000).chunks()
+  //    import ohnosequences.formats._
+  //    import ohnosequences.parsers._
+  //    val reader = S3ChunksReader(aws.s3, file)
+  //    var left = chunks.size
+  //    var size = 0
+  //    for (chunk <- chunks) {
+  //      println(left +  " chunks left")
+  //      left -= 1
+  //      val parsed: List[FASTQ[RawHeader]] = reader.parseChunk[RawHeader](chunk._1, chunk._2)._1
+  //      size += parsed.size
+  //    }
+  //    println(size)
+  //  }
+
 
   def checkTasks(): Boolean = {
     var res = true
     logger.info("checking samples")
-    configuration.samples.foreach { sample =>
-      
-      try {
-        objectExists(sample.fastq1)
-      } catch {
-        case t: Throwable => {
-          res = false
-          logger.error("check sample " + sample.fastq1)          
-          t.printStackTrace()
-        }
-      }
+    configuration.samples.foreach {
+      sample =>
 
-       try {
-        objectExists(sample.fastq2)
-      } catch {
-        case t: Throwable => {
-          res = false
-          logger.error("check sample " + sample.fastq2)          
-          t.printStackTrace()
+        try {
+          aws.s3.objectExists(sample.fastq1)
+        } catch {
+          case t: Throwable => {
+            res = false
+            logger.error("check sample " + sample.fastq1)
+            t.printStackTrace()
+          }
         }
-      }
+
+        try {
+          aws.s3.objectExists(sample.fastq2)
+        } catch {
+          case t: Throwable => {
+            res = false
+            logger.error("check sample " + sample.fastq2)
+            t.printStackTrace()
+          }
+        }
     }
     res
   }
 
   def addTasks() {
-    if(checkTasks()) {
+    if (checkTasks()) {
       pairedSamples.initWrite()
       val t1 = System.currentTimeMillis()
-      configuration.samples.foreach { sample =>
-        pairedSamples.put(sample.name, "", List(List(sample)))
+      configuration.samples.foreach {
+        sample =>
+          pairedSamples.put(sample.name, "", List(List(sample)))
       }
       val t2 = System.currentTimeMillis()
-      logger.info("added " + (t2-t1) + " ms")
+      logger.info("added " + (t2 - t1) + " ms")
     }
   }
 }
