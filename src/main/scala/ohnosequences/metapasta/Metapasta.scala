@@ -314,6 +314,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       sample =>
 
         try {
+        //  println("aws.s3.objectExists(sample.fastq1)")
           aws.s3.objectExists(sample.fastq1)
         } catch {
           case t: Throwable => {
