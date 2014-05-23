@@ -105,6 +105,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
     //todo write generic code about it
   //  mergedSampleChunks.delete()
+    println("I'm not going to delete it!")
     mappingInstructions.prepare()
     //todo think about order
     //create csv
