@@ -9,7 +9,8 @@ The algorithm in sense does following: from sets of all ancestors of hitted node
 
 1. for every hit:
   * retrieve tax id from gi (drop it if there is no such gi in the database)
-  * to every such tax id assign 1 (or increment assigned value by one)
+  * terive the list of ancestors og this id  
+  * to every tax id from the list assign 1 (or increment assigned value by one)
 2. find set of taxonomy nodes with minimal assigned value that greater than `size(Hits) / 100 * p` in a lot of cases (for example if all hits refer to the same node) this set will contain several elements
 3. find the lowest (in terms of the taxonomy tree) node from set that we formed in `2`
 
