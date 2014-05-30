@@ -1,60 +1,13 @@
-package ohnosequences.metapasta
+package ohnosequences.metapasta.instructions
 
 import ohnosequences.awstools.s3.{S3, ObjectAddress}
 import ohnosequences.nisperon.{Instructions, AWS, MapInstructions}
 import org.clapper.avsl.Logger
 import java.io.File
-import ohnosequences.formats.{RawHeader, FASTQ}
+import ohnosequences.formats.FASTQ
 import ohnosequences.nisperon.logging.S3Logger
+import ohnosequences.metapasta.{S3Splitter, MergedSampleChunk, PairedSample}
 
-
-case class PairedSample(name: String, fastq1: ObjectAddress, fastq2: ObjectAddress)
-
-//case class Read(header: String, sequence: String) {
-//  def toFasta: String = {
-//    ">" + header + "\r" + sequence
-//  }
-//}
-
-
-
-class S3Splitter(s3: S3, address: ObjectAddress, chunksSize: Long) {
-
-  def objectSize(): Long = {
-    s3.s3.getObjectMetadata(address.bucket, address.key).getContentLength
-  }
-
-  def chunks(): List[(Long, Long)] = {
-
-    val size = objectSize()
-
-    val starts = 0L until size by chunksSize
-    val ends = starts.map { start =>
-      math.min(start + chunksSize - 1, size - 1)
-    }
-
-    starts.zip(ends).toList
-  }
-
-//  def chunksAmount(): Long = {
-//    val objSize = objectSize()
-//    objSize / chunksSize + { if (objSize % chunksSize == 0) 0 else 1 }
-//  }
-}
-
-case class MergedSampleChunk(fastq: ObjectAddress, sample: String, range: (Long, Long)) {
-  def chunkId = range._1 + "-" + sample
-}
-
-//case class ParsedSampleChunk(name: String, fastqs: List[FASTQ[RawHeader]]) {
-//  def toFasta: String = {
-//    fastqs.map(_.toFasta).mkString("\r")
-//  }
-//
-//  def toFastq: String = {
-//    fastqs.map(_.toFastq).mkString("\r")
-//  }
-//}
 
 class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends Instructions[List[PairedSample], List[MergedSampleChunk]] {
 
@@ -63,6 +16,8 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
   val logger = Logger(this.getClass)
 
   val lm = aws.s3.createLoadingManager()
+
+  override type Context = Unit
 
   override def prepare() {
 
@@ -76,7 +31,7 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
 
   }
 
-  def solve(input: List[PairedSample], s3logger: S3Logger): List[List[MergedSampleChunk]] = {
+  def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[List[MergedSampleChunk]] = {
     val sample = input.head
 
     val resultObject = if (sample.fastq1.equals(sample.fastq2)) {

@@ -1,4 +1,4 @@
-package ohnosequences.metapasta
+package ohnosequences.metapasta.instructions
 
 import ohnosequences.nisperon.{MapInstructions, AWS}
 import com.amazonaws.services.dynamodbv2.model._
@@ -6,11 +6,13 @@ import scala.collection.JavaConversions._
 import org.clapper.avsl.Logger
 import ohnosequences.awstools.ddb.Utils
 import java.util
-import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.nisperon.logging.S3Logger
+import ohnosequences.metapasta.ReadInfo
 
 
 class DynamoDBUploader(aws: AWS, readsTable: String, samplesTable: String) extends MapInstructions[List[ReadInfo], Unit] {
+
+  override type Context = Unit
 
   val logger = Logger(this.getClass)
 
@@ -25,7 +27,7 @@ class DynamoDBUploader(aws: AWS, readsTable: String, samplesTable: String) exten
     Utils.createTable(aws.ddb, samplesTable, hash, Some(range), logger, 1, 1)
   }
 
-  def apply(input: List[ReadInfo], s3logger: S3Logger) {
+  def apply(input: List[ReadInfo], s3logger: S3Logger, context: Context) {
     val batchSize = 40 // x25
 
     var c = -1

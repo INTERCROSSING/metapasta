@@ -13,6 +13,7 @@ import ohnosequences.nisperon.NisperonConfiguration
 import ohnosequences.nisperon.NisperoConfiguration
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.nisperon.queues.ProductQueue
+import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions, FlashInstructions, DynamoDBUploader}
 
 
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
@@ -52,13 +53,20 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     serializer = new JsonSerializer[List[ReadInfo]]
   )
 
+  val readsStats = s3queue(
+    name = "readsStats",
+    monoid = readsStatsMonoid,
+    serializer = new JsonSerializer[ReadsStats]
+  )
+
+
   val assignTable = s3queue(
     name = "table",
     monoid = AssignTableMonoid,
     serializer = new JsonSerializer[AssignTable]
   )
 
-  override val mergingQueues = List(assignTable)
+  override val mergingQueues = List(assignTable, readsStats)
 
   val flashNispero = nispero(
     inputQueue = pairedSamples,
@@ -72,16 +80,32 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   //val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws), bio4j, configuration.lastTemplate)
 
 
-  val mappingInstructions: MapInstructions[List[MergedSampleChunk], (List[ReadInfo], AssignTable)] with NodeRetriever =
+  val mappingInstructions: MapInstructions[List[MergedSampleChunk], (AssignTable, (List[ReadInfo], ReadsStats))] =
     configuration match {
-      case b: BlastConfiguration => new BlastInstructions(aws, b.database, bio4j, b.blastTemplate, b.xmlOutput, configuration.logging)
-      case l: LastConfiguration => new LastInstructions(aws, l.database, bio4j, l.lastTemplate, l.useFasta, configuration.logging)
+      case b: BlastConfiguration => new BlastInstructions(
+        aws = aws,
+        metadataBuilder = configuration.metadataBuilder,
+        assignmentParadigm = b.assignmentParadigm,
+        blastCommandTemplate = b.blastTemplate,
+        databaseFactory = b.databaseFactory,
+        useXML = b.xmlOutput,
+        logging = configuration.logging
+      )
+      case l: LastConfiguration => new LastInstructions(
+        aws = aws,
+        metadataBuilder = configuration.metadataBuilder,
+        assignmentParadigm = l.assignmentParadigm,
+        lastCommandTemplate = l.lastTemplate,
+        databaseFactory = l.databaseFactory,
+        fastaInput = l.useFasta,
+        logging = configuration.logging
+      )
     }
 
 
   val lastNispero = nispero(
     inputQueue = mergedSampleChunks,
-    outputQueue = ProductQueue(readsInfo, assignTable),
+    outputQueue = ProductQueue(assignTable, ProductQueue(readsInfo, readsStats)),
     instructions = mappingInstructions,
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "map", workerGroup = configuration.mappingWorkers)
   )
@@ -106,7 +130,13 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     //todo write generic code about it
   //  mergedSampleChunks.delete()
     println("I'm not going to delete it!")
+
+
+    val nodeRetriever = new BundleNodeRetrieverFactory().build(configuration.metadataBuilder)
+
     mappingInstructions.prepare()
+
+
     //todo think about order
     //create csv
     val resultTableJSON = ObjectAddress(nisperonConfiguration.bucket, "results/" + assignTable.name)
@@ -165,7 +195,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       case (taxid, map) =>
         resultCSV.append(taxid + ";")
         val (name, rank) = try {
-          val node = mappingInstructions.nodeRetriever.getNCBITaxonByTaxId(taxid)
+          val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxid)
           (node.getScientificName(), node.getRank())
         } catch {
           case t: Throwable => ("", "")
@@ -226,7 +256,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
         case (sample, map) =>
           val dotFile = new File(sample + ".dot")
           val pdfFile = new File(sample + ".pdf")
-          DOTExporter.generateDot(map, mappingInstructions.nodeRetriever, new File(sample + ".dot"))
+          DOTExporter.generateDot(map, nodeRetriever.nodeRetriever, new File(sample + ".dot"))
           DOTExporter.generatePdf(dotFile, pdfFile)
           val res = ObjectAddress(nisperonConfiguration.bucket, "results/viz/" + sample + ".pdf")
           aws.s3.putObject(res, pdfFile)

@@ -6,6 +6,7 @@ import ohnosequences.metapasta._
 import ohnosequences.awstools.autoscaling._
 import ohnosequences.nisperon._
 import ohnosequences.awstools.ec2._
+import ohnosequences.metapasta.databases.Blast16SFactory
 
 object mockSamples {
   val testBucket = "metapasta-test"
@@ -38,7 +39,7 @@ object configuration extends BlastConfiguration (
   uploadWorkers = None,
   samples = mockSamples.samples,
   logging = true,
-  database = NTDatabase,
+  databaseFactory = Blast16SFactory,
   xmlOutput = true
 )
 
