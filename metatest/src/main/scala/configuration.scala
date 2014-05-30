@@ -23,9 +23,9 @@ object configuration extends BlastConfiguration (
   mappingWorkers = Group(size = 1, max = 20, instanceType = InstanceType.T1Micro, purchaseModel = OnDemand),
   uploadWorkers = None,
   samples = mockSamples.samples,
+  blastTemplate = """blastn -task megablast -db $name$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt $out_format$ -show_gis""",
   logging = true,
-  database = NTDatabase,
-  xmlOutput = true
+  xmlOutput = false
 )
 
 object metatest extends Metapasta(configuration) {
