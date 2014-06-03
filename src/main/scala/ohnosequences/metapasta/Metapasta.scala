@@ -173,8 +173,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
                 }
               }
             }
-            perSampleTotal.put(sample, sampleTotal)
+
         }
+        perSampleTotal.put(sample, sampleTotal)
         totalCount0 += sampleTotal.count
         totalAcc0 += sampleTotal.acc
     }
