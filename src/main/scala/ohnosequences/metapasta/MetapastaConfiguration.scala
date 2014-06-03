@@ -19,7 +19,7 @@ import ohnosequences.nisperon.Group
 trait AssignmentParadigm
 
 case object BestHit extends AssignmentParadigm
-case object LCA extends AssignmentParadigm
+case class LCA(threshold: Double) extends AssignmentParadigm
 
 
 trait  MetapastaConfiguration {
