@@ -38,8 +38,18 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
   //todo do it more precise
   def countUnmerged(): Int = {
     var count = 0
-    io.Source.fromFile("out.notCombined_1.fastq").getLines().foreach {str => count += 1;()}
-    io.Source.fromFile("out.notCombined_2.fastq").getLines().foreach {str => count += 1;()}
+    try {
+      io.Source.fromFile("out.notCombined_1.fastq").getLines().foreach {
+        str => count += 1; ()
+      }
+    } catch {
+      case t: Throwable => ()
+    }
+    try {
+      io.Source.fromFile("out.notCombined_2.fastq").getLines().foreach {str => count += 1;()}
+    } catch {
+      case t: Throwable => ()
+    }
     count / 4
     //out.notCombined_2.fastq
   }
