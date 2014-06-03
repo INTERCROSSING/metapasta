@@ -122,13 +122,13 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   }
 
 
+  //todo test failed actions ...
   override def undeployActions(force: Boolean): Option[String] = {
     if (force) {
       return None
     }
 
-    //todo write generic code about it
-  //  mergedSampleChunks.delete()
+
     println("I'm not going to delete it!")
 
 

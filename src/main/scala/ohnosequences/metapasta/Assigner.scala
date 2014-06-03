@@ -69,6 +69,9 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
     val readsStatsBuilder = new ReadsStatsBuilder()
 
     reads.foreach {fastq =>
+
+      readsStatsBuilder.incrementMerged()
+      //todo check it
       val readId = extractReadHeader(fastq.header.getRaw)
 
       assignment.get(readId) match {

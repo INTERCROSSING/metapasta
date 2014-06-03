@@ -31,6 +31,10 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
 
   }
 
+//  def countUnmerged(): Int = {
+//
+//  }
+
   def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[List[MergedSampleChunk]] = {
     val sample = input.head
 
