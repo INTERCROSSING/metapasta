@@ -134,7 +134,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
     val nodeRetriever = new BundleNodeRetrieverFactory().build(configuration.metadataBuilder)
 
-    mappingInstructions.prepare()
+    //mappingInstructions.prepare()
 
 
     //todo think about order

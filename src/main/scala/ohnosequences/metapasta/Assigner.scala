@@ -152,10 +152,12 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
     val finalHits =  mutable.HashMap[String, Assignment]()
 
     for( (readId, refIds) <- hitsPerReads) {
+
+      logger.info("refsIds.size=" + refIds.size)
       val counts = mutable.HashMap[String, Int]()
       var total = 0
-      var min = total
-      var argMins = mutable.HashSet[String]()
+
+
 
       var unknownRefId = true
       var unknownGI = true
@@ -173,20 +175,26 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
             None
           }
         }).foreach { taxId =>
+          total += 1
           for (parTaxId <- getParentsIds(taxId)) {
             val curVal = counts.getOrElse(parTaxId, 0)
             counts.put(parTaxId, curVal + 1)
-            total += 1
           }
+          val curVal = counts.getOrElse(taxId, 0)
+          counts.put(taxId, curVal + 1)
         }
       }
 
       val t = total * threshold
+      var min = total
+      val argMins = mutable.HashSet[String]()
+
       for( (taxId, count) <- counts) {
         if (count > t) {
           if (count < min) {
             argMins.clear()
             argMins += taxId
+            min = count
           } else if (count == min) {
             argMins += taxId
           }
