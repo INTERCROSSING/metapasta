@@ -6,10 +6,14 @@ import org.clapper.avsl.Logger
 import java.io.File
 import ohnosequences.formats.FASTQ
 import ohnosequences.nisperon.logging.S3Logger
-import ohnosequences.metapasta.{S3Splitter, MergedSampleChunk, PairedSample}
+import ohnosequences.metapasta._
+import ohnosequences.metapasta.MergedSampleChunk
+import ohnosequences.metapasta.PairedSample
+import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.metapasta.ReadsStats
 
 
-class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends Instructions[List[PairedSample], List[MergedSampleChunk]] {
+class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends Instructions[List[PairedSample], (ReadsStats, List[MergedSampleChunk])] {
 
   import scala.sys.process._
 
@@ -31,11 +35,16 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
 
   }
 
-//  def countUnmerged(): Int = {
-//
-//  }
+  //todo do it more precise
+  def countUnmerged(): Int = {
+    var count = 0
+    io.Source.fromFile("out.notCombined_1.fastq").getLines().foreach {str => count += 1;()}
+    io.Source.fromFile("out.notCombined_2.fastq").getLines().foreach {str => count += 1;()}
+    count / 4
+    //out.notCombined_2.fastq
+  }
 
-  def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[List[MergedSampleChunk]] = {
+  def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[(ReadsStats, List[MergedSampleChunk])] = {
     val sample = input.head
 
     val resultObject = if (sample.fastq1.equals(sample.fastq2)) {
@@ -61,8 +70,18 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
     val ranges = new S3Splitter(aws.s3, resultObject, chunkSize).chunks()
 
     //todo remove limit
+
+    var first = true
     ranges.map { range =>
-      List(MergedSampleChunk(resultObject, sample.name, range))
+
+      val stats  = if (first) {
+        first = false
+        ReadsStats(unmerged = countUnmerged())
+      } else {
+        readsStatsMonoid.unit
+      }
+      (stats, List(MergedSampleChunk(resultObject, sample.name, range)))
     }
+
   }
 }

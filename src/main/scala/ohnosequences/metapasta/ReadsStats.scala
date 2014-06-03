@@ -31,7 +31,13 @@ class ReadsStatsBuilder() {
   )
 }
 
-case class ReadsStats(merged: Int, assigned: Int, unassigned: Int, unknownGI: Int, unknownRefId: Int, unmerged: Int, lcaFiltered: Int) {
+case class ReadsStats(merged: Int = 0,
+                      assigned: Int = 0,
+                      unassigned: Int = 0,
+                      unknownGI: Int = 0,
+                      unknownRefId: Int= 0,
+                      unmerged: Int =0,
+                      lcaFiltered: Int = 0) {
   def mult(y: ReadsStats): ReadsStats = readsStatsMonoid.mult(this, y)
 }
 

@@ -70,7 +70,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
   val flashNispero = nispero(
     inputQueue = pairedSamples,
-    outputQueue = mergedSampleChunks,
+    outputQueue = ProductQueue(readsStats, mergedSampleChunks),
     instructions = new FlashInstructions(aws, nisperonConfiguration.bucket, configuration.chunksSize),
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flash")
   )
