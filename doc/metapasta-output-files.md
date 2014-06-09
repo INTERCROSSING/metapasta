@@ -44,6 +44,7 @@ The files described below are specific to each level and should be added to the 
 _Project-specific files_
 
 9. viz `*.pdf`. File name: ItemID.frequencies.tree.pdf
+
 10. Clean CSV files with direct absolute frequencies. Modification of file 1 for MetagenAssist usage (File type B). File name: ItemID.direct.absolute.frequencies.clean.csv
 11. Clean CSV files with direct relative frequencies. Modification of file 1 for HeatMap viz (File type C). File name: ItemID.direct.relative.frequencies.clean.csv
 
