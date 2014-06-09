@@ -1,4 +1,4 @@
-### Assignment algorithm
+### MEGAN-like taxonomy node assignment algorithm
 
 For each read:
 
