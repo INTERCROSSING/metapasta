@@ -129,13 +129,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     }
 
 
-    println("I'm not going to delete it!")
-
-
     val nodeRetriever = new BundleNodeRetrieverFactory().build(configuration.metadataBuilder)
-
-    //mappingInstructions.prepare()
-
 
     //todo think about order
     //create csv

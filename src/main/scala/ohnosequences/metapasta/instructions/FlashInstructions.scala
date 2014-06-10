@@ -40,32 +40,58 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
     var count = 0
     try {
       io.Source.fromFile("out.notCombined_1.fastq").getLines().foreach {
-        str => count += 1; ()
+        str => count += 1
       }
     } catch {
       case t: Throwable => ()
     }
     try {
-      io.Source.fromFile("out.notCombined_2.fastq").getLines().foreach {str => count += 1;()}
+      io.Source.fromFile("out.notCombined_2.fastq").getLines().foreach {str => count += 1}
     } catch {
       case t: Throwable => ()
     }
-    count / 4
+    count / 4 
     //out.notCombined_2.fastq
   }
 
   def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[(ReadsStats, List[MergedSampleChunk])] = {
+    import sys.process._
+
     val sample = input.head
 
     val resultObject = if (sample.fastq1.equals(sample.fastq2)) {
       logger.info("not paired-ended")
-      sample.fastq1
+      if(sample.fastq1.key.endsWith(".gz")) {
+        logger.info("downloading " + sample.fastq1)
+        lm.download(sample.fastq1, new File("1.fastq.gz"))
+
+        "gunzip 1.fastq.gz".!
+
+        logger.info("uploading results")
+        val resultObject2 = ObjectAddress(bucket, "merged/" + sample.name + ".fastq")
+        lm.upload(resultObject2, new File("1.fastq"))
+        resultObject2
+      } else {
+        sample.fastq1
+      }
     } else {
       logger.info("downloading " + sample.fastq1)
-      lm.download(sample.fastq1, new File("1.fastq"))
+      if(sample.fastq1.key.endsWith(".gz")) {
+        lm.download(sample.fastq1, new File("1.fastq.gz"))
+        logger.info("extracting")
+        "gunzip 1.fastq.gz".!
+      } else {
+        lm.download(sample.fastq1, new File("1.fastq"))
+      }
 
-      logger.info("downloading " + sample.fastq2)
-      lm.download(sample.fastq2, new File("2.fastq"))
+      if(sample.fastq2.key.endsWith(".gz")) {
+        lm.download(sample.fastq1, new File("2.fastq.gz"))
+        logger.info("extracting")
+        "gunzip 2.fastq.gz".!
+      } else {
+        lm.download(sample.fastq1, new File("2.fastq"))
+      }
+
 
       logger.info("executing FLASh")
       "flash 1.fastq 2.fastq".!
