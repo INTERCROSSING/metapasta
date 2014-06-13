@@ -15,6 +15,7 @@ Every reasonable Scala code should work:
 sample1 withTags List(tag1, tag2)
 sample2 withTags List(tag2, tag3)
 sample3 withTags List(tag4)
+```
 
 ##### Tags description file
 it is possible to store this information in JSON for example
