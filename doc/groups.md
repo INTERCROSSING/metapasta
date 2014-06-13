@@ -22,8 +22,8 @@ it is possible to store this information in JSON for example
 
 ```json
 {
-  "sample1": ["tag1", "tag2"]
-  "sample2": ["tag2", "tag3"]
+  "sample1": ["tag1", "tag2"],
+  "sample2": ["tag2", "tag3"],
   "sample3": ["tag4"]
 }
 ```
