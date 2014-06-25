@@ -18,13 +18,13 @@ import ohnosequences.metapasta.AssignTable
 class BlastInstructions(
                        aws: AWS,
                        metadataBuilder: NisperonMetadataBuilder, //for bio4j
-                       assignmentParadigm: AssignmentParadigm,
+                       assignmentConfiguration: AssignmentConfiguration,
                        databaseFactory: DatabaseFactory[BlastDatabase16S],
-                       blastCommandTemplate: String = """blastn -task megablast -db $name$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis""",
+                       blastCommandTemplate: String = """blastn -task megablast -db $db$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis""",
                        useXML: Boolean,
                        logging: Boolean
                        ) extends
-   MapInstructions[List[MergedSampleChunk], (AssignTable, (List[ReadInfo], ReadsStats))] {
+   MapInstructions[List[MergedSampleChunk],  (Map[String, AssignTable], Map[String, ReadsStats])] {
 
 
   case class BlastContext(nodeRetriever: NodeRetriever, database: BlastDatabase16S, blast: Blast, assigner: Assigner)
@@ -42,13 +42,13 @@ class BlastInstructions(
     val blastDatabase = databaseFactory.build(lm)
     val blast = new BlastFactory().build(lm)
     val giMapper = new InMemoryGIMapperFactory().build(lm)
-    val assigner = new Assigner(nodeRetreiver, blastDatabase, giMapper, assignmentParadigm, extractHeader)
+    val assigner = new Assigner(nodeRetreiver, blastDatabase, giMapper, assignmentConfiguration, extractHeader)
     BlastContext(nodeRetreiver, blastDatabase, blast, assigner)
   }
 
 
 
-  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: BlastContext): (AssignTable, (List[ReadInfo], ReadsStats)) = {
+  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: BlastContext): (Map[String, AssignTable], Map[String, ReadsStats]) = {
 
     import context._
 

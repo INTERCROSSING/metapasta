@@ -33,13 +33,13 @@ import ohnosequences.metapasta.AssignTable
 
 class LastInstructions(aws: AWS,
                        metadataBuilder: NisperonMetadataBuilder, //for bio4j
-                       assignmentParadigm: AssignmentParadigm,
+                       assignmentConfiguration: AssignmentConfiguration,
                        databaseFactory: DatabaseFactory[LastDatabase16S],
                        lastCommandTemplate: String,
                        fastaInput: Boolean = false,
                        logging: Boolean
                        ) extends
-   MapInstructions[List[MergedSampleChunk], (AssignTable, (List[ReadInfo], ReadsStats))]  {
+   MapInstructions[List[MergedSampleChunk],  (Map[String, AssignTable], Map[String, ReadsStats])]  {
 
   val logger = Logger(this.getClass)
 
@@ -52,7 +52,7 @@ class LastInstructions(aws: AWS,
     val lastDatabase = databaseFactory.build(lm)
     val last = new LastFactory().build(lm)
     val giMapper = new InMemoryGIMapperFactory().build(lm)
-    val assigner = new Assigner(nodeRetreiver, lastDatabase, giMapper, assignmentParadigm, extractHeader)
+    val assigner = new Assigner(nodeRetreiver, lastDatabase, giMapper, assignmentConfiguration, extractHeader)
     LastContext(nodeRetreiver, lastDatabase, last, assigner)
   }
 
@@ -60,7 +60,7 @@ class LastInstructions(aws: AWS,
   //todo fix header
   def extractHeader(s: String) = s.replace("@", "").split("\\s")(0)
 
-  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: LastContext): (AssignTable, (List[ReadInfo], ReadsStats)) = {
+  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: LastContext): (Map[String, AssignTable], Map[String, ReadsStats]) = {
 
 
     //todo fix head

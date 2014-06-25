@@ -16,10 +16,8 @@ import ohnosequences.nisperon.Group
 //case class Blast(template: String, xmlOutput: Boolean) extends MappingInstructions
 
 
-trait AssignmentParadigm
 
-case object BestHit extends AssignmentParadigm
-case class LCA(threshold: Double = 0.8) extends AssignmentParadigm
+case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
 
 
 trait  MetapastaConfiguration {
@@ -36,7 +34,7 @@ trait  MetapastaConfiguration {
    val timeout: Int
    val mergeQueueThroughput: MergeQueueThroughput
    val generateDot: Boolean
-   val assignmentParadigm: AssignmentParadigm
+   val assignmentConfiguration: AssignmentConfiguration
 }
 
 
@@ -52,7 +50,7 @@ case class BlastConfiguration(
                                email: String,
                                samples: List[PairedSample],
                                chunksSize: Int = 20000,
-                               blastTemplate: String = """blastn -task megablast -db $name$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt $out_format$ -show_gis""",
+                               blastTemplate: String = """blastn -task megablast -db $db$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt $out_format$ -show_gis""",
                                xmlOutput: Boolean = false,
                                password: String,
                                databaseFactory: DatabaseFactory[BlastDatabase16S] = Blast16SFactory,
@@ -62,7 +60,7 @@ case class BlastConfiguration(
                                timeout: Int = 72000,
                                mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
                                generateDot: Boolean = true,
-                               assignmentParadigm: AssignmentParadigm = BestHit
+                               assignmentConfiguration: AssignmentConfiguration
                                ) extends MetapastaConfiguration {
 }
 
@@ -84,7 +82,7 @@ case class LastConfiguration(
                                timeout: Int = 72000,
                                mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
                                generateDot: Boolean = true,
-                               assignmentParadigm: AssignmentParadigm = BestHit
+                               assignmentConfiguration: AssignmentConfiguration
                                ) extends MetapastaConfiguration {
 }
 

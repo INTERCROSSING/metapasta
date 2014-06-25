@@ -20,7 +20,7 @@ class BlastFactory() extends Factory[LoadingManager, Blast] {
     override def launch(commandLine: String, database: BlastDatabase16S, input: File, output: File, useXML: Boolean): Int = {
 
       val command =  commandLine
-        .replace("$name$", database.name)
+        .replace("$db$", database.name)
         .replace("$output$", output.getPath)
         .replace("$input$", input.getPath)
         .replace("$out_format$", if (useXML) "5" else "6")

@@ -14,6 +14,8 @@ import ohnosequences.nisperon.NisperoConfiguration
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.nisperon.queues.ProductQueue
 import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions, FlashInstructions, DynamoDBUploader}
+import ohnosequences.metapasta.reporting.CSVGenerator
+import sun.plugin.dom.css.CSSValue
 
 
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
@@ -47,23 +49,17 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     throughputs = (writeThrouput, 1)
   )
 
-  val readsInfo = s3queue(
-    name = "readsInfo",
-    monoid = new ListMonoid[ReadInfo],
-    serializer = new JsonSerializer[List[ReadInfo]]
-  )
-
   val readsStats = s3queue(
     name = "readsStats",
-    monoid = readsStatsMonoid,
-    serializer = new JsonSerializer[ReadsStats]
+    monoid = new MapMonoid(readsStatsMonoid),
+    serializer = new JsonSerializer[Map[String, ReadsStats]]
   )
 
 
   val assignTable = s3queue(
     name = "table",
-    monoid = AssignTableMonoid,
-    serializer = new JsonSerializer[AssignTable]
+    monoid = new MapMonoid(AssignTableMonoid),
+    serializer = new JsonSerializer[Map[String, AssignTable]]
   )
 
   override val mergingQueues = List(assignTable, readsStats)
@@ -80,12 +76,12 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   //val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws), bio4j, configuration.lastTemplate)
 
 
-  val mappingInstructions: MapInstructions[List[MergedSampleChunk], (AssignTable, (List[ReadInfo], ReadsStats))] =
+  val mappingInstructions: MapInstructions[List[MergedSampleChunk],  (Map[String, AssignTable], Map[String, ReadsStats])] =
     configuration match {
       case b: BlastConfiguration => new BlastInstructions(
         aws = aws,
         metadataBuilder = configuration.metadataBuilder,
-        assignmentParadigm = b.assignmentParadigm,
+        assignmentConfiguration = b.assignmentConfiguration,
         blastCommandTemplate = b.blastTemplate,
         databaseFactory = b.databaseFactory,
         useXML = b.xmlOutput,
@@ -94,7 +90,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       case l: LastConfiguration => new LastInstructions(
         aws = aws,
         metadataBuilder = configuration.metadataBuilder,
-        assignmentParadigm = l.assignmentParadigm,
+        assignmentConfiguration = l.assignmentConfiguration,
         lastCommandTemplate = l.lastTemplate,
         databaseFactory = l.databaseFactory,
         fastaInput = l.useFasta,
@@ -103,23 +99,23 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     }
 
 
-  val lastNispero = nispero(
+  val mapNispero = nispero(
     inputQueue = mergedSampleChunks,
-    outputQueue = ProductQueue(assignTable, ProductQueue(readsInfo, readsStats)),
+    outputQueue = ProductQueue(assignTable, readsStats),
     instructions = mappingInstructions,
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "map", workerGroup = configuration.mappingWorkers)
   )
 
-  configuration.uploadWorkers match {
-    case Some(workers) =>
-      val uploaderNispero = nispero(
-        inputQueue = readsInfo,
-        outputQueue = unitQueue,
-        instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads", nisperonConfiguration.id + "_chunks"),
-        nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "upload", workerGroup = Group(size = workers, max = 15, instanceType = InstanceType.T1Micro))
-      )
-    case None => ()
-  }
+//  configuration.uploadWorkers match {
+//    case Some(workers) =>
+//      val uploaderNispero = nispero(
+//        inputQueue = readsInfo,
+//        outputQueue = unitQueue,
+//        instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads", nisperonConfiguration.id + "_chunks"),
+//        nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "upload", workerGroup = Group(size = workers, max = 15, instanceType = InstanceType.T1Micro))
+//      )
+//    case None => ()
+//  }
 
 
   //todo test failed actions ...
@@ -128,137 +124,13 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       return None
     }
 
-
     val nodeRetriever = new BundleNodeRetrieverFactory().build(configuration.metadataBuilder)
 
-    //todo think about order
     //create csv
-    val resultTableJSON = ObjectAddress(nisperonConfiguration.bucket, "results/" + assignTable.name)
-
-    logger.info("reading assign table " + resultTableJSON)
-    val table = assignTable.serializer.fromString(aws.s3.readWholeObject(resultTableJSON)).table
-
-    //tax -> (sample -> taxinfo)
-    val resultCSV = new mutable.StringBuilder()
-    logger.info("transposing table")
-    val finalTaxInfo = mutable.HashMap[String, mutable.HashMap[String, TaxInfo]]()
-
-    val perSampleTotal = mutable.HashMap[String, TaxInfo]()
-    var totalCount0 = 0
-    var totalAcc0 = 0
-    table.foreach {
-      case (sample, map) =>
-        var sampleTotal = TaxInfoMonoid.unit
-
-        map.foreach {
-          case (tax, taxInfo) =>
-            sampleTotal = TaxInfoMonoid.mult(taxInfo, sampleTotal)
-            finalTaxInfo.get(tax) match {
-              case None => {
-                val initMap = mutable.HashMap[String, TaxInfo](sample -> taxInfo)
-                finalTaxInfo.put(tax, initMap)
-              }
-              case Some(sampleMap) => {
-                sampleMap.get(sample) match {
-                  case None => sampleMap.put(sample, taxInfo)
-                  case Some(oldTaxInfo) => {
-                    sampleMap.put(sample, TaxInfoMonoid.mult(taxInfo, oldTaxInfo))
-                  }
-                }
-              }
-            }
-
-        }
-        perSampleTotal.put(sample, sampleTotal)
-        totalCount0 += sampleTotal.count
-        totalAcc0 += sampleTotal.acc
-    }
+    val csvGeneartor = new CSVGenerator(nodeRetriever, tableAddress)
 
 
-    resultCSV.append("#;taxId;")
-    resultCSV.append("name;rank;")
-    table.keys.foreach {
-      sample =>
-        resultCSV.append(sample + ".count;")
-        resultCSV.append(sample + ".acc;")
-    }
-    resultCSV.append("total.count;total.acc\n")
 
-    var totalCount1 = 0
-    var totalAcc1 = 0
-    finalTaxInfo.foreach {
-      case (taxid, map) =>
-        resultCSV.append(taxid + ";")
-        val (name, rank) = try {
-          val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxid)
-          (node.getScientificName(), node.getRank())
-        } catch {
-          case t: Throwable => ("", "")
-        }
-        resultCSV.append(name + ";")
-        resultCSV.append(rank + ";")
-
-
-        //mappingInstructions.nodeRetriever.g
-
-        var taxCount = 0
-        var taxAcc = 0
-        table.keys.foreach {
-          sample =>
-            map.get(sample) match {
-              case Some(taxInfo) => {
-                resultCSV.append(taxInfo.count + ";" + taxInfo.acc + ";")
-                taxCount += taxInfo.count
-                taxAcc += taxInfo.acc
-              }
-              case None => {
-                resultCSV.append(0 + ";" + 0 + ";")
-              }
-            }
-        }
-        resultCSV.append(taxCount + ";" + taxAcc + "\n")
-        totalCount1 += taxCount
-        totalAcc1 += taxAcc
-      //calculating total
-    }
-    resultCSV.append("total; ; ;")
-    table.keys.foreach {
-      sample =>
-        resultCSV.append(perSampleTotal(sample).count + ";")
-        resultCSV.append(perSampleTotal(sample).acc + ";")
-    }
-
-    if (totalCount0 == totalCount1) {
-      resultCSV.append(totalCount0 + ";")
-    } else {
-      resultCSV.append("\n# " + totalCount0 + "!=" + totalCount1 + ";")
-    }
-
-    if (totalAcc0 == totalAcc1) {
-      resultCSV.append(totalAcc0 + "\n")
-    } else {
-      resultCSV.append("\n# " + totalAcc0 + "!=" + totalAcc1 + "\n")
-    }
-
-
-    val result = ObjectAddress(nisperonConfiguration.bucket, "results/" + "result.csv")
-    aws.s3.putWholeObject(result, resultCSV.toString())
-
-    if (configuration.generateDot) {
-      logger.info("generate dot files")
-      DOTExporter.installGraphiz()
-      table.foreach {
-        case (sample, map) =>
-          val dotFile = new File(sample + ".dot")
-          val pdfFile = new File(sample + ".pdf")
-          DOTExporter.generateDot(map, nodeRetriever.nodeRetriever, new File(sample + ".dot"))
-          DOTExporter.generatePdf(dotFile, pdfFile)
-          val res = ObjectAddress(nisperonConfiguration.bucket, "results/viz/" + sample + ".pdf")
-          aws.s3.putObject(res, pdfFile)
-      }
-    }
-
-    None
 
   }
 

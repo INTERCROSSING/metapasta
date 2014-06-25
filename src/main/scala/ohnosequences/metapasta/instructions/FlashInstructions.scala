@@ -50,7 +50,7 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
     } catch {
       case t: Throwable => ()
     }
-    count / 4 
+    count / 4
     //out.notCombined_2.fastq
   }
 
