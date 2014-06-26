@@ -13,7 +13,7 @@ import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.metapasta.ReadsStats
 
 
-class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends Instructions[List[PairedSample], (ReadsStats, List[MergedSampleChunk])] {
+class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends Instructions[List[PairedSample], (Map[String, ReadsStats], List[MergedSampleChunk])] {
 
   import scala.sys.process._
 
@@ -54,7 +54,7 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
     //out.notCombined_2.fastq
   }
 
-  def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[(ReadsStats, List[MergedSampleChunk])] = {
+  def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[(Map[String, ReadsStats], List[MergedSampleChunk])] = {
     import sys.process._
 
     val sample = input.head
@@ -112,11 +112,11 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
 
       val stats  = if (first) {
         first = false
-        ReadsStats(unmerged = countUnmerged())
+        ReadsStats(notMerged = countUnmerged())
       } else {
         readsStatsMonoid.unit
       }
-      (stats, List(MergedSampleChunk(resultObject, sample.name, range)))
+      (Map(AssignmentType.BBH -> stats, AssignmentType.LCA -> stats), List(MergedSampleChunk(resultObject, sample.name, range)))
     }
 
   }

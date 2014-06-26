@@ -40,7 +40,8 @@ object configuration extends BlastConfiguration (
   samples = mockSamples.samples,
   logging = true,
   databaseFactory = Blast16SFactory,
-  xmlOutput = true
+  xmlOutput = true,
+  assignmentConfiguration = AssignmentConfiguration(100, 0.4)
 )
 
 object meta4 extends Metapasta(configuration) {

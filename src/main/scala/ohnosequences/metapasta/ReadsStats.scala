@@ -36,9 +36,11 @@ case class ReadsStats(merged: Int = 0,
                       notMerged: Int = 0,
                       noHit: Int = 0,
                       notAssigned: Int = 0,
-                      wrongRefIds: Set[String]) {
+                      wrongRefIds: Set[String] = Set[String]()) {
   def mult(y: ReadsStats): ReadsStats = readsStatsMonoid.mult(this, y)
 }
+
+
 
 object readsStatsMonoid extends Monoid[ReadsStats] {
 

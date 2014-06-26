@@ -15,7 +15,6 @@ import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.nisperon.queues.ProductQueue
 import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions, FlashInstructions, DynamoDBUploader}
 import ohnosequences.metapasta.reporting.CSVGenerator
-import sun.plugin.dom.css.CSSValue
 
 
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
@@ -51,14 +50,14 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
   val readsStats = s3queue(
     name = "readsStats",
-    monoid = new MapMonoid(readsStatsMonoid),
+    monoid = new MapMonoid[String, ReadsStats](readsStatsMonoid),
     serializer = new JsonSerializer[Map[String, ReadsStats]]
   )
 
 
   val assignTable = s3queue(
     name = "table",
-    monoid = new MapMonoid(AssignTableMonoid),
+    monoid = new MapMonoid[String, AssignTable](assignTableMonoid),
     serializer = new JsonSerializer[Map[String, AssignTable]]
   )
 
@@ -127,8 +126,10 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     val nodeRetriever = new BundleNodeRetrieverFactory().build(configuration.metadataBuilder)
 
     //create csv
-    val csvGeneartor = new CSVGenerator(nodeRetriever, tableAddress)
+    val csvGeneartor = new CSVGenerator(this, nodeRetriever)
 
+    //???
+    None
 
 
 
