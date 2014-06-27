@@ -136,51 +136,51 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   }
 
   def checks() {
-    val sample = "test"
-    import scala.collection.JavaConversions._
-
-
-    val chunks: List[String] = aws.ddb.query(new QueryRequest()
-      .withTableName(nisperonConfiguration.id + "_chunks")
-      .withKeyConditions(Map("sample" ->
-      new Condition()
-        .withAttributeValueList(new AttributeValue().withS(sample))
-        .withComparisonOperator(ComparisonOperator.EQ)
-    ))
-    ).getItems.map(_.get("chunk").getS).toList
-
-    var a = 0
-    var b = 0
-    for (chunk <- chunks) {
-      var stopped = false
-      while (!stopped) {
-        try {
-          val reads = aws.ddb.query(new QueryRequest()
-            .withTableName(nisperonConfiguration.id + "_reads")
-            .withAttributesToGet("header", "gi")
-            .withKeyConditions(Map("chunk" ->
-            new Condition()
-              .withAttributeValueList(new AttributeValue().withS(chunk))
-              .withComparisonOperator(ComparisonOperator.EQ)
-          ))
-          ).getItems.map(_.get("gi").getS).toList
-
-          val n = reads.filter(_.equals("118136038")).size
-          val t = reads.size
-
-
-          a += n
-          b += t
-          println("n: " + n)
-          stopped = true
-        } catch {
-          case t: Throwable => Thread.sleep(1000); println("retry")
-        }
-      }
-    }
-
-    println("unassigned:  " + a)
-    println("total:  " + b)
+//    val sample = "test"
+//    import scala.collection.JavaConversions._
+//
+//
+//    val chunks: List[String] = aws.ddb.query(new QueryRequest()
+//      .withTableName(nisperonConfiguration.id + "_chunks")
+//      .withKeyConditions(Map("sample" ->
+//      new Condition()
+//        .withAttributeValueList(new AttributeValue().withS(sample))
+//        .withComparisonOperator(ComparisonOperator.EQ)
+//    ))
+//    ).getItems.map(_.get("chunk").getS).toList
+//
+//    var a = 0
+//    var b = 0
+//    for (chunk <- chunks) {
+//      var stopped = false
+//      while (!stopped) {
+//        try {
+//          val reads = aws.ddb.query(new QueryRequest()
+//            .withTableName(nisperonConfiguration.id + "_reads")
+//            .withAttributesToGet("header", "gi")
+//            .withKeyConditions(Map("chunk" ->
+//            new Condition()
+//              .withAttributeValueList(new AttributeValue().withS(chunk))
+//              .withComparisonOperator(ComparisonOperator.EQ)
+//          ))
+//          ).getItems.map(_.get("gi").getS).toList
+//
+//          val n = reads.filter(_.equals("118136038")).size
+//          val t = reads.size
+//
+//
+//          a += n
+//          b += t
+//          println("n: " + n)
+//          stopped = true
+//        } catch {
+//          case t: Throwable => Thread.sleep(1000); println("retry")
+//        }
+//      }
+//    }
+//
+//    println("unassigned:  " + a)
+//    println("total:  " + b)
   }
 
   def additionalHandler(args: List[String]) {

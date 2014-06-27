@@ -1,6 +1,7 @@
 package ohnosequences.metapasta.reporting
-import ohnosequences.nisperon.{intMonoid, Monoid}
+import ohnosequences.nisperon.{AWS, intMonoid, Monoid}
 import scala.collection.mutable
+import ohnosequences.awstools.s3.ObjectAddress
 
 
 sealed trait AnyCellValue {
@@ -25,6 +26,18 @@ case class IntCellValue(value: Int, monoid: Monoid[Int]) extends AnyCellValue {
   override def mult(other: AnyCellValue): AnyCellValue.Of[Int] = {
     val otherValue = other.value.asInstanceOf[Int]
     IntCellValue(monoid.mult(value, otherValue), monoid)
+  }
+}
+
+case class DoubleCellValue(value: Double, monoid: Monoid[Double]) extends AnyCellValue {
+
+  type Type = Double
+
+  override def toString: String = value.toString
+
+  override def mult(other: AnyCellValue): AnyCellValue.Of[Double] = {
+    val otherValue = other.value.asInstanceOf[Double]
+    DoubleCellValue(monoid.mult(value, otherValue), monoid)
   }
 }
 
@@ -54,36 +67,61 @@ trait AnyAttributeType {
   val default = wrap(monoid.unit)
 }
 
-case class IntAttribute(name: String, monoid: Monoid[Int]) extends AnyAttributeType {
+class IntAttribute(val name: String, val monoid: Monoid[Int]) extends AnyAttributeType {
   override type Type = Int
 
   override def wrap(v: Type): AnyCellValue.Of[Type] = IntCellValue(v, monoid)
 }
 
-case class StringAttribute(name: String, monoid: Monoid[String]) extends AnyAttributeType {
+class DoubleAttribute(val name: String, val monoid: Monoid[Double]) extends AnyAttributeType {
+  override type Type = Double
+
+  override def wrap(v: Type): AnyCellValue.Of[Type] = DoubleCellValue(v, monoid)
+}
+
+class StringAttribute(val name: String, val monoid: Monoid[String]) extends AnyAttributeType {
   override type Type = String
 
   override def wrap(v: Type): AnyCellValue.Of[Type] = StringCellValue(v, monoid)
 }
 
-case class CSVPrinter[A] (items: List[A], attributes: List[AnyAttributeType], f: (A, AnyAttributeType) => AnyCellValue) {
+case class CSVPrinter[A] (aws: AWS, items: Iterable[A], attributes: List[AnyAttributeType], f: (A, AnyAttributeType) => AnyCellValue) {
 
-  def generate() = {
+  def generate(destination: ObjectAddress) = {
 
     // val initialTotal: List[AnyCell] = f(None)
 
     val total = new mutable.HashMap[AnyAttributeType, AnyCellValue]()
+    val line = new mutable.StringBuilder()
     for (at <- attributes) {
       total.put(at, at.default)
     }
+    val result = new mutable.StringBuilder()
 
     for (item <- items) {
+
+
       for (at <- attributes) {
-        total.update(at, f(item, at).mult(total(at)))
+        val v = f(item, at)
+
+        if (!line.isEmpty) line.append(";")
+        line.append(v.toString)
+
+        total.update(at, v.mult(total(at)))
       }
+      result.append(line + "\n")
+      line.clear()
     }
 
-    println(total)
+    for (at <- attributes) {
+      if (!line.isEmpty) line.append(";")
+      line.append(total(at).toString)
+    }
+    result.append(line + "\n")
+    line.clear()
+
+    aws.s3.putWholeObject(destination, result.toString())
+   // println(result.toString())
 
   }
 }
@@ -104,8 +142,14 @@ object Test {
   }
 
   def main(args: Array[String]) {
-    val printer = new CSVPrinter(items, List(name, age), f)
-    printer.generate()
+    val raw = Map("test" -> 123, "test2" -> 77)
+
+    def transform(m: Map[String, Int]): Iterable[Item] = {
+      m.map{ case (name, age) => Item(name, age)}
+    }
+
+   // val printer = new CSVPrinter(transform(raw), List(name, age), f)
+   // printer.generate()
   }
 
 
