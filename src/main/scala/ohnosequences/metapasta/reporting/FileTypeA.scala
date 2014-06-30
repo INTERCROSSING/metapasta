@@ -149,8 +149,9 @@ class FileTypeA(aws: AWS, destination: ObjectAddress, nodeRetriever: NodeRetriev
     for ((taxonId, (taxonInfo, map0)) <- result) {
       for ((assignmentType, map1) <- map0) {
         for ((sampleId, persampledata) <- map1) {
-          persampledata.directFreq = persampledata.direct / directTotal(assignmentType)(sampleId)
-          persampledata.cumulativeFreq = persampledata.cumulative / cumulativeTotal(assignmentType)(sampleId)
+          println("update to " + (persampledata.direct + 0.0) / directTotal(assignmentType)(sampleId))
+          persampledata.directFreq = (persampledata.direct + 0.0) / directTotal(assignmentType)(sampleId)
+          persampledata.cumulativeFreq = (persampledata.cumulative +0.0) / cumulativeTotal(assignmentType)(sampleId)
         }
       }
     }

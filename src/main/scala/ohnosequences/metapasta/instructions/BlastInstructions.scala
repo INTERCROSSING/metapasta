@@ -105,18 +105,17 @@ class BlastInstructions(
 
     logger.info("parsing BLAST result")
 
-    //M00476_38_000000000_A3FHW_1_1101_20604_2554_1_N_0_28	gi|313494140|gb|GU939576.1|	99.21	253	2	0	1	253	362	614	3e-127	 457
+    //blast 12 fields
+    //25  gi|339283447|gb|JF799642.1| 100.00  399 0   0   1   399 558 956 0.0  737
 
-    //last
-    //1027    gi|130750839|gb|EF434347.1|     497     253     +       1354    M00476:38:000000000-A3FHW:1:1101:15679:1771     0       253     +       253     253
-    val blastHit = """\s*([^\s]+)\s+([^\s]+)\s+([^\s]+).+""".r
+    val blastHit = """\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*(\d+)$""".r
     val comment = """#(.*)""".r
 
 
     val hits = new ListBuffer[Hit]()
     resultRaw.linesIterator.foreach {
       case comment(c) => //logger.info("skipping comment: " + c)
-      case blastHit(header, refId, _score) => {
+      case blastHit(header, refId, _, _, _, _, _, _, _, _, _, _score) => {
         val readId = extractHeader(header)
         val score = Utils.parseInt(_score)
         hits += Hit(readId, refId, score)

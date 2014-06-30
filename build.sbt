@@ -8,7 +8,7 @@ organization := "ohnosequences"
 
 
 libraryDependencies ++= Seq(
-  "ohnosequences" % "compota_2.10" % "0.8.4-SNAPSHOT",
+  "ohnosequences" % "compota_2.10" % "0.9.0-SNAPSHOT",
   "ohnosequences" % "bio4j-ncbi-taxonomy_2.10" % "0.1.0"  classifier("")
 )
 

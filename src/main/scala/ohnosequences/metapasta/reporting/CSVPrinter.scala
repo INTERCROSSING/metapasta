@@ -100,7 +100,6 @@ case class CSVPrinter[A] (aws: AWS, items: Iterable[A], attributes: List[AnyAttr
 
     for (item <- items) {
 
-
       for (at <- attributes) {
         val v = f(item, at)
 

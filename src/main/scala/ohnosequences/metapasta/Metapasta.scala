@@ -4,7 +4,7 @@ import ohnosequences.nisperon._
 import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
 import ohnosequences.awstools.ec2.InstanceType
 import ohnosequences.awstools.autoscaling.OnDemand
-import ohnosequences.nisperon.queues.{unitQueue}
+import ohnosequences.nisperon.queues.{Merger, unitQueue, ProductQueue}
 import com.amazonaws.services.dynamodbv2.model._
 import java.io.{PrintWriter, File}
 import scala.collection.mutable
@@ -12,9 +12,8 @@ import ohnosequences.nisperon.Group
 import ohnosequences.nisperon.NisperonConfiguration
 import ohnosequences.nisperon.NisperoConfiguration
 import ohnosequences.awstools.s3.ObjectAddress
-import ohnosequences.nisperon.queues.ProductQueue
 import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions, FlashInstructions, DynamoDBUploader}
-import ohnosequences.metapasta.reporting.CSVGenerator
+import ohnosequences.metapasta.reporting.{SampleId, FileTypeA, CSVGenerator}
 
 
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
@@ -125,14 +124,23 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
     val nodeRetriever = new BundleNodeRetrieverFactory().build(configuration.metadataBuilder)
 
-    //create csv
-    val csvGeneartor = new CSVGenerator(this, nodeRetriever)
+    val tableAddress = Merger.mergeDestination(Metapasta.this, assignTable)
 
-    //???
+    logger.info("reading assign table " + tableAddress)
+
+    val tables = assignTable.serializer.fromString(aws.s3.readWholeObject(tableAddress))
+    val samples: List[SampleId] = configuration.samples.map { s => SampleId(s.name)}
+
+    val genA = new FileTypeA (
+      aws  = aws,
+      destination = ObjectAddress(nisperonConfiguration.bucket, "results") / "A.csv",
+      nodeRetriever = nodeRetriever,
+      assignments = tables,
+      samples = samples
+    )
+
+    genA.generateCSV()
     None
-
-
-
   }
 
   def checks() {
@@ -184,26 +192,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   }
 
   def additionalHandler(args: List[String]) {
-    undeployActions(true)
+    undeployActions(false)
   }
-
-
-  //  def additionalHandler(args: List[String]) {
-  //    val file = ObjectAddress("metapasta-test", "microtest.fastq")
-  //    val chunks = new S3Splitter(aws.s3, file, 10000).chunks()
-  //    import ohnosequences.formats._
-  //    import ohnosequences.parsers._
-  //    val reader = S3ChunksReader(aws.s3, file)
-  //    var left = chunks.size
-  //    var size = 0
-  //    for (chunk <- chunks) {
-  //      println(left +  " chunks left")
-  //      left -= 1
-  //      val parsed: List[FASTQ[RawHeader]] = reader.parseChunk[RawHeader](chunk._1, chunk._2)._1
-  //      size += parsed.size
-  //    }
-  //    println(size)
-  //  }
 
 
   def checkTasks(): Boolean = {
