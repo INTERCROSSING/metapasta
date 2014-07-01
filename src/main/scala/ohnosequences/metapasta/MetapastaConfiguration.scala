@@ -60,7 +60,7 @@ case class BlastConfiguration(
                                timeout: Int = 72000,
                                mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
                                generateDot: Boolean = true,
-                               assignmentConfiguration: AssignmentConfiguration
+                               assignmentConfiguration: AssignmentConfiguration = AssignmentConfiguration(400, 0.8)
                                ) extends MetapastaConfiguration {
 }
 

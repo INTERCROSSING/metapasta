@@ -161,7 +161,7 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 
     val readsStatsBuilder = new ReadsStatsBuilder()
 
-    //ref ids
+    //ref ids!!!!
     val hitsPerReads =  mutable.HashMap[String, mutable.HashSet[String]]()
 
     //reads to best scores
@@ -204,7 +204,7 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 
       for (refId <- refIds) {
         getTaxIdFromRefId(refId) match {
-          case Some(taxId) => taxIds.add(refId)
+          case Some(taxId) => taxIds.add(taxId)
           case None => readsStatsBuilder.addWrongRefId(refId)
         }
       }
