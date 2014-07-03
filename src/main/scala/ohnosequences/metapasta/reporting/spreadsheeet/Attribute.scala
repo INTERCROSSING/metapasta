@@ -2,7 +2,6 @@ package ohnosequences.metapasta.reporting.spreadsheeet
 
 import ohnosequences.nisperon.{doubleMonoid, intMonoid, Monoid}
 import scala.collection.mutable
-import ohnosequences.metapasta.reporting.StringConstantMonoid
 
 
 trait Context {
@@ -34,6 +33,12 @@ class ListContext(val attributes: List[AnyAttribute]) extends Context {
   override def get[A <: AnyAttribute](attribute: A, index: Int): attribute.Type = {
     map.getOrElse((attribute.name, index), attribute.monoid.unit).asInstanceOf[attribute.Type]
   }
+}
+
+case class StringConstantMonoid(c: String) extends Monoid[String] {
+  override def mult(x: String, y: String): String = c
+
+  override def unit: String = c
 }
 
 trait AnyAttribute {
@@ -107,9 +112,9 @@ object Test {
       (1, "one"), (2, "two"), (3, "three"), (123, "one-two-three")
     )
 
-    val attributes = List(Id, Name, Counter, Sum(Counter, Counter), Freq(Counter))
-    val executor = new Executor(attributes, items)
-    executor.execute()
+    val attributes = List[AnyAttribute.For[(Int, String)]](Id, Name, Counter, Sum(Counter, Counter), Freq(Counter))
+    val executor = new CSVExecutor(attributes, items)
+    println(executor.execute())
 
   }
 }
@@ -129,6 +134,52 @@ class Executor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[I
       }
       println(attribute.name + "[*] = " + context.getTotal(attribute))
     }
-
   }
 }
+
+class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[Item], val separator: String = ";") {
+  def execute(): String  = {
+    val context = new ListContext(attributes)
+
+    println("executing")
+    for (attribute <- attributes) {
+      var index = 0
+      for (item <- items) {
+        val res = attribute.execute(item, index, context)
+        context.set(attribute, index)(res)
+       // println(attribute.name + "[" + index + "] = " + res)
+        index += 1
+      }
+     // println(attribute.name + "[*] = " + context.getTotal(attribute))
+    }
+
+    val lines = new mutable.StringBuilder()
+
+    var index = 0
+    val line = new mutable.StringBuilder()
+
+    for (item <- items) {
+
+      for (attribute <- attributes) {
+        if(!line.isEmpty) {
+          line.append(";")
+        }
+        line.append(context.get(attribute, index).toString)
+      }
+      lines.append(line.toString() + System.lineSeparator())
+      line.clear()
+      // println(attribute.name + "[" + index + "] = " + res)
+      index += 1
+    }
+    for (attribute <- attributes) {
+      if(!line.isEmpty) {
+        line.append(";")
+      }
+      line.append(context.getTotal(attribute).toString)
+    }
+    lines.append(line.toString() + System.lineSeparator())
+    lines.toString()
+  }
+}
+
+
