@@ -20,6 +20,7 @@ case class CSVGenerator(metapasta: Metapasta, nodeRetriever: NodeRetriever) {
 
     logger.info("reading assign table " + metapasta)
 
+
     val tables = metapasta.assignTable.serializer.fromString(metapasta.aws.s3.readWholeObject(tableAddress))
 
 

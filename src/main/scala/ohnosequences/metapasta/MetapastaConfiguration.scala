@@ -1,11 +1,10 @@
 package ohnosequences.metapasta
 
 import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
-import ohnosequences.nisperon.{GroupConfiguration}
-import ohnosequences.awstools.ec2.InstanceType
-import ohnosequences.awstools.autoscaling.OnDemand
+import ohnosequences.nisperon.{NisperonConfiguration, SingleGroup, GroupConfiguration, Group}
+import ohnosequences.awstools.ec2.{InstanceSpecs, InstanceType}
+import ohnosequences.awstools.autoscaling.{SpotAuto, OnDemand}
 import ohnosequences.metapasta.databases._
-import ohnosequences.nisperon.Group
 
 
 //todo extract mapping configuration
@@ -23,6 +22,8 @@ case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
 trait  MetapastaConfiguration {
    val metadataBuilder: NisperonMetadataBuilder
    val mappingWorkers: GroupConfiguration
+   val managerGroupConfiguration: GroupConfiguration
+   val metamanagerGroupConfiguration: GroupConfiguration
    val uploadWorkers: Option[Int]
    val email: String
    val password: String
@@ -35,6 +36,7 @@ trait  MetapastaConfiguration {
    val mergeQueueThroughput: MergeQueueThroughput
    val generateDot: Boolean
    val assignmentConfiguration: AssignmentConfiguration
+   val defaultInstanceSpecs: InstanceSpecs
 }
 
 
@@ -60,7 +62,10 @@ case class BlastConfiguration(
                                timeout: Int = 72000,
                                mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
                                generateDot: Boolean = true,
-                               assignmentConfiguration: AssignmentConfiguration = AssignmentConfiguration(400, 0.8)
+                               assignmentConfiguration: AssignmentConfiguration = AssignmentConfiguration(400, 0.8),
+                               managerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.t1_micro, SpotAuto),
+                               metamanagerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.m1_medium, SpotAuto),
+                               defaultInstanceSpecs: InstanceSpecs = NisperonConfiguration.defaultInstanceSpecs
                                ) extends MetapastaConfiguration {
 }
 
@@ -82,8 +87,11 @@ case class LastConfiguration(
                                timeout: Int = 72000,
                                mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
                                generateDot: Boolean = true,
-                               assignmentConfiguration: AssignmentConfiguration
-                               ) extends MetapastaConfiguration {
+                               assignmentConfiguration: AssignmentConfiguration,
+                               managerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.t1_micro, SpotAuto),
+                               metamanagerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.m1_medium, SpotAuto),
+                               defaultInstanceSpecs: InstanceSpecs = NisperonConfiguration.defaultInstanceSpecs
+                              ) extends MetapastaConfiguration {
 }
 
 

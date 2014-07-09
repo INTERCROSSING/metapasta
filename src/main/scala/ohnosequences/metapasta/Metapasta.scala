@@ -2,7 +2,7 @@ package ohnosequences.metapasta
 
 import ohnosequences.nisperon._
 import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
-import ohnosequences.awstools.ec2.InstanceType
+import ohnosequences.awstools.ec2.{InstanceSpecs, InstanceType}
 import ohnosequences.awstools.autoscaling.OnDemand
 import ohnosequences.nisperon.queues.{Merger, unitQueue, ProductQueue}
 import com.amazonaws.services.dynamodbv2.model._
@@ -13,12 +13,15 @@ import ohnosequences.nisperon.NisperonConfiguration
 import ohnosequences.nisperon.NisperoConfiguration
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions, FlashInstructions, DynamoDBUploader}
-import ohnosequences.metapasta.reporting.{SampleId, FileTypeA, CSVGenerator}
+import ohnosequences.metapasta.reporting.{TaxonomyRank, SampleId, FileTypeA, CSVGenerator}
 
 
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
 
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
+    managerGroupConfiguration = configuration.managerGroupConfiguration,
+    metamanagerGroupConfiguration = configuration.metamanagerGroupConfiguration,
+    defaultInstanceSpecs = configuration.defaultInstanceSpecs,
     metadataBuilder = configuration.metadataBuilder,
     email = configuration.email,
     autoTermination = true,
@@ -49,15 +52,15 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
   val readsStats = s3queue(
     name = "readsStats",
-    monoid = new MapMonoid[String, ReadsStats](readsStatsMonoid),
-    serializer = new JsonSerializer[Map[String, ReadsStats]]
+    monoid = new MapMonoid[(String, String), ReadsStats](readsStatsMonoid),
+    serializer = new JsonSerializer[Map[(String, String), ReadsStats]]
   )
 
 
   val assignTable = s3queue(
     name = "table",
-    monoid = new MapMonoid[String, AssignTable](assignTableMonoid),
-    serializer = new JsonSerializer[Map[String, AssignTable]]
+    monoid = assignTableMonoid,
+    serializer = new JsonSerializer[AssignTable]
   )
 
   override val mergingQueues = List(assignTable, readsStats)
@@ -74,7 +77,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   //val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws), bio4j, configuration.lastTemplate)
 
 
-  val mappingInstructions: MapInstructions[List[MergedSampleChunk],  (Map[String, AssignTable], Map[String, ReadsStats])] =
+  val mappingInstructions: MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, String), ReadsStats])] =
     configuration match {
       case b: BlastConfiguration => new BlastInstructions(
         aws = aws,
@@ -131,15 +134,26 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     val tables = assignTable.serializer.fromString(aws.s3.readWholeObject(tableAddress))
     val samples: List[SampleId] = configuration.samples.map { s => SampleId(s.name)}
 
-    val genA = new FileTypeA (
-      aws  = aws,
-      destination = ObjectAddress(nisperonConfiguration.bucket, "results") / "A.csv",
-      nodeRetriever = nodeRetriever,
-      assignments = tables,
-      samples = samples
-    )
+    val ranks: List[Option[TaxonomyRank]] = TaxonomyRank.ranks.map(Some(_)) ++ List(None)
 
-    genA.generateCSV()
+    for (r <- ranks) {
+
+      val name = r match {
+        case None => "A.frequencies.csv"
+        case Some(rr) => "A.$rank$.frequencies.csv".replace("$rank$", rr.toString)
+      }
+
+//      val genA = new FileTypeA(
+//        aws = aws,
+//        destination = ObjectAddress(nisperonConfiguration.bucket, "results") / name,
+//        nodeRetriever = nodeRetriever,
+//        assignments = tables,
+//        samples = samples,
+//        rank = r
+//      )
+//
+//      genA.generateCSV()
+    }
     None
   }
 

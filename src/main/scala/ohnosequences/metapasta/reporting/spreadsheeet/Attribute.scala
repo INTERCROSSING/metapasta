@@ -48,25 +48,27 @@ trait AnyAttribute {
   val name: String
   type Item
 
+  val hidden: Boolean
   def execute(item: Item, index: Int, context: Context): Type
 
 }
 
 object AnyAttribute {
   type For[T] = AnyAttribute { type Item = T }
+
 }
 
-abstract class IntAttribute[I](val name: String, val monoid: Monoid[Int]) extends AnyAttribute {
+abstract class IntAttribute[I](val name: String, val monoid: Monoid[Int], val hidden: Boolean = false) extends AnyAttribute {
   override type Type = Int
   override type Item = I
 }
 
-abstract class DoubleAttribute[I](val name: String, val monoid: Monoid[Double]) extends AnyAttribute {
+abstract class DoubleAttribute[I](val name: String, val monoid: Monoid[Double], val hidden: Boolean = false) extends AnyAttribute {
   override type Type = Double
   override type Item = I
 }
 
-abstract class StringAttribute[I](val name: String, val monoid: Monoid[String]) extends AnyAttribute {
+abstract class StringAttribute[I](val name: String, val monoid: Monoid[String], val hidden: Boolean = false) extends AnyAttribute {
   override type Type = String
   override type Item = I
 }
@@ -75,7 +77,17 @@ abstract class StringAttribute[I](val name: String, val monoid: Monoid[String]) 
 
 case class Freq[I](a: IntAttribute[I]) extends DoubleAttribute[I](a.name + ".freq", doubleMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {
-    context.get(a, index).toDouble / context.getTotal(a)
+
+    if(context.getTotal(a) == 0 ) {
+      if (context.get(a, index) == 0) {
+        0D
+      } else {
+        println("error: " + a.name + " of " + item + " < " + " total!")
+        0D
+      }
+    } else {
+      context.get(a, index).toDouble / context.getTotal(a)
+    }
   }
 }
 
@@ -137,9 +149,11 @@ class Executor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[I
   }
 }
 
-class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[Item], val separator: String = ";") {
+class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[Item], val separator: String = ";", val headers: Boolean = true) {
   def execute(): String  = {
     val context = new ListContext(attributes)
+
+
 
     println("executing")
     for (attribute <- attributes) {
@@ -158,9 +172,18 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
     var index = 0
     val line = new mutable.StringBuilder()
 
+    for (attribute <- attributes if !attribute.hidden) {
+      if(!line.isEmpty) {
+        line.append(";")
+      }
+      line.append(attribute.name)
+    }
+
+    lines.append(line.toString() + System.lineSeparator())
+    line.clear()
     for (item <- items) {
 
-      for (attribute <- attributes) {
+      for (attribute <- attributes if !attribute.hidden) {
         if(!line.isEmpty) {
           line.append(";")
         }
@@ -171,7 +194,7 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
       // println(attribute.name + "[" + index + "] = " + res)
       index += 1
     }
-    for (attribute <- attributes) {
+    for (attribute <- attributes if !attribute.hidden) {
       if(!line.isEmpty) {
         line.append(";")
       }

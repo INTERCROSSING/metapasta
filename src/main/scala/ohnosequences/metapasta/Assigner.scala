@@ -10,7 +10,6 @@ import ohnosequences.nisperon.MapMonoid
 
 case class Hit(readId: String, refId: String, score: Int)
 
-
 case class Assignment(taxId: String, score: Int = 0)
 
 //trait Assignment {
@@ -26,7 +25,7 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 
   val logger = Logger(this.getClass)
 
-  def assign(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (Map[String, AssignTable], Map[String, ReadsStats]) = {
+  def assign(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (AssignTable, Map[(String, String), ReadsStats]) = {
    // case BestHit => assignBestHit(chunk, reads, hits)
    // case LCA(scoreThreshold, p) => assignLCA(chunk, reads, hits, scoreThreshold, p)
 
@@ -37,7 +36,8 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
     val bbhRes  = assignBestHit(chunk, reads, hits)
 
     import AssignmentType._
-    (Map(LCA -> lcaRes._1, BBH -> bbhRes._1), Map(LCA -> lcaRes._2, BBH -> bbhRes._2))
+
+    (assignTableMonoid.mult(lcaRes._1, bbhRes._1), Map((chunk.sample,LCA) -> lcaRes._2, (chunk.sample,BBH) -> bbhRes._2))
 
 
   }
@@ -78,6 +78,7 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 //                             assignment: mutable.HashMap[String, Assignment],
 //                             initialReadsStats: ReadsStats = readsStatsMonoid.unit): (AssignTable, (List[ReadInfo], ReadsStats)) = {
   def prepareAssignedResults(chunk: MergedSampleChunk,
+                             assignmentType: AssignmentType,
                              reads: List[FASTQ[RawHeader]],
                              bestScores: mutable.HashMap[String, Int],
                              assignment: mutable.HashMap[String, Assignment],
@@ -92,47 +93,18 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 
     reads.foreach {
       fastq =>
-
-        readsStatsBuilder.incrementMerged()
+       // readsStatsBuilder.incrementMerged()
         //todo check it
         val readId = extractReadHeader(fastq.header.getRaw)
-
         bestScores.get(readId) match {
           case None => readsStatsBuilder.incrementNoHit()
           case _ => assignment.get(readId) match {
             case None => readsStatsBuilder.incrementNotAssigned()
-            case _ => ()
+            case _ => readsStatsBuilder.incrementAssigned()
           }
         }
     }
 
-
-
-
-
-//      assignment.get(readId) match {
-//        case None => {
-//          //readsInfo += ReadInfo(readId, ReadInfo.unassigned, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId, ReadInfo.unassigned)
-//          readsStatsBuilder.incrementUnassigned()
-//        }
-//        case Some(RefIdAssignment(refId, score)) => {
-//          val gi = database.parseGI(refId).getOrElse(ReadInfo.unassigned)
-//          val taxId = giMapper.getTaxIdByGi(gi).getOrElse(ReadInfo.unassigned)
-//          readsInfo += ReadInfo(readId, gi, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId, taxId)
-//          if (gi.equals(ReadInfo.unassigned)) {
-//            readsStatsBuilder.incrementUnknownRefId()
-//          } else if (taxId.equals(ReadInfo.unassigned)) {
-//            readsStatsBuilder.incrementUnknownGI()
-//          } else {
-//            readsStatsBuilder.incrementAssigned()
-//          }
-//        }
-//        case Some(TaxIdAssignment(taxId, score)) => {
-//          readsInfo += ReadInfo(readId, ReadInfo.unassigned, fastq.sequence, fastq.quality, chunk.sample, chunk.chunkId, taxId)
-//          readsStatsBuilder.incrementAssigned()
-//        }
-//      }
-//    }
 
     val assignTable = mutable.HashMap[String, TaxInfo]()
 
@@ -154,10 +126,13 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 
    // assignTable.put(ReadInfo.unassigned, TaxInfo(unassigned, unassigned))
 
-    (AssignTable(Map(chunk.sample -> assignTable.toMap)), readsStatsBuilder.build.mult(initialReadsStats))
+    (AssignTable(Map((chunk.sample, assignmentType.toString) -> assignTable.toMap)), readsStatsBuilder.build.mult(initialReadsStats))
   }
 
-  def assignLCA(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit], scoreThreshold: Int, p: Double) = {
+  def assignLCA(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit], scoreThreshold: Int, p: Double): (AssignTable, ReadsStats) = {
+
+    logger.info("LCA assignment")
+    var t1 =  System.currentTimeMillis()
 
     val readsStatsBuilder = new ReadsStatsBuilder()
 
@@ -240,9 +215,18 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
       }
     }
 
+    var t2 = System.currentTimeMillis()
+    logger.info("LCA assignment finished " + (t2 - t1)  + " ms")
 
+
+    logger.info("preparing results")
+    t1 = System.currentTimeMillis()
       //generate stats
-    prepareAssignedResults(chunk, reads, bestScores, finalHits, readsStatsBuilder.build)
+    val res = prepareAssignedResults(chunk, LCA, reads, bestScores, finalHits, readsStatsBuilder.build)
+    t2 = System.currentTimeMillis()
+    logger.info("preparing results finished " + (t2 - t1)  + " ms")
+
+    res
   }
 
 
@@ -313,6 +297,8 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 //  }
 
   def assignBestHit(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (AssignTable, ReadsStats) = {
+    logger.info("BBH assignment")
+    var t1 =  System.currentTimeMillis()
     val bestScores = mutable.HashMap[String, Int]()
     val assignment = mutable.HashMap[String, Assignment]()
     val readsStatsBuilder = new ReadsStatsBuilder()
@@ -329,8 +315,17 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
         }
       }
     }
+    var t2 =  System.currentTimeMillis()
+    logger.info("BBH assignment finished " + (t2 - t1) + " ms")
 
-    prepareAssignedResults(chunk, reads, bestScores, assignment, readsStatsBuilder.build)
+
+    logger.info("preparing results")
+    t1 =  System.currentTimeMillis()
+    val res = prepareAssignedResults(chunk, BBH, reads, bestScores, assignment, readsStatsBuilder.build)
+    t2 =  System.currentTimeMillis()
+    logger.info("preparing results finished " + (t2 - t1) + " ms")
+
+    res
   }
 
 }

@@ -4,9 +4,13 @@ package ohnosequences.metapasta
 //
 sealed trait AssignmentType
 //
-object LCA extends AssignmentType
+object LCA extends AssignmentType {
+  override def toString: String = "LCA"
+}
 //
-object BBH extends AssignmentType
+object BBH extends AssignmentType {
+  override def toString: String = "BBH"
+}
 
 object AssignmentType {
   val LCA = "LCA"

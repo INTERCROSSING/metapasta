@@ -39,7 +39,7 @@ class LastInstructions(aws: AWS,
                        fastaInput: Boolean = false,
                        logging: Boolean
                        ) extends
-   MapInstructions[List[MergedSampleChunk],  (Map[String, AssignTable], Map[String, ReadsStats])]  {
+   MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, String), ReadsStats])]  {
 
   val logger = Logger(this.getClass)
 
@@ -60,7 +60,7 @@ class LastInstructions(aws: AWS,
   //todo fix header
   def extractHeader(s: String) = s.replace("@", "").split("\\s")(0)
 
-  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: LastContext): (Map[String, AssignTable], Map[String, ReadsStats]) = {
+  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: LastContext): (AssignTable, Map[(String, String), ReadsStats]) = {
 
 
     //todo fix head

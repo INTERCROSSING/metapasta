@@ -24,7 +24,7 @@ class BlastInstructions(
                        useXML: Boolean,
                        logging: Boolean
                        ) extends
-   MapInstructions[List[MergedSampleChunk],  (Map[String, AssignTable], Map[String, ReadsStats])] {
+   MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, String), ReadsStats])] {
 
 
   case class BlastContext(nodeRetriever: NodeRetriever, database: BlastDatabase16S, blast: Blast, assigner: Assigner)
@@ -48,7 +48,7 @@ class BlastInstructions(
 
 
 
-  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: BlastContext): (Map[String, AssignTable], Map[String, ReadsStats]) = {
+  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: BlastContext): (AssignTable, Map[(String, String), ReadsStats]) = {
 
     import context._
 
@@ -103,25 +103,31 @@ class BlastInstructions(
     //todo add xml parser
     val resultRaw = if (useXML) "" else Utils.readFile(outputFile)
 
-    logger.info("parsing BLAST result")
+    val t1 = System.currentTimeMillis()
+
 
     //blast 12 fields
     //25  gi|339283447|gb|JF799642.1| 100.00  399 0   0   1   399 558 956 0.0  737
+//M02255:17:000000000-A8J9J:1:2104:18025:8547     gi|291331518|gb|GU958050.1|     88.31   77      3       6       1       74      506     579     1e-15   87.9
+    //val blastHit = """\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*(\d+)$""".r
+    val blastHit = """^\s*([^\s]+)\s+([^\s]+).*?([^\s]+)\s*$""".r
 
-    val blastHit = """\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*(\d+)$""".r
     val comment = """#(.*)""".r
 
 
     val hits = new ListBuffer[Hit]()
     resultRaw.linesIterator.foreach {
       case comment(c) => //logger.info("skipping comment: " + c)
-      case blastHit(header, refId, _, _, _, _, _, _, _, _, _, _score) => {
+      case blastHit(header, refId, _score) => {
         val readId = extractHeader(header)
         val score = Utils.parseInt(_score)
         hits += Hit(readId, refId, score)
       }
       case l => logger.error("can't parse: " + l)
     }
+
+    val t2 = System.currentTimeMillis()
+    logger.info("parsed " + hits.size + " hits " + (t2 - t1) + " ms")
 
     assigner.assign(chunk, parsed, hits.toList)
 
