@@ -5,6 +5,7 @@ import ohnosequences.nisperon.{NisperonConfiguration, SingleGroup, GroupConfigur
 import ohnosequences.awstools.ec2.{InstanceSpecs, InstanceType}
 import ohnosequences.awstools.autoscaling.{SpotAuto, OnDemand}
 import ohnosequences.metapasta.databases._
+import ohnosequences.metapasta.reporting.{SampleTag}
 
 
 //todo extract mapping configuration
@@ -28,6 +29,7 @@ trait  MetapastaConfiguration {
    val email: String
    val password: String
    val samples: List[PairedSample]
+   val tagging: Map[PairedSample, List[SampleTag]]
    val chunksSize: Int
    val logging: Boolean
    val keyName: String
@@ -51,6 +53,7 @@ case class BlastConfiguration(
                                uploadWorkers: Option[Int],
                                email: String,
                                samples: List[PairedSample],
+                               tagging: Map[PairedSample, List[SampleTag]] = Map[PairedSample, List[SampleTag]](),
                                chunksSize: Int = 20000,
                                blastTemplate: String = """blastn -task megablast -db $db$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt $out_format$ -show_gis""",
                                xmlOutput: Boolean = false,
@@ -59,7 +62,7 @@ case class BlastConfiguration(
                                logging: Boolean = true,
                                keyName: String = "nispero",
                                removeAllQueues: Boolean = true,
-                               timeout: Int = 72000,
+                               timeout: Int = 360000,
                                mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
                                generateDot: Boolean = true,
                                assignmentConfiguration: AssignmentConfiguration = AssignmentConfiguration(400, 0.8),
@@ -76,6 +79,7 @@ case class LastConfiguration(
                                uploadWorkers: Option[Int],
                                email: String,
                                samples: List[PairedSample],
+                               tagging: Map[PairedSample, List[SampleTag]] = Map[PairedSample, List[SampleTag]](),
                                chunksSize: Int = 2000000,
                                lastTemplate: String = """./lastal $db$ $input$ -s2 -m100 -T0 -e70 -Q$format$ -f0 -o $output$""",
                                useFasta: Boolean = true,
@@ -84,7 +88,7 @@ case class LastConfiguration(
                                password: String,
                                keyName: String = "nispero",
                                removeAllQueues: Boolean = true,
-                               timeout: Int = 72000,
+                               timeout: Int = 360000,
                                mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
                                generateDot: Boolean = true,
                                assignmentConfiguration: AssignmentConfiguration,

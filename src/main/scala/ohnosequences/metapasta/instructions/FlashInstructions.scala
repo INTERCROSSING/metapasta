@@ -13,7 +13,7 @@ import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.metapasta.ReadsStats
 
 
-class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends Instructions[List[PairedSample], (Map[(String, String), ReadsStats], List[MergedSampleChunk])] {
+class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends Instructions[List[PairedSample], (Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] {
 
   import scala.sys.process._
 
@@ -68,7 +68,7 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
   }
 
   //(String, String), ReadsStats] (sample,assignmentType) -> readsStat
-  def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[(Map[(String, String), ReadsStats], List[MergedSampleChunk])] = {
+  def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[(Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] = {
     import sys.process._
 
     val sample = input.head
@@ -160,14 +160,14 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
 
     //todo remove limit
 
-    val mapMonoid = new MapMonoid[(String, String), ReadsStats](readsStatsMonoid)
+    val mapMonoid = new MapMonoid[(String, AssignmentType), ReadsStats](readsStatsMonoid)
 
     var first = true
     ranges.map { range =>
 
       val stats2  = if (first) {
         first = false
-        Map((sample.name, AssignmentType.BBH) -> stats, (sample.name, AssignmentType.LCA) -> stats)
+        Map((sample.name, BBH) -> stats, (sample.name, LCA) -> stats)
       } else {
         mapMonoid.unit
       }

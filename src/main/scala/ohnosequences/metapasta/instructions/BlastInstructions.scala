@@ -24,7 +24,7 @@ class BlastInstructions(
                        useXML: Boolean,
                        logging: Boolean
                        ) extends
-   MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, String), ReadsStats])] {
+   MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, AssignmentType), ReadsStats])] {
 
 
   case class BlastContext(nodeRetriever: NodeRetriever, database: BlastDatabase16S, blast: Blast, assigner: Assigner)
@@ -48,7 +48,7 @@ class BlastInstructions(
 
 
 
-  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: BlastContext): (AssignTable, Map[(String, String), ReadsStats]) = {
+  def apply(input: List[MergedSampleChunk], s3logger: S3Logger, context: BlastContext): (AssignTable, Map[(String, AssignmentType), ReadsStats]) = {
 
     import context._
 

@@ -91,9 +91,19 @@ case class Freq[I](a: IntAttribute[I]) extends DoubleAttribute[I](a.name + ".fre
   }
 }
 
-case class Sum[I](a: IntAttribute[I]*) extends IntAttribute[I](a.map(_.name).reduce { _ + "+" + _}, intMonoid) {
+case class Sum[I](a: List[IntAttribute[I]]) extends IntAttribute[I](a.map(_.name).reduce { _ + "+" + _}, intMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {
     a.map {context.get(_, index)}.reduce{_ + _}
+  }
+}
+
+case class Average[I](a: List[DoubleAttribute[I]]) extends DoubleAttribute[I]("mean(" + a.map(_.name).reduce { _ + "," + _} + ")", doubleMonoid) {
+  override def execute(item: Item, index: Int, context: Context) = {
+    (a.map {
+      context.get(_, index)
+    }.reduce {
+      _ + _
+    } + 0.0) / a.size
   }
 }
 
@@ -124,7 +134,7 @@ object Test {
       (1, "one"), (2, "two"), (3, "three"), (123, "one-two-three")
     )
 
-    val attributes = List[AnyAttribute.For[(Int, String)]](Id, Name, Counter, Sum(Counter, Counter), Freq(Counter))
+    val attributes = List[AnyAttribute.For[(Int, String)]](Id, Name, Counter, Sum(List(Counter, Counter)), Freq(Counter))
     val executor = new CSVExecutor(attributes, items)
     println(executor.execute())
 
@@ -149,7 +159,15 @@ class Executor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[I
   }
 }
 
-class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[Item], val separator: String = ";", val headers: Boolean = true) {
+class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[Item], val separator: String = ",", val headers: Boolean = true) {
+ def quote(s: String): String = {
+   if(s.contains(" ") || s.contains("\t")) {
+     '"' + s + '"'
+   } else {
+     s
+   }
+ }
+
   def execute(): String  = {
     val context = new ListContext(attributes)
 
@@ -174,9 +192,9 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
 
     for (attribute <- attributes if !attribute.hidden) {
       if(!line.isEmpty) {
-        line.append(";")
+        line.append(separator)
       }
-      line.append(attribute.name)
+      line.append(quote(attribute.name))
     }
 
     lines.append(line.toString() + System.lineSeparator())
@@ -185,9 +203,9 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
 
       for (attribute <- attributes if !attribute.hidden) {
         if(!line.isEmpty) {
-          line.append(";")
+          line.append(separator)
         }
-        line.append(context.get(attribute, index).toString)
+        line.append(quote(context.get(attribute, index).toString))
       }
       lines.append(line.toString() + System.lineSeparator())
       line.clear()
@@ -196,9 +214,9 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
     }
     for (attribute <- attributes if !attribute.hidden) {
       if(!line.isEmpty) {
-        line.append(";")
+        line.append(separator)
       }
-      line.append(context.getTotal(attribute).toString)
+      line.append(quote(context.getTotal(attribute).toString))
     }
     lines.append(line.toString() + System.lineSeparator())
     lines.toString()

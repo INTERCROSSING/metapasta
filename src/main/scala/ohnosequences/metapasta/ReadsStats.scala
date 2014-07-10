@@ -1,6 +1,6 @@
 package ohnosequences.metapasta
 
-import ohnosequences.nisperon.Monoid
+import ohnosequences.nisperon.{JsonSerializer, Serializer, Monoid}
 import scala.collection.mutable
 
 
@@ -64,4 +64,23 @@ object readsStatsMonoid extends Monoid[ReadsStats] {
 
   val _unit = ReadsStats(0, 0, 0, 0, 0, 0, Set[String]())
   override def unit: ReadsStats = _unit
+}
+
+object readsStatsSerializer extends Serializer[Map[(String, AssignmentType), ReadsStats]] {
+
+  val rawStatsSerializer = new JsonSerializer[Map[String, ReadsStats]]()
+  override def toString(t: Map[(String, AssignmentType), ReadsStats]): String = {
+    val raw: Map[String, ReadsStats] = t.map { case (sampleAssignmentType, stats)  =>
+      (sampleAssignmentType._1 + "###" + sampleAssignmentType._2.toString, stats)
+    }
+    rawStatsSerializer.toString(raw)
+  }
+
+  override def fromString(s: String): Map[(String, AssignmentType), ReadsStats] = {
+    val raw : Map[String, ReadsStats]= rawStatsSerializer.fromString(s)
+    raw.map { case (sampleAssignmentType, stats)  =>
+      val parts = sampleAssignmentType.split("###")
+      ((parts(0), AssignmentType.fromString(parts(1))), stats)
+    }
+  }
 }

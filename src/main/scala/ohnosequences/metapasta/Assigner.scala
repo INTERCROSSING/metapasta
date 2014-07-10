@@ -25,7 +25,7 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 
   val logger = Logger(this.getClass)
 
-  def assign(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (AssignTable, Map[(String, String), ReadsStats]) = {
+  def assign(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (AssignTable, Map[(String, AssignmentType), ReadsStats]) = {
    // case BestHit => assignBestHit(chunk, reads, hits)
    // case LCA(scoreThreshold, p) => assignLCA(chunk, reads, hits, scoreThreshold, p)
 
@@ -35,7 +35,6 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
     //logger.info("best score hit")
     val bbhRes  = assignBestHit(chunk, reads, hits)
 
-    import AssignmentType._
 
     (assignTableMonoid.mult(lcaRes._1, bbhRes._1), Map((chunk.sample,LCA) -> lcaRes._2, (chunk.sample,BBH) -> bbhRes._2))
 
@@ -126,7 +125,7 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 
    // assignTable.put(ReadInfo.unassigned, TaxInfo(unassigned, unassigned))
 
-    (AssignTable(Map((chunk.sample, assignmentType.toString) -> assignTable.toMap)), readsStatsBuilder.build.mult(initialReadsStats))
+    (AssignTable(Map((chunk.sample, assignmentType) -> assignTable.toMap)), readsStatsBuilder.build.mult(initialReadsStats))
   }
 
   def assignLCA(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit], scoreThreshold: Int, p: Double): (AssignTable, ReadsStats) = {
