@@ -94,6 +94,8 @@ When it comes to **rows**:
 
 This file type is a modification of the file 1 and it is generated only for the _Project_ level.
 
+The file name should be like this `ItemID.direct.absolute.freq.csv`
+
 It is a CSV file with only these **columns**:
 
 - TaxonomyName
@@ -108,6 +110,8 @@ And the **rows** as for the file type A
 ### File type C
 
 This file type is a modification of the file 1 and it is generated only for the _Project_ level.
+
+The file name should be like this `ItemID.direct.relative.freq.csv`
 
 It is a CSV file with only these **columns**:
 
@@ -126,6 +130,8 @@ Only report in this file the **rows** that fulfill any of these 2 criteria:
 ### File type D
 
 This file type is a modification of the file 1 and it is generated only for the _Group_ level.
+
+The file name should be like this `ItemID.frequencies.complete.csv`
 
 It has **all the columns** as the file type A plus these two columns:
 
