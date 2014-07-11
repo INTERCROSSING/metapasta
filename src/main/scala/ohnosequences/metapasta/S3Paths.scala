@@ -12,7 +12,7 @@ object S3Paths {
     (resultsObject / sample / "reads" / (sample + ".notMerged1.fastq"),  resultsObject / sample / "reads" / (sample + ".notMerged2.fastq"))
   }
 
-  def mergedNoHitFasta(resultsObject: ObjectAddress, sample: String) : ObjectAddress =    resultsObject / sample / "reads" / (sample + "noHit.fasta")
+  def mergedNoHitFasta(resultsObject: ObjectAddress, sample: String) : ObjectAddress =    resultsObject / sample / "reads" / (sample + ".noHit.fasta")
   def mergedAssignedFasta(resultsObject: ObjectAddress, sample: String, assignmentType: AssignmentType) : ObjectAddress = resultsObject / sample / "reads" / (sample + "." + assignmentType + ".assigned.fasta")
   def mergedNotAssignedFasta(resultsObject: ObjectAddress, sample: String, assignmentType: AssignmentType):ObjectAddress =resultsObject / sample / "reads" / (sample + "." + assignmentType + ".notAssigned.fasta")
 
