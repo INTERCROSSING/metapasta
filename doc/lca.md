@@ -1,3 +1,8 @@
+#OUTDATED!!!!!!!
+
+
+
+
 ### problem
 for given read **r** and set of **hits** of that read to 16S database find a **taxonomy node** such that:
 * more than **percent** GIs of hits maps to children (direct or not) nodes of **node**
