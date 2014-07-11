@@ -86,7 +86,7 @@ case class Freq[I](a: IntAttribute[I]) extends DoubleAttribute[I](a.name + ".fre
         0D
       }
     } else {
-      context.get(a, index).toDouble / context.getTotal(a)
+      (context.get(a, index).toDouble / context.getTotal(a)) * 100
     }
   }
 }
