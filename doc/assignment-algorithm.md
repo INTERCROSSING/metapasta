@@ -8,7 +8,7 @@ For each read:
 3. filter all reads with bitscore below p * S (where **p** is fixed coefficient, e.g. 0.9)
 4. now there are two cases:
     * The rest of the hits (their taxa) form a line in the taxonomy tree. In this case we should choose the most specific tax id as the final assignment for that read
-    * in the other cases we should calculate LCA (sensu stricto)
+    * in the other cases we should calculate (sensu stricto) Lowest Common Ancestor (LCA)
     
 5. (not for now, questionable) discard leafs with small assignments. 
 
