@@ -1,5 +1,6 @@
 ### MEGAN-like taxonomy node assignment algorithm
 
+
 For each read:
 
 1. filter all hits with bitscore below the threshold s_0
@@ -10,3 +11,6 @@ For each read:
     * in other cases we should calculate LCA
     
 5. (not for now, questionable) discard leafs with small assignments. 
+
+
+The value used for evaluate the similarity in this approach is the bitscore that is a value that increases when similarity is higher and depends a lot on the length of the HSP
