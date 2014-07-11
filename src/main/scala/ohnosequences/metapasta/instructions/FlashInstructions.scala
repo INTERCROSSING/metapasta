@@ -13,7 +13,11 @@ import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.metapasta.ReadsStats
 
 
-class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) extends Instructions[List[PairedSample], (Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] {
+class FlashInstructions(
+                         aws: AWS,
+                         chunkSize: Int = 2000000,
+                         readsDirectory: ObjectAddress
+                         ) extends Instructions[List[PairedSample], (Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] {
 
   import scala.sys.process._
 
@@ -24,9 +28,6 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
   override type Context = Unit
 
   override def prepare() {
-
-    logger.info("creating bucket " + bucket)
-    aws.s3.createBucket(bucket)
 
     val flash = "flash"
     val flashDst = new File("/usr/bin", flash)
@@ -93,10 +94,9 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
         statsBuilder.merged = reads
 
         logger.info("uploading results")
-        val resultObject2 = ObjectAddress(bucket, "merged/" + sample.name + ".fastq")
+        val resultObject2 = S3Paths.mergedFastq(readsDirectory, sample.name)
+
         lm.upload(resultObject2, extracted)
-
-
         (resultObject2, statsBuilder.build)
       } else {
         logger.info("downloading " + sample.fastq1)
@@ -150,8 +150,18 @@ class FlashInstructions(aws: AWS, bucket: String, chunkSize: Int = 2000000) exte
       }
 
       logger.info("uploading results")
-      val resultObject2 = ObjectAddress(bucket, "merged/" + sample.name + ".fastq")
+      val resultObject2 = S3Paths.mergedFastq(readsDirectory, sample.name)
+
       lm.upload(resultObject2, new File("out.extendedFrags.fastq"))
+
+      val file1 = new File("out.notCombined_1.fastq")
+      val file2 = new File("out.notCombined_1.fastq")
+      val dest = S3Paths.notMergedFastq(readsDirectory, sample.name)
+      logger.info("uploading not merged file " + file1 + " to " + dest._1)
+      lm.upload(dest._1, file1)
+      logger.info("uploading not merged file " + file2 + " to " + dest._2)
+      lm.upload(dest._2, file2)
+
       (resultObject2, readsStats.build)
     }
 

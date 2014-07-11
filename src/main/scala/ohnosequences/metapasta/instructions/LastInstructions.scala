@@ -37,7 +37,9 @@ class LastInstructions(aws: AWS,
                        databaseFactory: DatabaseFactory[LastDatabase16S],
                        lastCommandTemplate: String,
                        fastaInput: Boolean = false,
-                       logging: Boolean
+                       logging: Boolean,
+                       resultDirectory: ObjectAddress,
+                       readsDirectory: ObjectAddress
                        ) extends
    MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, AssignmentType), ReadsStats])]  {
 
@@ -52,7 +54,7 @@ class LastInstructions(aws: AWS,
     val lastDatabase = databaseFactory.build(lm)
     val last = new LastFactory().build(lm)
     val giMapper = new InMemoryGIMapperFactory().build(lm)
-    val assigner = new Assigner(nodeRetreiver, lastDatabase, giMapper, assignmentConfiguration, extractHeader)
+    val assigner = new Assigner(aws, nodeRetreiver, lastDatabase, giMapper, assignmentConfiguration, extractHeader, logging, readsDirectory)
     LastContext(nodeRetreiver, lastDatabase, last, assigner)
   }
 

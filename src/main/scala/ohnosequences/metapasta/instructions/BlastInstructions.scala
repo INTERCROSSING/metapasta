@@ -13,6 +13,7 @@ import ohnosequences.parsers.S3ChunksReader
 import ohnosequences.formats.RawHeader
 import ohnosequences.formats.FASTQ
 import ohnosequences.metapasta.AssignTable
+import ohnosequences.awstools.s3.ObjectAddress
 
 
 class BlastInstructions(
@@ -22,7 +23,9 @@ class BlastInstructions(
                        databaseFactory: DatabaseFactory[BlastDatabase16S],
                        blastCommandTemplate: String = """blastn -task megablast -db $db$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt 6 -show_gis""",
                        useXML: Boolean,
-                       logging: Boolean
+                       logging: Boolean,
+                       resultDirectory: ObjectAddress,
+                       readsDirectory: ObjectAddress
                        ) extends
    MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, AssignmentType), ReadsStats])] {
 
@@ -42,7 +45,7 @@ class BlastInstructions(
     val blastDatabase = databaseFactory.build(lm)
     val blast = new BlastFactory().build(lm)
     val giMapper = new InMemoryGIMapperFactory().build(lm)
-    val assigner = new Assigner(nodeRetreiver, blastDatabase, giMapper, assignmentConfiguration, extractHeader)
+    val assigner = new Assigner(aws, nodeRetreiver, blastDatabase, giMapper, assignmentConfiguration, extractHeader, logging, readsDirectory)
     BlastContext(nodeRetreiver, blastDatabase, blast, assigner)
   }
 
@@ -95,7 +98,8 @@ class BlastInstructions(
     }
 
     if(logging) {
-      s3logger.uploadFile(outputFile)
+      aws.s3.putObject(S3Paths.blastOut(resultDirectory, chunk), outputFile)
+     // s3logger.uploadFile(outputFile)
     }
 
 

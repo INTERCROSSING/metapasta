@@ -3,12 +3,13 @@ package ohnosequences.metapasta.reporting
 import ohnosequences.metapasta._
 import org.clapper.avsl.Logger
 import ohnosequences.nisperon._
-import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.awstools.s3.{S3, ObjectAddress}
 import ohnosequences.metapasta.ReadsStats
 import ohnosequences.metapasta.AssignTable
 import scala.collection.mutable
 import ohnosequences.metapasta.reporting.spreadsheeet.CSVExecutor
 import scala.collection.mutable.ListBuffer
+import java.io.{PrintWriter, File}
 
 
 case class PerSampleData(direct: Int, cumulative: Int)
@@ -26,7 +27,8 @@ class Reporter(aws: AWS,
                statsAddresses: List[ObjectAddress],
                tags: Map[SampleId, List[SampleTag]],
                nodeRetriever: NodeRetriever,
-               destination: ObjectAddress) {
+               destination: ObjectAddress
+               ) {
 
   val assignmentTableSerializer = ohnosequences.metapasta.assignTableSerializer
   val statsMonoid = new MapMonoid[(String, AssignmentType), ReadsStats](readsStatsMonoid)
@@ -61,7 +63,8 @@ class Reporter(aws: AWS,
     val samples = samplesS.toList.map(SampleId)
     val pg = ProjectGroup(samples)
 
-    val groups: List[AnyGroup] = generateGroups(samples, tags) :+ pg
+
+    val groups: List[AnyGroup] = generateGroups(samples, tags) ++ samples.map(OneSampleGroup(_)) :+ pg
 
     for (group <- groups) {
       val groupStats = stats.filterKeys {
@@ -76,6 +79,7 @@ class Reporter(aws: AWS,
       projectSpecific(groupTable, groupStats, group)
     }
   }
+
 
   def generateGroups(samples: List[SampleId], tags: Map[SampleId, List[SampleTag]]): List[SamplesGroup] = {
     logger.info("generating groups")
@@ -100,7 +104,8 @@ class Reporter(aws: AWS,
 
     group match {
       case ProjectGroup(s) => logger.info("generating project specific files")
-      case SamplesGroup(name, s) => logger.info("generating grouo specific files for group: " + name)
+      case SamplesGroup(name, s) => logger.info("generating group specific files for group: " + name)
+      case OneSampleGroup(s) => logger.info("generating sample specific files for sample: " + s.id)
     }
 
 
@@ -117,12 +122,23 @@ class Reporter(aws: AWS,
     }
 
 
-    val fileTypes = group match {
-      case pg @ ProjectGroup(s) => List(FileTypeA(pg), FileTypeB(pg), FileTypeC(pg))
-      case g @ SamplesGroup(name, s) => List(FileTypeA(g), FileTypeD(g))
-    }
+
 
     for (r <- ranks) {
+
+      val fileTypes = r match {
+        case None => {
+          group match {
+            case pg @ ProjectGroup(s) => List(FileTypeA(pg, r), FileTypeB(pg), FileTypeC(pg))
+            case g @ SamplesGroup(name, s) => List(FileTypeA(g, r), FileTypeD(g))
+            case osg @ OneSampleGroup(s) => List(FileTypeA(osg, r))
+          }
+        }
+        case Some(rr) => {
+          List(FileTypeA(group, r))
+        }
+      }
+
 
       r match {
         case None => logger.info("generating for all kinds")
@@ -134,7 +150,11 @@ class Reporter(aws: AWS,
       for (fType <- fileTypes) {
         val csvPrinter = new CSVExecutor[FileType.Item](fType.attributes(), items)
         val resultS = csvPrinter.execute()
-        aws.s3.putWholeObject(fType.destination(destination), resultS)
+        val dst = group match {
+          case ProjectGroup(ss) => destination
+          case SamplesGroup(name, ss) => destination / name
+        }
+        aws.s3.putWholeObject(fType.destination(dst), resultS)
       }
 
     }

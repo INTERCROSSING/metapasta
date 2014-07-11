@@ -9,6 +9,8 @@ import ohnosequences.metapasta.reporting._
 
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
 
+
+
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
     managerGroupConfiguration = configuration.managerGroupConfiguration,
     metamanagerGroupConfiguration = configuration.metamanagerGroupConfiguration,
@@ -59,7 +61,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   val flashNispero = nispero(
     inputQueue = pairedSamples,
     outputQueue = ProductQueue(readsStats, mergedSampleChunks),
-    instructions = new FlashInstructions(aws, nisperonConfiguration.bucket, configuration.chunksSize),
+    instructions = new FlashInstructions(
+      aws, configuration.chunksSize, ObjectAddress(nisperonConfiguration.bucket, "reads")),
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flash")
   )
 
@@ -77,7 +80,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
         blastCommandTemplate = b.blastTemplate,
         databaseFactory = b.databaseFactory,
         useXML = b.xmlOutput,
-        logging = configuration.logging
+        logging = configuration.logging,
+        resultDirectory = ObjectAddress(nisperonConfiguration.bucket, "results"),
+        readsDirectory = ObjectAddress(nisperonConfiguration.bucket, "reads")
       )
       case l: LastConfiguration => new LastInstructions(
         aws = aws,
@@ -86,7 +91,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
         lastCommandTemplate = l.lastTemplate,
         databaseFactory = l.databaseFactory,
         fastaInput = l.useFasta,
-        logging = configuration.logging
+        logging = configuration.logging,
+        resultDirectory = ObjectAddress(nisperonConfiguration.bucket, "results"),
+        readsDirectory = ObjectAddress(nisperonConfiguration.bucket, "reads")
       )
     }
 
@@ -133,6 +140,16 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
     val reporter = new Reporter(aws, List(tableAddress), List(statsAddress), tagging.toMap, nodeRetriever, ObjectAddress(nisperonConfiguration.bucket, "results"))
     reporter.generate()
+
+
+    logger.info("merge fastas")
+
+    val reads = ObjectAddress(nisperonConfiguration.bucket, "reads")
+    val results = ObjectAddress(nisperonConfiguration.bucket, "results")
+
+    val merger = new FastaMerger(aws, reads, results, configuration.samples.map(_.name))
+    merger.merge()
+
 
 //    val samples: List[SampleId] = configuration.samples.map { s => SampleId(s.name)}
 //
@@ -208,7 +225,18 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   }
 
   def additionalHandler(args: List[String]) {
-    undeployActions(false)
+
+    args match {
+      case "merge" :: "fastas" :: Nil => {
+        val reads = ObjectAddress(nisperonConfiguration.bucket, "reads")
+        val results = ObjectAddress(nisperonConfiguration.bucket, "results")
+
+        val merger = new FastaMerger(aws, reads, results, configuration.samples.map(_.name))
+        merger.merge()
+      }
+      case _ =>  undeployActions(false)
+    }
+
   }
 
 
@@ -243,6 +271,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   }
 
   def addTasks() {
+    //logger.info("creating bucket " + bucket)
+    aws.s3.createBucket(nisperonConfiguration.bucket)
+
     if (checkTasks()) {
       pairedSamples.initWrite()
       val t1 = System.currentTimeMillis()

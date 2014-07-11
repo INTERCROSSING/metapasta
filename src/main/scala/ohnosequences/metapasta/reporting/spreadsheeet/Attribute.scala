@@ -91,11 +91,28 @@ case class Freq[I](a: IntAttribute[I]) extends DoubleAttribute[I](a.name + ".fre
   }
 }
 
+case class Normalize[I](a: IntAttribute[I], d: IntAttribute[I]) extends DoubleAttribute[I](a.name + "/" + d.name + ".total", doubleMonoid) {
+  override def execute(item: Item, index: Int, context: Context) = {
+    if(context.getTotal(d) == 0 ) {
+      if (context.get(a, index) == 0) {
+        0D
+      } else {
+        println("error " + d.name +".total == 0")
+        0D
+      }
+    } else {
+      (context.get(a, index).toDouble / context.getTotal(d)) * 100
+    }
+  }
+}
+
 case class Sum[I](a: List[IntAttribute[I]]) extends IntAttribute[I](a.map(_.name).reduce { _ + "+" + _}, intMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {
     a.map {context.get(_, index)}.reduce{_ + _}
   }
 }
+
+
 
 case class Average[I](a: List[DoubleAttribute[I]]) extends DoubleAttribute[I]("mean(" + a.map(_.name).reduce { _ + "," + _} + ")", doubleMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {

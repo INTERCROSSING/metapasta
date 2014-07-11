@@ -20,12 +20,16 @@ trait FileType {
 
 }
 
-case class FileTypeA(group: AnyGroup) extends FileType {
+case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileType {
 
   import FileType.{Item, emptyStringMonoid}
 
   override def destination(dst: ObjectAddress): ObjectAddress = {
-    dst / (group.name + ".A.frequencies.csv")
+    rank match {
+      case None => dst / (group.name + ".frequencies.csv")
+      case Some(rr) => dst / (group.name + "." + rr.toString + ".frequencies.csv")
+    }
+
   }
 
   object taxId extends StringAttribute[Item]("TaxonomyID", new StringConstantMonoid("total")) {
@@ -75,7 +79,8 @@ case class FileTypeA(group: AnyGroup) extends FileType {
 
         val sc = SampleCumulative(sample, assignmentType)
         res += sc
-        res += Freq(sc)
+
+        res += Normalize(sc, sd)
       }
     }
     res.toList
@@ -86,7 +91,7 @@ case class FileTypeA(group: AnyGroup) extends FileType {
 case class FileTypeB(project: ProjectGroup) extends FileType {
 
   override def destination(dst: ObjectAddress): ObjectAddress = {
-    dst / "project.B.frequencies.csv"
+    dst / "direct.absolute.freq.csv"
   }
 
   import FileType.{Item}
@@ -130,7 +135,7 @@ case class FileTypeC(project: ProjectGroup) extends FileType {
   import FileType.Item
 
   override def destination(dst: ObjectAddress): ObjectAddress = {
-    dst / "project.C.frequencies.csv"
+    dst / "direct.relative.freq.csv"
   }
 
   object taxonomyName extends StringAttribute[Item]("TaxonomyName",  new StringConstantMonoid("total")) {
@@ -166,14 +171,9 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
   import FileType.{Item, emptyStringMonoid}
 
   override def destination(dst: ObjectAddress): ObjectAddress = {
-    dst / (group.name + ".D.frequencies.csv")
+    dst / ("frequencies.complete.csv")
   }
 
-  object taxId extends StringAttribute[Item]("TaxonomyID", new StringConstantMonoid("total")) {
-    override def execute(item: Item, index: Int, context: Context): String = {
-      item._1.id
-    }
-  }
 
   object taxonomyName extends StringAttribute[Item]("TaxonomyName", emptyStringMonoid) {
     override def execute(item: Item, index: Int, context: Context): String = {
@@ -181,20 +181,14 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
     }
   }
 
-  object taxonomyRank extends StringAttribute[Item]("TaxonomyRank", emptyStringMonoid) {
-    override def execute(item: Item, index: Int, context: Context): String = {
-      item._2._1.rank
-    }
-  }
-
-  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid) {
+  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid, true) {
     override def execute(item: Item, index: Int, context: Context): Int = {
       item._2._2.get(sampleId -> assignmentType).map(_.direct).getOrElse(0)
     }
   }
 
 
-  case class SampleCumulative(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.absolute", intMonoid) {
+  case class SampleCumulative(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.absolute", intMonoid, true) {
     override def execute(item: Item, index: Int, context: Context): Int = {
       item._2._2.get(sampleId -> assignmentType).map(_.cumulative).getOrElse(0)
     }
@@ -204,9 +198,7 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
 
     val res = new mutable.ListBuffer[AnyAttribute.For[Item]]()
 
-    res += taxId
     res += taxonomyName
-    res += taxonomyRank
 
     val relDirect = new mutable.ListBuffer[(AssignmentType, DoubleAttribute[Item])]()
     val relCumulative = new mutable.ListBuffer[(AssignmentType, DoubleAttribute[Item])]()
@@ -221,7 +213,7 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
 
         val sc = SampleCumulative(sample, assignmentType)
         res += sc
-        val rc = Freq(sc)
+        val rc = Normalize(sc, sd)
         res += rc
         relCumulative += ((assignmentType, rc))
       }

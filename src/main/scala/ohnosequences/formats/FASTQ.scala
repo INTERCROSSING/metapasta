@@ -75,6 +75,11 @@ case class FASTQ[H <: Header](header: H, sequence: String, optHeader: String, qu
     ">" + header.getRaw.split("\\s+")(0) + System.lineSeparator() + sequence
   }
 
+  def toFasta(additionalHeader: String): String = {
+    // ">" + header.getRaw.replaceAll("\\s+", "_") + System.lineSeparator() + sequence
+    ">" + header.getRaw + "_" + additionalHeader + System.lineSeparator() + sequence
+  }
+
   def toFastq: String = {
     "@" + header.getRaw.split("\\s+")(0)  + System.lineSeparator() + sequence + System.lineSeparator() + optHeader + System.lineSeparator() + quality
 

@@ -6,7 +6,8 @@ import ohnosequences.metapasta.databases.{GIMapper, Database16S}
 import scala.collection.mutable.ListBuffer
 import ohnosequences.formats.{RawHeader, FASTQ}
 import java.util
-import ohnosequences.nisperon.MapMonoid
+import ohnosequences.nisperon.{AWS, MapMonoid}
+import ohnosequences.awstools.s3.ObjectAddress
 
 case class Hit(readId: String, refId: String, score: Int)
 
@@ -20,7 +21,14 @@ case class Assignment(taxId: String, score: Int = 0)
 
 
 //todo track read id!!!!
-class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GIMapper, assignmentConfiguration: AssignmentConfiguration, extractReadHeader: String => String) {
+class Assigner(aws: AWS,
+               nodeRetriever: NodeRetriever,
+               database: Database16S,
+               giMapper: GIMapper,
+               assignmentConfiguration: AssignmentConfiguration,
+               extractReadHeader: String => String,
+               logging: Boolean,
+               readsDirectory: ObjectAddress) {
 
 
   val logger = Logger(this.getClass)
@@ -89,6 +97,9 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
 
     //readsStats
     val readsStatsBuilder = new ReadsStatsBuilder()
+    val noHitFasta = new mutable.StringBuilder()
+    val notAssignedFasta = new mutable.StringBuilder()
+    val assignedFasta = new mutable.StringBuilder()
 
     reads.foreach {
       fastq =>
@@ -96,14 +107,32 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
         //todo check it
         val readId = extractReadHeader(fastq.header.getRaw)
         bestScores.get(readId) match {
-          case None => readsStatsBuilder.incrementNoHit()
+          case None => {
+            noHitFasta.append(fastq.toFasta)
+            noHitFasta.append(System.lineSeparator())
+            readsStatsBuilder.incrementNoHit()
+          }
           case _ => assignment.get(readId) match {
-            case None => readsStatsBuilder.incrementNotAssigned()
-            case _ => readsStatsBuilder.incrementAssigned()
+            case None => {
+              notAssignedFasta.append(fastq.toFasta)
+              notAssignedFasta.append(System.lineSeparator())
+              readsStatsBuilder.incrementNotAssigned()
+            }
+            case Some(ass) => {
+              assignedFasta.append(fastq.toFasta(ass.taxId+"_score" + ass.score))
+              assignedFasta.append(System.lineSeparator())
+              readsStatsBuilder.incrementAssigned()
+            }
           }
         }
     }
 
+  if (logging) {
+    // upload fastas
+    aws.s3.putWholeObject(S3Paths.noHitFasta(readsDirectory, chunk), noHitFasta.toString())
+    aws.s3.putWholeObject(S3Paths.notAssignedFasta(readsDirectory, chunk, assignmentType), notAssignedFasta.toString())
+    aws.s3.putWholeObject(S3Paths.assignedFasta(readsDirectory, chunk, assignmentType), assignedFasta.toString())
+  }
 
     val assignTable = mutable.HashMap[String, TaxInfo]()
 
@@ -122,6 +151,7 @@ class Assigner(nodeRetriever: NodeRetriever, database: Database16S, giMapper: GI
                 }
             }
     }
+
 
    // assignTable.put(ReadInfo.unassigned, TaxInfo(unassigned, unassigned))
 
