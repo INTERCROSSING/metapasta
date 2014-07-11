@@ -1,5 +1,7 @@
 #OUTDATED!!!!!!!
 
+###See:
+- https://github.com/ohnosequences/metapasta/blob/master/doc/assignment-algorithm.md
 
 
 
