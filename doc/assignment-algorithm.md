@@ -7,8 +7,8 @@ For each read:
 2. find the best bitscore value S (in the set of BLAST HSPs corresponding to hits of the read)
 3. filter all reads with bitscore below p * S (where **p** is fixed coefficient, e.g. 0.9)
 4. now there are two cases:
-    * *rest hits form a line in the taxonomy tree*. In this case we should choose the most specific tax id
-    * in other cases we should calculate LCA
+    * The rest of the hits (their taxa) form a line in the taxonomy tree. In this case we should choose the most specific tax id as the final assignment for that read
+    * in the other cases we should calculate LCA (sensu stricto)
     
 5. (not for now, questionable) discard leafs with small assignments. 
 
