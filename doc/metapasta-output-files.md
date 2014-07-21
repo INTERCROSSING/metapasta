@@ -61,7 +61,7 @@ _Sample-specific files_
 
 ## File format description
 
-### File type A
+### File type A: Sample level
 
 CSV files with these **columns**:
 
@@ -90,7 +90,7 @@ When it comes to **rows**:
 - One additional row with the total values of the frequencies. 
 
 
-### File type B
+### File type B: Project level absolute values
 
 This file type is a modification of the file 1 and it is generated only for the _Project_ level.
 
@@ -107,7 +107,7 @@ It is a CSV file with only these **columns**:
 And the **rows** as for the file type A
 
 
-### File type C
+### File type C: Project level percentage values
 
 This file type is a modification of the file 1 and it is generated only for the _Project_ level.
 
@@ -127,7 +127,7 @@ Only report in this file the **rows** that fulfill any of these 2 criteria:
 - `Total` value is larger than the threshold x
 - Any of the `direct.relative.freq` values is larger than the threshold x
 
-### File type D
+### File type D: Group level average values
 
 This file type is a modification of the file 1 and it is generated only for the _Group_ level.
 
@@ -142,7 +142,7 @@ And about the **rows**, exactly the same as for the file type A
 
 
 
-### File type E
+### File type E: Fasta files with the read sequences with assignment data in the headers
 
 FASTA file with the sequences of the reads. 
 
@@ -157,7 +157,7 @@ It is important that you replace the spaces with underscore `_` in all the items
 - With BBH algorithm the ID is unique and is defined
 - With LCA the ID could be multiple when the assignment is done using LCA sensu stricto (more that 1 hit and all the hits  not in the same line of the taxonomy tree). In that case all the IDs involved in the assignment would have to be included in the header separated by the character "|".
 
-### File type F
+### File type F: Reports and Charts
 
 PDF reports and charts: TBD.
 
