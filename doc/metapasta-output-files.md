@@ -148,9 +148,14 @@ FASTA file with the sequences of the reads.
 
 The header format must be like this
 
-> > ReadID|SampleID|TaxonomyName|TaxonomyID|TaxonomyRank
+> > ReadID|SampleID|TaxonomyName|TaxonomyID|TaxonomyRank|ID of the sequence responsible for the assignment
 
 It is important that you replace the spaces with underscore `_` in the _TaxonomyName_
+
+####About the ID of the sequence responsible for the assignment:
+
+- With BBH algorithm the ID is unique and is defined
+- With LCA the ID could be multiple when the assignment is done using LCA sensu stricto (more that 1 hit and all the hits  not in the same line of the taxonomy tree). In that case all the IDs involved in the assignment would have to be included in the header separated by the character "|".
 
 ### File type F
 
