@@ -148,9 +148,9 @@ FASTA file with the sequences of the reads.
 
 The header format must be like this
 
-> > ReadID|SampleID|TaxonomyName|TaxonomyID|TaxonomyRank|ID of the sequence responsible for the assignment
+> > ReadID|SampleID|TaxonomyName|TaxonomyID|TaxonomyRank|ID of the 16S database sequence responsible for the assignment
 
-It is important that you replace the spaces with underscore `_` in the _TaxonomyName_
+It is important that you replace the spaces with underscore `_` in all the items included in the header
 
 ####About the ID of the sequence responsible for the assignment:
 
