@@ -5,20 +5,19 @@
 
 #### nisperoCLI
 
-The most convinient way to work with metapasta is [nisperoCLI](https://github.com/ohnosequences/nisperoCLI/blob/master/doc/universal-cli-tool.md).
-It can be installed either [manually](https://github.com/ohnosequences/nisperoCLI/blob/master/doc/installation.md) or using [`conscript`](https://github.com/n8han/conscript#installation) and [`g8`](https://github.com/n8han/giter8#installation):
+The most convinient way to work with metapasta is [nisperoCLI](https://github.com/ohnosequences/nisperoCLI). Follow instructions to on its page to install it
 
-```
-cs ohnosequences/nisperoCLI -b super-cli
-```
+#### SBT
+
+SBT version > 0.13 should be installed: http://www.scala-sbt.org/
 
 ##### AWS credentials
 
 nisperoCLI tries to resolve credentials from:
 
-* file `~/nispero.credentiasl` (path to credentials file can be specified as the last argument to nisperoCLI)
+* file `~/nispero.credentials` (path to credentials file can be specified as the last argument to nisperoCLI)
 * enviroment variables `AWS_ACCESS_KEY` and `AWS_SECRET_ACCESS_KEY`
-* instance profile credentials (so it means that everythinh will work automatically on instances with right IAM role)
+* instance profile credentials (so it means that everything will work automatically on instances with right IAM role)
 
 To configure your `~/nispero.credentials` just put these lines there
 
@@ -43,10 +42,8 @@ nispero configure
 To download a template with metapasta project type:
 
 ```
-nispero ohnosequences/metapasta.g8
+nispero create ohnosequences/metapasta.g8
 ```
-
-
 
 ### configuration
 
