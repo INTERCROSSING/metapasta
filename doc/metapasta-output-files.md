@@ -24,7 +24,7 @@ The files of each category should be placed under the corresponding folder.
 
 
 ---------------------------------------------------------------------
-This is a more detailed file structure:
+This is a more detailed description of the folder structure with the kind of files that each folder includes:
 
 - snapshot folder (like the root)
     - **Lots** of flash folders
