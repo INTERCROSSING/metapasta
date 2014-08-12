@@ -23,6 +23,22 @@ The folder structure is as follows
 The files of each category should be placed under the corresponding folder.
 
 
+---------------------------------------------------------------------
+This is a more detailed file structure:
+
+- snapshot folder (like the root)
+    - **Lots** of flash folders
+    - Project folder (called here `results`)
+        - Project result files (not massive)
+        - Sample folder    
+            - Sample result files (with the sample prefix)
+            - Blast folder 
+            - Reads folder
+        - Group folder
+            - Group result files (with the group prefix)
+
+---------------------------------------------------------------------
+
 ### Files common to all the levels
 
 All the following files must be generated for each level.
