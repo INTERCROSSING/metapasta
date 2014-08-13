@@ -63,8 +63,8 @@ _Project-specific files_
 
 9. viz `*.pdf`. File name: ItemID.frequencies.tree.pdf
 
-10. Clean CSV files with direct absolute frequencies. Modification of file 1 for MetagenAssist usage (File type B). File name: ItemID.direct.absolute.countsuencies.clean.csv
-11. Clean CSV files with direct relative frequencies. Modification of file 1 for HeatMap viz (File type C). File name: ItemID.direct.percentageuencies.clean.csv
+10. Clean CSV files with direct absolute frequencies. Modification of file 1 for MetagenAssist usage (File type B). File name: ItemID.direct.absolute.counts.clean.csv
+11. Clean CSV files with direct relative frequencies. Modification of file 1 for HeatMap viz (File type C). File name: ItemID.direct.percentage.clean.csv
 
 _Groups-specific files_
 
@@ -115,6 +115,7 @@ When it comes to **rows**:
 - One row per taxa with assigned reads in **any** of the samples in the set
 - One additional row with the data of reads **Not assigned via GI** (the column name should be `Not assigned via GI`)
 - One additional row with the data of reads **Not assigned at this rank** (the column name should be `Not assigned at this rank`)
+- One additional row with the data of reads **Not assigned due to BBH/LCA thresholds** (the column name should be `Not assigned due to threshold`)
 - One additional row with the total values of the counts and percentages for the **direct** assignments only (not cummulative)
 
 
