@@ -63,8 +63,8 @@ _Project-specific files_
 
 9. viz `*.pdf`. File name: ItemID.frequencies.tree.pdf
 
-10. Clean CSV files with direct absolute frequencies. Modification of file 1 for MetagenAssist usage (File type B). File name: ItemID.direct.absolute.frequencies.clean.csv
-11. Clean CSV files with direct relative frequencies. Modification of file 1 for HeatMap viz (File type C). File name: ItemID.direct.relative.frequencies.clean.csv
+10. Clean CSV files with direct absolute frequencies. Modification of file 1 for MetagenAssist usage (File type B). File name: ItemID.direct.absolute.countsuencies.clean.csv
+11. Clean CSV files with direct relative frequencies. Modification of file 1 for HeatMap viz (File type C). File name: ItemID.direct.percentageuencies.clean.csv
 
 _Groups-specific files_
 
@@ -75,6 +75,15 @@ _Sample-specific files_
 13. FASTA files with the read assignment in the header (File type E). File name: ItemID.reads.fasta
 14. Blast/Last output files. File name: ItemID.blast.out
 15. PDF reports and charts (File type F). File name: TBD
+
+## Percentage
+
+The percentage of the reads assigned at each taxa is obtained this way
+
+```bash
+Percentage of taxa X = absolute.counts of taxa X / Number of merged reads
+```
+Dividing the absolute counts of reads assigned to such taxa by the number of merged reads
 
 
 ## File format description
@@ -87,40 +96,41 @@ CSV files with these **columns**:
 - TaxonomyName
 - TaxonomyRank
 - TaxonomyLevel : @rtobes will provide you with a conversion table between `TaxonomyRank` and `TaxonomyLevel`
-- Sample1ID.direct.absolute.freq: This is the number of reads directly assigned to such Taxa for that sample
-- Sample1ID.direct.relative.freq: This is the percentage of reads directly assigned to such taxa for that sample. The normalization is done with the total number of reads of that sample
-- Sample1ID.cumulative.absolute.freq: This is the cumulative freq of that taxa for that sample
-- Sample1ID.cumulative.relative.freq: This is the percentage value of the cumulative frequency of such taxa for that sample. The normalization is done with the total number of reads of that sample
-- Sample2ID.direct.absolute.freq: This is the number of reads directly assigned to such Taxa for that sample
-- Sample2ID.direct.relative.freq: This is the percentage of reads directly assigned to such taxa for that sample. The normalization is done with the total number of reads of that sample
-- Sample2ID.cumulative.absolute.freq: This is the cumulative freq of that taxa for that sample
-- Sample2ID.cumulative.relative.freq: This is the percentage value of the cumulative frequency of such taxa for that sample. The normalization is done with the total number of reads of that sample
+- Sample1ID.direct.absolute.counts: This is the number of reads directly assigned to such Taxa for that sample
+- Sample1ID.direct.percentage: This is the percentage of reads directly assigned to such taxa for that sample.
+- Sample1ID.cumulative.absolute.counts: This is the cumulative freq of that taxa for that sample
+- Sample1ID.cumulative.percentage: This is the percentage value of the cumulative frequency of such taxa for that sample.
+- Sample2ID.direct.absolute.counts: This is the number of reads directly assigned to such Taxa for that sample
+- Sample2ID.direct.percentage: This is the percentage of reads directly assigned to such taxa for that sample.
+- Sample2ID.cumulative.absolute.counts: This is the cumulative freq of that taxa for that sample
+- Sample2ID.cumulative.percentage: This is the percentage value of the cumulative frequency of such taxa for that sample.
 ...
-- SampleNID.direct.absolute.freq: This is the number of reads directly assigned to such Taxa for that sample
-- SampleNID.direct.relative.freq: This is the percentage of reads directly assigned to such taxa for that sample. The normalization is done with the total number of reads of that sample
-- SampleNID.cumulative.absolute.freq: This is the cumulative freq of that taxa for that sample
-- SampleNID.cumulative.relative.freq: This is the percentage value of the cumulative frequency of such taxa for that sample. The normalization is done with the total number of reads of that sample
+- SampleNID.direct.absolute.counts: This is the number of reads directly assigned to such Taxa for that sample
+- SampleNID.direct.percentage: This is the percentage of reads directly assigned to such taxa for that sample.
+- SampleNID.cumulative.absolute.counts: This is the cumulative freq of that taxa for that sample
+- SampleNID.cumulative.percentage: This is the percentage value of the cumulative frequency of such taxa for that sample.
 
 When it comes to **rows**:
 
 - One row per taxa with assigned reads in **any** of the samples in the set
-- One additional row with the data of **unassigned** reads
-- One additional row with the total values of the frequencies. 
+- One additional row with the data of reads **Not assigned via GI** (the column name should be `Not assigned via GI`)
+- One additional row with the data of reads **Not assigned at this rank** (the column name should be `Not assigned at this rank`)
+- One additional row with the total values of the counts and percentages for the **direct** assignments only (not cummulative)
 
 
 ### File type B: Project level absolute values
 
 This file type is a modification of the file 1 and it is generated only for the _Project_ level.
 
-The file name should be like this `ItemID.direct.absolute.freq.csv`
+The file name should be like this `ItemID.direct.absolute.counts.csv`
 
 It is a CSV file with only these **columns**:
 
 - TaxonomyName
-- Sample1ID.direct.absolute.freq: This is the number of reads directly assigned to such Taxa for that sample
-- Sample2ID.direct.absolute.freq: This is the number of reads directly assigned to such Taxa for that sample
+- Sample1ID.direct.absolute.counts: This is the number of reads directly assigned to such Taxa for that sample
+- Sample2ID.direct.absolute.counts: This is the number of reads directly assigned to such Taxa for that sample
 ...
-- SampleNID.direct.absolute.freq: This is the number of reads directly assigned to such Taxa for that sample
+- SampleNID.direct.absolute.counts: This is the number of reads directly assigned to such Taxa for that sample
 
 And the **rows** as for the file type A
 
@@ -129,15 +139,15 @@ And the **rows** as for the file type A
 
 This file type is a modification of the file 1 and it is generated only for the _Project_ level.
 
-The file name should be like this `ItemID.direct.relative.freq.csv`
+The file name should be like this `ItemID.direct.percentage.csv`
 
 It is a CSV file with only these **columns**:
 
 - TaxonomyName
-- Sample1ID.direct.relative.freq: This is the percentage of reads directly assigned to such taxa for that sample. The normalization is done with the total number of reads of that sample
-- Sample2ID.direct.relative.freq: This is the percentage of reads directly assigned to such taxa for that sample. The normalization is done with the total number of reads of that sample
+- Sample1ID.direct.percentage: This is the percentage of reads directly assigned to such taxa for that sample. 
+- Sample2ID.direct.percentage: This is the percentage of reads directly assigned to such taxa for that sample. 
 ...
-- SampleNID.direct.relative.freq: This is the percentage of reads directly assigned to such taxa for that sample. The normalization is done with the total number of reads of that sample
+- SampleNID.direct.percentage: This is the percentage of reads directly assigned to such taxa for that sample. 
 - Total: this column contains the sum of the direct relative frequencies of all the samples
 
 Only report in this file the **rows** that fulfill any of these 2 criteria:
@@ -153,8 +163,8 @@ The file name should be like this `ItemID.frequencies.complete.csv`
 
 It has **all the columns** as the file type A plus these two columns:
 
-- average.direct.relative.freq: This fields has the average value of the direct relative frequencies of all the samples in the set
-- average.cumulative.relative.freq: This fields has the average value of the cumulative relative frequencies of all the samples in the set
+- average.direct.percentage: This fields has the average value of the direct relative frequencies of all the samples in the set
+- average.cumulative.percentage: This fields has the average value of the cumulative relative frequencies of all the samples in the set
 
 And about the **rows**, exactly the same as for the file type A
 
@@ -179,24 +189,4 @@ It is important that you replace the spaces with underscore `_` in all the items
 
 PDF reports and charts: TBD.
 
-
-## Fixes in the current version
-
-### `out.blast` files
-
-- Add the headers in the files
-
-- Make the file name unique, not `out.blast` for all the files. Maybe adding at the beginning the packet ID 
-
-### viz `supermock3.pdf`
-
-- Add a legend in the PDF with the meaning of both values in the boxes 
-
-### CSV files
-
-- Delete first `#` symbol in the file
-
-- Make sure the fields are separated by commas `,`
-
-- Add a row after the `unassigned` row with **total** values
 
