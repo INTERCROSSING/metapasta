@@ -51,6 +51,8 @@ trait AnyAttribute {
   val hidden: Boolean
   def execute(item: Item, index: Int, context: Context): Type
 
+  def printTotal(total: Type): String = total.toString
+
 }
 
 object AnyAttribute {
@@ -233,7 +235,8 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
       if(!line.isEmpty) {
         line.append(separator)
       }
-      line.append(quote(context.getTotal(attribute).toString))
+      val total = attribute.printTotal(context.getTotal(attribute))
+      line.append(quote(total))
     }
     lines.append(line.toString() + System.lineSeparator())
     lines.toString()

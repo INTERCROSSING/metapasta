@@ -27,7 +27,8 @@ class Reporter(aws: AWS,
                statsAddresses: List[ObjectAddress],
                tags: Map[SampleId, List[SampleTag]],
                nodeRetriever: NodeRetriever,
-               destination: ObjectAddress
+               destination: ObjectAddress,
+               projectName: String
                ) {
 
   val assignmentTableSerializer = ohnosequences.metapasta.assignTableSerializer
@@ -61,7 +62,7 @@ class Reporter(aws: AWS,
 
     val samplesS: Set[String] = stats.keySet.map(_._1)
     val samples = samplesS.toList.map(SampleId)
-    val pg = ProjectGroup(samples)
+    val pg = ProjectGroup(projectName, samples)
 
 
     val groups: List[AnyGroup] = generateGroups(samples, tags) ++ samples.map(OneSampleGroup(_)) :+ pg
@@ -103,7 +104,7 @@ class Reporter(aws: AWS,
   def projectSpecific(table: AssignTable, stats: Map[(String, AssignmentType), ReadsStats], group: AnyGroup) {
 
     group match {
-      case ProjectGroup(s) => logger.info("generating project specific files")
+      case ProjectGroup(name, s) => logger.info("generating project specific files")
       case SamplesGroup(name, s) => logger.info("generating group specific files for group: " + name)
       case OneSampleGroup(s) => logger.info("generating sample specific files for sample: " + s.id)
     }
@@ -117,7 +118,7 @@ class Reporter(aws: AWS,
     for ((sampleAssignmentType, stat) <- stats) {
       val sampleId = SampleId(sampleAssignmentType._1)
       val assignmentType = sampleAssignmentType._2
-      val d = (stat.total - stat.assigned).toInt
+      val d = (stat.notMerged + stat.notAssigned).toInt
       unassigned.put((sampleId, assignmentType), PerSampleData(d, d))
     }
 
@@ -129,7 +130,7 @@ class Reporter(aws: AWS,
       val fileTypes = r match {
         case None => {
           group match {
-            case pg @ ProjectGroup(s) => List(FileTypeA(pg, r), FileTypeB(pg), FileTypeC(pg))
+            case pg @ ProjectGroup(name, s) => List(FileTypeA(pg, r), FileTypeB(pg), FileTypeC(pg))
             case g @ SamplesGroup(name, s) => List(FileTypeA(g, r), FileTypeD(g))
             case osg @ OneSampleGroup(s) => List(FileTypeA(osg, r))
           }
@@ -151,8 +152,9 @@ class Reporter(aws: AWS,
         val csvPrinter = new CSVExecutor[FileType.Item](fType.attributes(), items)
         val resultS = csvPrinter.execute()
         val dst = group match {
-          case ProjectGroup(ss) => destination
+          case ProjectGroup(name, ss) => destination
           case SamplesGroup(name, ss) => destination / name
+          case OneSampleGroup(ss) => destination / ss.id
         }
         aws.s3.putWholeObject(fType.destination(dst), resultS)
       }

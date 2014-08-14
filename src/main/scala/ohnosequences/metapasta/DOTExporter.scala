@@ -2,6 +2,7 @@ package ohnosequences.metapasta
 
 import java.io.{PrintWriter, File}
 import org.clapper.avsl.Logger
+import ohnosequences.awstools.s3.ObjectAddress
 
 object DOTExporter {
 

@@ -5,7 +5,7 @@ import scala.collection.mutable
 
 
 //todo rank, name ...
-case class TaxInfo(count: Int, acc: Int) {
+case class TaxInfo(count: Long, acc: Long) {
   override def toString = count + ":" + acc
 }
 

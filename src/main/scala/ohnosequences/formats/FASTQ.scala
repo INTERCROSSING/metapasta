@@ -70,14 +70,25 @@ case class FASTQ[H <: Header](header: H, sequence: String, optHeader: String, qu
     , "quality: " + quality
   ) mkString "\r"
 
+  def sequenceSplitter(s: String): String = {
+    val sb = new StringBuilder
+    for (p <- s.grouped(80)) {
+      sb.append(p)
+      sb.append(System.lineSeparator())
+    }
+    sb.toString()
+  }
+
+
+
   def toFasta: String = {
    // ">" + header.getRaw.replaceAll("\\s+", "_") + System.lineSeparator() + sequence
-    ">" + header.getRaw.split("\\s+")(0) + System.lineSeparator() + sequence
+    ">" + header.getRaw.split("\\s+")(0) + System.lineSeparator() + sequenceSplitter(sequence)
   }
 
   def toFasta(additionalHeader: String): String = {
     // ">" + header.getRaw.replaceAll("\\s+", "_") + System.lineSeparator() + sequence
-    ">" + header.getRaw + "_" + additionalHeader + System.lineSeparator() + sequence
+    ">" + header.getRaw.split("\\s+")(0) + "|" + additionalHeader + System.lineSeparator() + sequenceSplitter(sequence)
   }
 
   def toFastq: String = {

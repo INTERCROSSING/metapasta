@@ -16,7 +16,8 @@ import ohnosequences.metapasta.ReadsStats
 class FlashInstructions(
                          aws: AWS,
                          chunkSize: Int = 2000000,
-                         readsDirectory: ObjectAddress
+                         readsDirectory: ObjectAddress,
+                         chunksThreshold: Option[Int]
                          ) extends Instructions[List[PairedSample], (Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] {
 
   import scala.sys.process._
@@ -36,24 +37,6 @@ class FlashInstructions(
 
   }
 
-//  //todo do it more precise
-//  def countUnmerged(): Int = {
-//    var count = 0
-//    try {
-//      io.Source.fromFile("out.notCombined_1.fastq").getLines().foreach {
-//        str => count += 1
-//      }
-//    } catch {
-//      case t: Throwable => ()
-//    }
-//    try {
-//      io.Source.fromFile("out.notCombined_2.fastq").getLines().foreach {str => count += 1}
-//    } catch {
-//      case t: Throwable => ()
-//    }
-//    count / 4
-//    //out.notCombined_2.fastq
-//  }
 
   //todo do it more precise
   def countReads(file: File): Long = {
@@ -166,9 +149,15 @@ class FlashInstructions(
     }
 
 
-    val ranges = new S3Splitter(aws.s3, resultObject, chunkSize).chunks()
+    val ranges =  chunksThreshold match {
+      case None =>   new S3Splitter(aws.s3, resultObject, chunkSize).chunks()
+      case Some(n) => {
+        logger.warn("chunk threshold " + n)
+        new S3Splitter(aws.s3, resultObject, chunkSize).chunks().take(n)
+      }
+    }
 
-    //todo remove limit
+
 
     val mapMonoid = new MapMonoid[(String, AssignmentType), ReadsStats](readsStatsMonoid)
 

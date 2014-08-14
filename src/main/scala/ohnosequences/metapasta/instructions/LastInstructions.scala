@@ -123,7 +123,6 @@ class LastInstructions(aws: AWS,
 
 
     logger.info("parsing LAST result")
-    //todo reads without hits!!!
     //M00476_38_000000000_A3FHW_1_1101_20604_2554_1_N_0_28	gi|313494140|gb|GU939576.1|	99.21	253	2	0	1	253	362	614	3e-127	 457
 
     //last
@@ -147,7 +146,7 @@ class LastInstructions(aws: AWS,
       case l => logger.error("can't parse: " + l)
     }
 
-    context.assigner.assign(chunk, parsed, hits.toList)
+    context.assigner.assign(chunk, parsed, hits.toList, s3logger)
 
     //result.toList
   }

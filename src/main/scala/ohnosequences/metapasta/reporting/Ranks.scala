@@ -4,8 +4,6 @@ package ohnosequences.metapasta.reporting
 trait TaxonomyRank
 
 
-//todo no rank
-//todo kingdom
 object TaxonomyRank {
   val ranks = List(Genus, Phylum, Species, Class, Order, Superkingdom)
 }

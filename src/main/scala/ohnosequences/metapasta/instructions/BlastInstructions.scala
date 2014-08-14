@@ -133,7 +133,7 @@ class BlastInstructions(
     val t2 = System.currentTimeMillis()
     logger.info("parsed " + hits.size + " hits " + (t2 - t1) + " ms")
 
-    assigner.assign(chunk, parsed, hits.toList)
+    assigner.assign(chunk, parsed, hits.toList, s3logger)
 
 
     //result.toList

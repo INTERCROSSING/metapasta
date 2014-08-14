@@ -13,11 +13,17 @@ object S3Paths {
   }
 
   def mergedNoHitFasta(resultsObject: ObjectAddress, sample: String) : ObjectAddress =    resultsObject / sample / "reads" / (sample + ".noHit.fasta")
+  def mergedNoTaxIdFasta(resultsObject: ObjectAddress, sample: String) : ObjectAddress =    resultsObject / sample / "reads" / (sample + ".noTaxId.fasta")
+
   def mergedAssignedFasta(resultsObject: ObjectAddress, sample: String, assignmentType: AssignmentType) : ObjectAddress = resultsObject / sample / "reads" / (sample + "." + assignmentType + ".assigned.fasta")
   def mergedNotAssignedFasta(resultsObject: ObjectAddress, sample: String, assignmentType: AssignmentType):ObjectAddress =resultsObject / sample / "reads" / (sample + "." + assignmentType + ".notAssigned.fasta")
 
 
   def noHitFastas(readsObject: ObjectAddress, sample: String) : ObjectAddress = readsObject / sample / "noHit"
+
+  def noTaxIdFastas(readsObject: ObjectAddress, sample: String) : ObjectAddress = readsObject / sample / "noTaxId"
+
+
   def notAssignedFastas(readsObject: ObjectAddress, sample: String, assignmentType: AssignmentType) : ObjectAddress = readsObject / (sample + "###" + assignmentType) / "notAssigned"
   def assignedFastas(readsObject: ObjectAddress, sample: String, assignmentType: AssignmentType): ObjectAddress = readsObject / (sample + "###" + assignmentType) / "assigned"
 
@@ -26,13 +32,28 @@ object S3Paths {
   def noHitFasta(readsObject: ObjectAddress, chunk: MergedSampleChunk): ObjectAddress = {
     noHitFastas(readsObject, chunk.sample) / (chunk.range._1 + "_" + chunk.range._2 + ".fasta")
   }
+
+  def noTaxIdFasta(readsObject: ObjectAddress, chunk: MergedSampleChunk): ObjectAddress = {
+    noTaxIdFastas(readsObject, chunk.sample) / (chunk.range._1 + "_" + chunk.range._2 + ".fasta")
+  }
+
   def notAssignedFasta(readsObject: ObjectAddress, chunk: MergedSampleChunk, assignmentType: AssignmentType): ObjectAddress = {
     notAssignedFastas(readsObject, chunk.sample, assignmentType) / (chunk.range._1 + "_" + chunk.range._2 + ".fasta")
   }
   def assignedFasta(readsObject: ObjectAddress, chunk: MergedSampleChunk, assignmentType: AssignmentType): ObjectAddress = {
     assignedFastas(readsObject, chunk.sample, assignmentType) / (chunk.range._1 + "_" + chunk.range._2 + ".fasta")
   }
-  
+
+  def treeDot(resultsObject: ObjectAddress, sample: String, assignmentType: AssignmentType) = {
+    resultsObject / sample / (sample + "." + assignmentType + ".tree.dot")
+  }
+
+  def treePdf(resultsObject: ObjectAddress, sample: String, assignmentType: AssignmentType) = {
+    resultsObject / sample / (sample + "." + assignmentType + ".tree.pdf")
+  }
+
+
+
   def blastOut(readsObject: ObjectAddress, chunk: MergedSampleChunk): ObjectAddress = {
     readsObject / chunk.sample / "blast" / (chunk.sample + chunk.range._1 + "_" + chunk.range._2 + ".blast")
   }

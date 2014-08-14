@@ -3,15 +3,30 @@ package ohnosequences.metapasta
 import org.clapper.avsl.Logger
 import scala.collection.mutable
 import ohnosequences.metapasta.databases.{GIMapper, Database16S}
-import scala.collection.mutable.ListBuffer
 import ohnosequences.formats.{RawHeader, FASTQ}
-import java.util
 import ohnosequences.nisperon.{AWS, MapMonoid}
 import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.nisperon.logging.S3Logger
+import scala.collection.mutable.ListBuffer
 
 case class Hit(readId: String, refId: String, score: Int)
 
-case class Assignment(taxId: String, score: Int = 0)
+sealed trait Assignment {
+  type AssignmentCategory <: AssignmentCategory
+}
+
+case class TaxIdAssignment(taxId: String, refIds: List[String]) extends Assignment {
+  type AssignmentCategory = Assigned.type
+}
+
+case class NoTaxIdAssignment(refId: String) extends Assignment {
+  type AssignmentCategory = NoTaxId.type
+}
+
+case class NotAssigned(reason: String) extends Assignment {
+  type AssignmentCategory = NotAssigned.type
+}
+
 
 //trait Assignment {
 //  def score: Int
@@ -20,7 +35,6 @@ case class Assignment(taxId: String, score: Int = 0)
 //case class RefIdAssignment(refId: String, score: Int = 0) extends Assignment
 
 
-//todo track read id!!!!
 class Assigner(aws: AWS,
                nodeRetriever: NodeRetriever,
                database: Database16S,
@@ -33,15 +47,16 @@ class Assigner(aws: AWS,
 
   val logger = Logger(this.getClass)
 
-  def assign(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (AssignTable, Map[(String, AssignmentType), ReadsStats]) = {
+  def assign(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit],
+             s3logger: S3Logger): (AssignTable, Map[(String, AssignmentType), ReadsStats]) = {
    // case BestHit => assignBestHit(chunk, reads, hits)
    // case LCA(scoreThreshold, p) => assignLCA(chunk, reads, hits, scoreThreshold, p)
 
     //logger.info("lca")
-    val lcaRes  = assignLCA(chunk, reads, hits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p)
+    val lcaRes  = assignLCA(chunk, reads, hits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p, s3logger)
 
     //logger.info("best score hit")
-    val bbhRes  = assignBestHit(chunk, reads, hits)
+    val bbhRes  = assignBestHit(chunk, reads, hits, s3logger)
 
 
     (assignTableMonoid.mult(lcaRes._1, bbhRes._1), Map((chunk.sample,LCA) -> lcaRes._2, (chunk.sample,BBH) -> bbhRes._2))
@@ -79,66 +94,52 @@ class Assigner(aws: AWS,
     res.toList
   }
 
-//  todo reads info rejected but should generate fasta files now!!!
-//  def prepareAssignedResults(chunk: MergedSampleChunk,
-//                             reads: List[FASTQ[RawHeader]],
-//                             assignment: mutable.HashMap[String, Assignment],
-//                             initialReadsStats: ReadsStats = readsStatsMonoid.unit): (AssignTable, (List[ReadInfo], ReadsStats)) = {
-  def prepareAssignedResults(chunk: MergedSampleChunk,
+
+  def fastaHeader(sampleId: String, taxId: String, refIds: List[String]): String = {
+
+    val (taxname, rank) = try {
+      val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxId)
+      (node.getScientificName(), node.getRank())
+    } catch {
+      case t: Throwable => ("na", "na")
+    }
+    sampleId + "|" + taxname + "|" + taxId + "|" + rank + "|" + refIds.foldRight("")(_ + "|" + _)
+  }
+
+
+  def prepareAssignedResults(s3logger: S3Logger, chunk: MergedSampleChunk,
                              assignmentType: AssignmentType,
                              reads: List[FASTQ[RawHeader]],
-                             bestScores: mutable.HashMap[String, Int],
                              assignment: mutable.HashMap[String, Assignment],
                              initialReadsStats: ReadsStats = readsStatsMonoid.unit): (AssignTable, ReadsStats) = {
-    
-   // val readsInfo = new ListBuffer[ReadInfo]()
 
-    // prepare reads info
-
-    //readsStats
-    val readsStatsBuilder = new ReadsStatsBuilder()
-    val noHitFasta = new mutable.StringBuilder()
-    val notAssignedFasta = new mutable.StringBuilder()
-    val assignedFasta = new mutable.StringBuilder()
+    val readsStatsBuilder = new ReadStatsBuilder()
+    val fastasWriter = new FastasWriter(s3logger, logging)
 
     reads.foreach {
       fastq =>
-       // readsStatsBuilder.incrementMerged()
-        //todo check it
         val readId = extractReadHeader(fastq.header.getRaw)
-        bestScores.get(readId) match {
+        assignment.get(readId) match {
           case None => {
-            noHitFasta.append(fastq.toFasta)
-            noHitFasta.append(System.lineSeparator())
-            readsStatsBuilder.incrementNoHit()
+            //nohit
+            fastasWriter.writeNoHit(fastq, readId)
+            readsStatsBuilder.incrementByCategory(NoHit)
           }
-          case _ => assignment.get(readId) match {
-            case None => {
-              notAssignedFasta.append(fastq.toFasta)
-              notAssignedFasta.append(System.lineSeparator())
-              readsStatsBuilder.incrementNotAssigned()
-            }
-            case Some(ass) => {
-              assignedFasta.append(fastq.toFasta(ass.taxId+"_score" + ass.score))
-              assignedFasta.append(System.lineSeparator())
-              readsStatsBuilder.incrementAssigned()
-            }
+          case Some(assignment) => {
+            fastasWriter.write(chunk, fastq, readId, assignment)
+            readsStatsBuilder.incrementByAssignment(assignment)
           }
+
         }
     }
 
-  if (logging) {
-    // upload fastas
-    aws.s3.putWholeObject(S3Paths.noHitFasta(readsDirectory, chunk), noHitFasta.toString())
-    aws.s3.putWholeObject(S3Paths.notAssignedFasta(readsDirectory, chunk, assignmentType), notAssignedFasta.toString())
-    aws.s3.putWholeObject(S3Paths.assignedFasta(readsDirectory, chunk, assignmentType), assignedFasta.toString())
-  }
+  fastasWriter.uploadFastas(aws, readsDirectory, chunk, assignmentType)
 
-    val assignTable = mutable.HashMap[String, TaxInfo]()
+   val assignTable = mutable.HashMap[String, TaxInfo]()
 
     //generate assign table
     assignment.foreach {
-      case (readId, Assignment(taxId, score)) =>
+      case (readId, TaxIdAssignment(taxId, refIds)) =>
             assignTable.get(taxId) match {
               case None => assignTable.put(taxId, TaxInfo(1, 1))
               case Some(TaxInfo(count, acc)) => assignTable.put(taxId, TaxInfo(count + 1, acc + 1))
@@ -150,20 +151,25 @@ class Assigner(aws: AWS,
                   case Some(TaxInfo(count, acc)) => assignTable.put(p, TaxInfo(count, acc + 1))
                 }
             }
+      case _ => ()
     }
 
+    val readStats = readsStatsBuilder.build
 
-   // assignTable.put(ReadInfo.unassigned, TaxInfo(unassigned, unassigned))
+    assignTable.put(NoHit.taxId, TaxInfo(readStats.noHit, readStats.noHit))
+    assignTable.put(NoTaxId.taxId, TaxInfo(readStats.noTaxId, readStats.noTaxId))
+    assignTable.put(NotAssigned.taxId, TaxInfo(readStats.notAssigned, readStats.notAssigned))
 
-    (AssignTable(Map((chunk.sample, assignmentType) -> assignTable.toMap)), readsStatsBuilder.build.mult(initialReadsStats))
+    (AssignTable(Map((chunk.sample, assignmentType) -> assignTable.toMap)), readStats.mult(initialReadsStats))
   }
 
-  def assignLCA(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit], scoreThreshold: Int, p: Double): (AssignTable, ReadsStats) = {
+  def assignLCA(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit], scoreThreshold: Int, p: Double,
+                s3logger: S3Logger): (AssignTable, ReadsStats) = {
 
     logger.info("LCA assignment")
     var t1 =  System.currentTimeMillis()
 
-    val readsStatsBuilder = new ReadsStatsBuilder()
+    val readsStatsBuilder = new ReadStatsBuilder()
 
     //ref ids!!!!
     val hitsPerReads =  mutable.HashMap[String, mutable.HashSet[String]]()
@@ -178,22 +184,16 @@ class Assigner(aws: AWS,
       }
     }
 
-    //now we can now whe we have no hits
-
-
-
     hits.foreach {
       //filter all reads with bitscore below p * S (where p is fixed coefficient, e.g. 0.9)
       case hit if hit.score >= math.max(scoreThreshold, p * bestScores.getOrElse(hit.readId, 0)) => {
-       // val taxId = getTaxIdFromRefId(hit)
         hitsPerReads.get(hit.readId) match {
           case None => hitsPerReads.put(hit.readId, mutable.HashSet[String](hit.refId))
           case Some(listBuffer) => listBuffer += hit.refId
         }
       }
-      case _ => ()
+      case filteredHit => s3logger.warn("hit " + filteredHit + " has been filtered; best score for readid is " + bestScores.getOrElse(filteredHit.readId, 0))
     }
-
 
 
     val finalHits =  mutable.HashMap[String, Assignment]()
@@ -204,12 +204,15 @@ class Assigner(aws: AWS,
 
       // 1. map ref ids to
 
-      val taxIds = new mutable.HashSet[String]()
+      val taxIds = new mutable.HashMap[String, String]()
 
       for (refId <- refIds) {
         getTaxIdFromRefId(refId) match {
-          case Some(taxId) => taxIds.add(taxId)
-          case None => readsStatsBuilder.addWrongRefId(refId)
+          case Some(taxId) => taxIds.put(refId, taxId)
+          case None => {
+            s3logger.warn("couldn't find tax id for ref id: " + refId)
+            readsStatsBuilder.addWrongRefId(refId)
+          }
         }
       }
 
@@ -219,25 +222,41 @@ class Assigner(aws: AWS,
       // * rest hits form a line in the taxonomy tree. In this case we should choose the most specific tax id
       // * in other cases we should calculate LCA
 
-      isInLine(taxIds) match {
+      isInLine(taxIds.values.toSet) match {
         case Some(specific) => {
-          finalHits.put(readId, Assignment(specific))
+          s3logger.warn("tax ids form a line: " + taxIds.values.toList)
+          //find ref id by taxid
+          s3logger.warn("the most specific taxId: " + specific)
+          val refids: List[String] = taxIds.find {_._2.equals(specific)}.map(_._1).toList
+          //todo why score 0 here?
+
+          finalHits.put(readId, TaxIdAssignment(specific, refids))
         }
         case None => {
           //lca
           if (taxIds.isEmpty) {
+            s3logger.warn("tax ids is empty for read id: " + readId)
             //nothing to assign
           } else {
-            var r: Option[String] = None
-            for (taxId <- taxIds) {
-              r = r.flatMap(lca(_, taxId)) match {
-                case None => logger.error("can't calculate lca(" + r + ", " + taxId + ")"); None
-                case Some(rr) => Some(rr)
+
+            var r: Option[String] = taxIds.headOption.map(_._2)
+
+            val refIds = new ListBuffer[String]()
+            for ((refid, taxid) <-taxIds.headOption) {
+              refIds += refid
+            }
+            for ((refId, taxId) <- taxIds) {
+              r = r.flatMap(lca(_, taxId, s3logger)) match {
+                case None => s3logger.warn("can't calculate lca(" + r + ", " + taxId + ")"); None
+                case Some(rr) =>  refIds += refId; Some(rr)
               }
             }
             r match {
-              case None => //no assigment
-              case Some(rr) => finalHits.put(readId, Assignment(rr))
+              case None => s3logger.warn("can't calculate lca for tax ids " + taxIds.toList) //no assigment
+              case Some(rr) => {
+                s3logger.info("lca(" + taxIds.values.toList + ")=" + rr)
+                finalHits.put(readId, TaxIdAssignment(rr, 0, refIds.toList))
+              }
             }
           }
         }
@@ -251,7 +270,7 @@ class Assigner(aws: AWS,
     logger.info("preparing results")
     t1 = System.currentTimeMillis()
       //generate stats
-    val res = prepareAssignedResults(chunk, LCA, reads, bestScores, finalHits, readsStatsBuilder.build)
+    val res = prepareAssignedResults(s3logger, chunk, LCA, reads, finalHits, readsStatsBuilder.build)
     t2 = System.currentTimeMillis()
     logger.info("preparing results finished " + (t2 - t1)  + " ms")
 
@@ -262,7 +281,7 @@ class Assigner(aws: AWS,
   //return most specific one if true
 
   //most specific is one that have longest parent line
-  def isInLine(taxIds: mutable.HashSet[String]): Option[String] = {
+  def isInLine(taxIds: Set[String]): Option[String] = {
     if (taxIds.isEmpty) {
       None
     } else if (taxIds.size == 1) {
@@ -272,7 +291,7 @@ class Assigner(aws: AWS,
       var argmax = List[String]()
 
       for(taxId <- taxIds) {
-        val c = getParentsIds(taxId)
+        val c = List(taxId) ++ getParentsIds(taxId)
         if(c.size > max) {
           max = c.size
           argmax = c
@@ -289,57 +308,50 @@ class Assigner(aws: AWS,
   }
 
   //todo  super slow
-  def lca(tax1: String, tax2: String): Option[String] =  {
+  def lca(tax1: String, tax2: String, s3logger: S3Logger): Option[String] =  {
     if(tax1.equals(tax2)) {
       Some(tax1)
     } else {
-      val par1 = getParentsIds(tax1)
-      val par2 = getParentsIds(tax2)
-      var r = ""
+      val par1 = List(tax1) ++ getParentsIds(tax1)
+      val par2 = List(tax2) ++ getParentsIds(tax2)
+      var r = "1"
 
       var p1 = par1.size -1
       var p2 = par2.size -1
 
-      while (par1(p1).equals(par2(p2))) {
+      while ((p1 >= 0) && (p2 >= 0) && par1(p1).equals(par2(p2)) ) {
         r = par1(p1)
         p1 -= 1
         p2 -= 1
+      }
+
+      if (p1 < 0 || p2 < 0) {
+        s3logger.warn("reached root: lca(" + tax1 + ", " + tax2 + ") p_1=" + par1 + " p_2=" + par2)
       }
 
       if (r.isEmpty) None else Some(r)
     }
   }
 
-  //todo speed up it!
-//  def findSpecific(ids: mutable.HashSet[String]): Option[String] = {
-//    ids.find { id1 =>
-//      ids.forall { id2 =>
-//        val node2 = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(id2)
-//        val p2 = node2.getParent()
-//        if(p2 == null) {
-//          true
-//        } else {
-//          !p2.getTaxId().equals(id1)
-//        }
-//      }
-//    }
-//  }
 
-  def assignBestHit(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (AssignTable, ReadsStats) = {
+  def assignBestHit(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit],
+                    s3logger: S3Logger): (AssignTable, ReadsStats) = {
     logger.info("BBH assignment")
     var t1 =  System.currentTimeMillis()
     val bestScores = mutable.HashMap[String, Int]()
     val assignment = mutable.HashMap[String, Assignment]()
-    val readsStatsBuilder = new ReadsStatsBuilder()
+    val readsStatsBuilder = new ReadStatsBuilder()
 
     for (hit <- hits) {
-      val taxId = getTaxIdFromRefId(hit.refId)
-      taxId match {
-        case None => readsStatsBuilder.addWrongRefId(hit.refId)
+      getTaxIdFromRefId(hit.refId) match {
+        case None => {
+          readsStatsBuilder.addWrongRefId(hit.refId)
+          assignment.put(hit.readId, NoTaxIdAssignment(hit.refId))
+        }
         case Some(tid) => {
           if (hit.score >= bestScores.getOrElse(tid, 0)) {
             bestScores.put(hit.readId, hit.score)
-            assignment.put(hit.readId, Assignment(tid, hit.score))
+            assignment.put(hit.readId, TaxIdAssignment(tid, List(hit.readId)))
           }
         }
       }
@@ -350,7 +362,7 @@ class Assigner(aws: AWS,
 
     logger.info("preparing results")
     t1 =  System.currentTimeMillis()
-    val res = prepareAssignedResults(chunk, BBH, reads, bestScores, assignment, readsStatsBuilder.build)
+    val res = prepareAssignedResults(s3logger, chunk, BBH, reads, assignment, readsStatsBuilder.build)
     t2 =  System.currentTimeMillis()
     logger.info("preparing results finished " + (t2 - t1) + " ms")
 

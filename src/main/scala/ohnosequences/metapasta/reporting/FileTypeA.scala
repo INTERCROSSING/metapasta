@@ -61,7 +61,9 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
    override def execute(item: Item, index: Int, context: Context): Int = {
      item._2._2.get(sampleId -> assignmentType).map(_.cumulative).getOrElse(0)
    }
- }
+
+    override def printTotal(total: Int): String = ""
+  }
 
   def attributes() = {
 
@@ -91,7 +93,7 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
 case class FileTypeB(project: ProjectGroup) extends FileType {
 
   override def destination(dst: ObjectAddress): ObjectAddress = {
-    dst / "direct.absolute.freq.csv"
+    dst / (project.name + ".direct.absolute.freq.csv")
   }
 
   import FileType.{Item}
@@ -135,7 +137,7 @@ case class FileTypeC(project: ProjectGroup) extends FileType {
   import FileType.Item
 
   override def destination(dst: ObjectAddress): ObjectAddress = {
-    dst / "direct.relative.freq.csv"
+    dst / (project.name +  ".direct.relative.freq.csv")
   }
 
   object taxonomyName extends StringAttribute[Item]("TaxonomyName",  new StringConstantMonoid("total")) {
@@ -171,7 +173,7 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
   import FileType.{Item, emptyStringMonoid}
 
   override def destination(dst: ObjectAddress): ObjectAddress = {
-    dst / ("frequencies.complete.csv")
+    dst / (group.name + ".frequencies.complete.csv")
   }
 
 
@@ -192,6 +194,8 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
     override def execute(item: Item, index: Int, context: Context): Int = {
       item._2._2.get(sampleId -> assignmentType).map(_.cumulative).getOrElse(0)
     }
+
+    override def printTotal(total: Int): String = ""
   }
 
   def attributes() = {

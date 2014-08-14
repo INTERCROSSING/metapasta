@@ -31,8 +31,8 @@ trait  MetapastaConfiguration {
    val samples: List[PairedSample]
    val tagging: Map[PairedSample, List[SampleTag]]
    val chunksSize: Int
+   val chunksThreshold: Option[Int]
    val logging: Boolean
-   val keyName: String
    val removeAllQueues: Boolean
    val timeout: Int
    val mergeQueueThroughput: MergeQueueThroughput
@@ -49,18 +49,18 @@ case class SampleBased(ration: Double, max: Int = 100) extends MergeQueueThrough
 
 case class BlastConfiguration(
                                metadataBuilder: NisperonMetadataBuilder,
-                               mappingWorkers: GroupConfiguration = Group(size = 1, max = 20, instanceType = InstanceType.T1Micro, purchaseModel = OnDemand),
+                               mappingWorkers: GroupConfiguration = Group(size = 1, max = 20, instanceType = InstanceType.t1_micro, purchaseModel = OnDemand),
                                uploadWorkers: Option[Int],
                                email: String,
                                samples: List[PairedSample],
                                tagging: Map[PairedSample, List[SampleTag]] = Map[PairedSample, List[SampleTag]](),
                                chunksSize: Int = 20000,
+                               chunksThreshold: Option[Int] = None,
                                blastTemplate: String = """blastn -task megablast -db $db$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt $out_format$ -show_gis""",
                                xmlOutput: Boolean = false,
                                password: String,
                                databaseFactory: DatabaseFactory[BlastDatabase16S] = Blast16SFactory,
                                logging: Boolean = true,
-                               keyName: String = "nispero",
                                removeAllQueues: Boolean = true,
                                timeout: Int = 360000,
                                mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
@@ -75,7 +75,7 @@ case class BlastConfiguration(
 
 case class LastConfiguration(
                                metadataBuilder: NisperonMetadataBuilder,
-                               mappingWorkers: GroupConfiguration = Group(size = 1, max = 20, instanceType = InstanceType.M1Large, purchaseModel = OnDemand),
+                               mappingWorkers: GroupConfiguration = Group(size = 1, max = 20, instanceType = InstanceType.m1_medium, purchaseModel = OnDemand),
                                uploadWorkers: Option[Int],
                                email: String,
                                samples: List[PairedSample],
@@ -83,10 +83,10 @@ case class LastConfiguration(
                                chunksSize: Int = 2000000,
                                lastTemplate: String = """./lastal $db$ $input$ -s2 -m100 -T0 -e70 -Q$format$ -f0 -o $output$""",
                                useFasta: Boolean = true,
+                               chunksThreshold: Option[Int] = None,
                                databaseFactory: DatabaseFactory[LastDatabase16S] = Last16SFactory,
                                logging: Boolean = true,
                                password: String,
-                               keyName: String = "nispero",
                                removeAllQueues: Boolean = true,
                                timeout: Int = 360000,
                                mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),

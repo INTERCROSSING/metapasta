@@ -6,6 +6,7 @@ import scala.collection.mutable
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions, FlashInstructions}
 import ohnosequences.metapasta.reporting._
+import java.io.File
 
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
 
@@ -20,7 +21,6 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     autoTermination = true,
     timeout = configuration.timeout,
     password = configuration.password,
-    keyName = configuration.keyName,
     removeAllQueues = configuration.removeAllQueues
   )
 
@@ -62,7 +62,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     inputQueue = pairedSamples,
     outputQueue = ProductQueue(readsStats, mergedSampleChunks),
     instructions = new FlashInstructions(
-      aws, configuration.chunksSize, ObjectAddress(nisperonConfiguration.bucket, "reads")),
+      aws, configuration.chunksSize, ObjectAddress(nisperonConfiguration.bucket, "reads"),
+    configuration.chunksThreshold),
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flash")
   )
 
@@ -138,7 +139,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       tagging.put(SampleId(sample.name), tags)
     }
 
-    val reporter = new Reporter(aws, List(tableAddress), List(statsAddress), tagging.toMap, nodeRetriever, ObjectAddress(nisperonConfiguration.bucket, "results"))
+    val reporter = new Reporter(aws, List(tableAddress), List(statsAddress), tagging.toMap, nodeRetriever, ObjectAddress(nisperonConfiguration.bucket, "results"), nisperonConfiguration.id)
     reporter.generate()
 
 
@@ -150,29 +151,22 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     val merger = new FastaMerger(aws, reads, results, configuration.samples.map(_.name))
     merger.merge()
 
+    if(configuration.generateDot) {
+      logger.info("generate dot files")
+      DOTExporter.installGraphiz()
+      tables.table.foreach { case (sampleAssignmentType, map) =>
+        val sample = sampleAssignmentType._1
+        val assignmentType = sampleAssignmentType._2
+        val dotFile = new File(sample  + "." + assignmentType + ".tree.dot")
+        val pdfFile = new File(sample  + "." + assignmentType + ".tree.pdf")
+        DOTExporter.generateDot(map, nodeRetriever.nodeRetriever,dotFile)
+        DOTExporter.generatePdf(dotFile, pdfFile)
+        aws.s3.putObject(S3Paths.treeDot(results, sample, assignmentType), pdfFile)
+        aws.s3.putObject(S3Paths.treePdf(results, sample, assignmentType), pdfFile)
+      }
+    }
 
-//    val samples: List[SampleId] = configuration.samples.map { s => SampleId(s.name)}
-//
-//    val ranks: List[Option[TaxonomyRank]] = TaxonomyRank.ranks.map(Some(_)) ++ List(None)
-//
-//    for (r <- ranks) {
-//
-//      val name = r match {
-//        case None => "A.frequencies.csv"
-//        case Some(rr) => "A.$rank$.frequencies.csv".replace("$rank$", rr.toString)
-//      }
 
-//      val genA = new FileTypeA(
-//        aws = aws,
-//        destination = ObjectAddress(nisperonConfiguration.bucket, "results") / name,
-//        nodeRetriever = nodeRetriever,
-//        assignments = tables,
-//        samples = samples,
-//        rank = r
-//      )
-//
-//      genA.generateCSV()
- //   }
     None
   }
 
