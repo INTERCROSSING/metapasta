@@ -116,6 +116,7 @@ When it comes to **rows**:
 - One additional row with the data of reads **Not assigned via GI** (the column name should be `Not assigned via GI`)
 - One additional row with the data of reads **Not assigned at this rank** (the column name should be `Not assigned at this rank`)
 - One additional row with the data of reads **Not assigned due to BBH/LCA thresholds** (the column name should be `Not assigned due to threshold`)
+- - One additional row with the data of reads **No Hit** (the column name should be `No hit`)
 - One additional row with the total values of the counts and percentages for the **direct** assignments only (not cummulative)
 
 
