@@ -1,6 +1,6 @@
 package ohnosequences.metapasta.reporting.spreadsheeet
 
-import ohnosequences.nisperon.{doubleMonoid, intMonoid, Monoid}
+import ohnosequences.nisperon.{longMonoid, doubleMonoid, intMonoid, Monoid}
 import scala.collection.mutable
 
 
@@ -60,8 +60,8 @@ object AnyAttribute {
 
 }
 
-abstract class IntAttribute[I](val name: String, val monoid: Monoid[Int], val hidden: Boolean = false) extends AnyAttribute {
-  override type Type = Int
+abstract class LongAttribute[I](val name: String, val monoid: Monoid[Long], val hidden: Boolean = false) extends AnyAttribute {
+  override type Type = Long
   override type Item = I
 }
 
@@ -77,7 +77,7 @@ abstract class StringAttribute[I](val name: String, val monoid: Monoid[String], 
 
 
 
-case class Freq[I](a: IntAttribute[I]) extends DoubleAttribute[I](a.name + ".freq", doubleMonoid) {
+case class Freq[I](a: LongAttribute[I]) extends DoubleAttribute[I](a.name + ".freq", doubleMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {
 
     if(context.getTotal(a) == 0 ) {
@@ -93,7 +93,7 @@ case class Freq[I](a: IntAttribute[I]) extends DoubleAttribute[I](a.name + ".fre
   }
 }
 
-case class Normalize[I](a: IntAttribute[I], d: IntAttribute[I]) extends DoubleAttribute[I](a.name + "/" + d.name + ".total", doubleMonoid) {
+case class Normalize[I](a: LongAttribute[I], d: LongAttribute[I]) extends DoubleAttribute[I](a.name + "/" + d.name + ".total", doubleMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {
     if(context.getTotal(d) == 0 ) {
       if (context.get(a, index) == 0) {
@@ -108,7 +108,7 @@ case class Normalize[I](a: IntAttribute[I], d: IntAttribute[I]) extends DoubleAt
   }
 }
 
-case class Sum[I](a: List[IntAttribute[I]]) extends IntAttribute[I](a.map(_.name).reduce { _ + "+" + _}, intMonoid) {
+case class Sum[I](a: List[LongAttribute[I]]) extends LongAttribute[I](a.map(_.name).reduce { _ + "+" + _}, longMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {
     a.map {context.get(_, index)}.reduce{_ + _}
   }
@@ -141,7 +141,7 @@ object Test {
     }
   }
 
-  object Counter extends IntAttribute[(Int, String)]("counter", intMonoid) {
+  object Counter extends LongAttribute[(Int, String)]("counter", intMonoid) {
     override def execute(item: Item, index: Int, context: Context) = {
       context.get(Counter, index -1) + 1
     }

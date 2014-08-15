@@ -112,8 +112,8 @@ class Reporter(aws: AWS,
 
     val ranks: List[Option[TaxonomyRank]] = TaxonomyRank.ranks.map(Some(_)) ++ List(None)
 
-    val unassigned = new mutable.HashMap[(SampleId, AssignmentType), PerSampleData]()
-    val unassignedItem = (FileType.unassigned, (TaxonInfo("", ""),unassigned))
+    val assignedToOtherLevel = new mutable.HashMap[(SampleId, AssignmentType), PerSampleData]()
+    val assignedToOtherLevel = (FileType.unassigned, (TaxonInfo("", ""),unassigned))
 
     for ((sampleAssignmentType, stat) <- stats) {
       val sampleId = SampleId(sampleAssignmentType._1)

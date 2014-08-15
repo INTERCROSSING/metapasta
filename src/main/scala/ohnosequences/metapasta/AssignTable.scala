@@ -10,7 +10,7 @@ case class TaxInfo(count: Long, acc: Long) {
 }
 
 object taxInfoMonoid extends Monoid[TaxInfo] {
-  val _unit = TaxInfo(0, 0)
+  val _unit = TaxInfo(0L, 0L)
   def unit: TaxInfo = _unit
   def mult(x: TaxInfo, y: TaxInfo): TaxInfo = TaxInfo(x.count + y.count, x.acc + y.acc)
 }

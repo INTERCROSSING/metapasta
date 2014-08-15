@@ -5,7 +5,7 @@ import scala.collection.mutable
 
 
 
-trait AssignmentCategory {
+sealed  trait AssignmentCategory {
   def taxId: String
 }
 case object Assigned extends AssignmentCategory {
@@ -36,13 +36,20 @@ class ReadStatsBuilder {
   var assigned = 0L
   var wrongRefIds = new mutable.HashSet[String]() //all wrong refs are ignored
 
-  def incrementByAssignment(assignment:  Assignment) {
+  def incrementByAssignment(assignment:  Assignment) { assignment match {
+    case TaxIdAssignment(_, _) => assigned += 1
+    case NoTaxIdAssignment(_) => noTaxId += 1
+    case NotAssigned(_, _, _) => notAssigned += 1
+  }}
 
-  }
+  def incrementByCategory(cat: AssignmentCategory) { cat match {
+    case NoHit => noHit += 1
+    case NotMerged => notMerged += 1
+    case Assigned => assigned += 1
+    case NotAssigned => notAssigned += 1
+  }}
 
-  def incrementByCategory(cat: AssignmentCategory) {
 
-  }
 
   //for checks
   def incrementMerged() {
@@ -68,40 +75,6 @@ class ReadStatsBuilder {
 }
 
 
-//class ReadsStatsBuilder() {
-//
-//  var total = 0L
-//  var merged = 0L
-//  var notMerged = 0L //problems with flash
-//  var noHit = 0L //no hit: too strong mapping parameters
-//  var noTaxId = 0L
-//  var notAssigned = 0L //thresholds are to strict, in some cases (best blast hit) it can be due to wrong refs
-//  var assigned = 0L
-//  var wrongRefIds = new mutable.HashSet[String]() //all wrong refs are ignored
-//
-//
-//  def incrementTotal() = {total += 1}
-//  def incrementMerged() = {merged += 1}
-//  def incrementNotAssigned() = {notAssigned += 1}
-//  def incrementNotMerged() = {notMerged += 1}
-//  def incrementNoTaxId() = {noTaxId += 1}
-//  def incrementNoHit() = {noHit += 1}
-//  def incrementAssigned() = {assigned += 1}
-//
-//  def addWrongRefId(id: String) = {wrongRefIds += id}
-//
-//
-//  def build = ReadsStats(
-//    total = total,
-//    merged = merged,
-//    notMerged = notMerged,
-//    noHit = noHit,
-//    noTaxId = noTaxId,
-//    notAssigned = notAssigned,
-//    assigned = assigned,
-//    wrongRefIds = wrongRefIds.toSet
-//  )
-//}
 
 case class ReadsStats(total: Long,
                       merged: Long,

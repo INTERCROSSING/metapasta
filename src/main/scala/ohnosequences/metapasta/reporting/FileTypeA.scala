@@ -9,15 +9,13 @@ import ohnosequences.awstools.s3.ObjectAddress
 object FileType {
   type Item = (TaxonId, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))
 
-  val unassigned = TaxonId("unassigned")
+  val assignedOnOtherKind = TaxonId("assignedToOtherKind")
   val emptyStringMonoid = new StringConstantMonoid("")
 }
 
 trait FileType {
   def attributes(): List[AnyAttribute.For[FileType.Item]]
-
   def destination(dst: ObjectAddress): ObjectAddress
-
 }
 
 case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileType {
@@ -50,19 +48,19 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
     }
   }
 
-  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid) {
-    override def execute(item: Item, index: Int, context: Context): Int = {
+  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid) {
+    override def execute(item: Item, index: Int, context: Context): Long = {
       item._2._2.get(sampleId -> assignmentType).map(_.direct).getOrElse(0)
     }
   }
 
 
-  case class SampleCumulative(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.absolute", intMonoid) {
-   override def execute(item: Item, index: Int, context: Context): Int = {
+  case class SampleCumulative(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.absolute", intMonoid) {
+   override def execute(item: Item, index: Int, context: Context): Long = {
      item._2._2.get(sampleId -> assignmentType).map(_.cumulative).getOrElse(0)
    }
 
-    override def printTotal(total: Int): String = ""
+    override def printTotal(total: Long): String = ""
   }
 
   def attributes() = {
@@ -104,7 +102,7 @@ case class FileTypeB(project: ProjectGroup) extends FileType {
     }
   }
 
-  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid) {
+  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid) {
     override def execute(item: Item, index: Int, context: Context): Int = {
       item._2._2.get(sampleId -> assignmentType).map(_.direct).getOrElse(0)
     }
@@ -146,7 +144,7 @@ case class FileTypeC(project: ProjectGroup) extends FileType {
     }
   }
 
-  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid, hidden = true) {
+  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid, hidden = true) {
     override def execute(item: Item, index: Int, context: Context): Int = {
       item._2._2.get(sampleId -> assignmentType).map(_.direct).getOrElse(0)
     }
@@ -183,19 +181,19 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
     }
   }
 
-  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid, true) {
+  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", intMonoid, true) {
     override def execute(item: Item, index: Int, context: Context): Int = {
       item._2._2.get(sampleId -> assignmentType).map(_.direct).getOrElse(0)
     }
   }
 
 
-  case class SampleCumulative(sampleId: SampleId, assignmentType: AssignmentType) extends IntAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.absolute", intMonoid, true) {
+  case class SampleCumulative(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.absolute", intMonoid, true) {
     override def execute(item: Item, index: Int, context: Context): Int = {
       item._2._2.get(sampleId -> assignmentType).map(_.cumulative).getOrElse(0)
     }
 
-    override def printTotal(total: Int): String = ""
+    override def printTotal(total: Long): String = ""
   }
 
   def attributes() = {
