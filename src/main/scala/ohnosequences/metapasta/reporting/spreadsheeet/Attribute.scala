@@ -93,7 +93,7 @@ case class Freq[I](a: LongAttribute[I]) extends DoubleAttribute[I](a.name + ".fr
   }
 }
 
-case class Normalize[I](a: LongAttribute[I], d: LongAttribute[I]) extends DoubleAttribute[I](a.name + "/" + d.name + ".total", doubleMonoid) {
+case class Normalize[I](a: LongAttribute[I], d: LongAttribute[I], oname: String) extends DoubleAttribute[I](oname, doubleMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {
     if(context.getTotal(d) == 0 ) {
       if (context.get(a, index) == 0) {

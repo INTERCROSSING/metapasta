@@ -9,7 +9,7 @@ import ohnosequences.awstools.s3.ObjectAddress
 object FileType {
   type Item = (TaxonId, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))
 
-  val assignedOnOtherKind = TaxonId("otherRank")
+  val assignedOnOtherKind = TaxonId("Not assigned at this rank")
   val emptyStringMonoid = new StringConstantMonoid("")
 }
 
@@ -52,7 +52,7 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
     override def execute(item: Item, index: Int, context: Context): Long = totalMerged
   }
 
-  case class SampleDirect1(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute" + "_", longMonoid, hidden = true) {
+  case class SampleDirect1(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.counts" + "_", longMonoid, hidden = true) {
 
     override def execute(item: Item, index: Int, context: Context): Long = {
       item._2._2.get(sampleId -> assignmentType).map(_.direct).getOrElse(0)
@@ -60,7 +60,7 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
   }
 
   //with otherRank
-  case class SampleDirect2(sampleId: SampleId, assignmentType: AssignmentType, sampleDirect1: SampleDirect1, totalMerged: TotalMerged) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", longMonoid) {
+  case class SampleDirect2(sampleId: SampleId, assignmentType: AssignmentType, sampleDirect1: SampleDirect1, totalMerged: TotalMerged) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.counts", longMonoid) {
     override def execute(item: Item, index: Int, context: Context): Long = {
       if (item._1.equals(FileType.assignedOnOtherKind)) {
         context.getTotal(totalMerged) - context.getTotal(sampleDirect1)
@@ -71,7 +71,7 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
   }
 
 
-  case class SampleCumulative1(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.absolute" + "_", longMonoid, hidden = true) {
+  case class SampleCumulative1(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.counts" + "_", longMonoid, hidden = true) {
    override def execute(item: Item, index: Int, context: Context): Long = {
      item._2._2.get(sampleId -> assignmentType).map(_.cumulative).getOrElse(0)
    }
@@ -79,7 +79,7 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
     override def printTotal(total: Long): String = ""
   }
 
-  case class SampleCumulative2(sampleId: SampleId, assignmentType: AssignmentType, sampleCumulative1: SampleCumulative1, totalMerged: TotalMerged) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.absolute", longMonoid) {
+  case class SampleCumulative2(sampleId: SampleId, assignmentType: AssignmentType, sampleCumulative1: SampleCumulative1, totalMerged: TotalMerged) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.counts", longMonoid) {
     override def execute(item: Item, index: Int, context: Context): Long = {
       if (item._1.equals(FileType.assignedOnOtherKind)) {
         context.getTotal(totalMerged) - context.getTotal(sampleCumulative1)
@@ -110,13 +110,13 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
         res += sd1
         val sd2 = SampleDirect2(sample, assignmentType, sd1, totalMerged)
         res += sd2
-        res += Normalize(sd2, totalMerged)
+        res += Normalize(sd2, totalMerged, sample.id + "." + assignmentType + ".direct.percentage")
 
         val sc1 = SampleCumulative1(sample, assignmentType)
         res += sc1
         val sc2 = SampleCumulative2(sample, assignmentType, sc1, totalMerged)
         res += sc2
-        res += Normalize(sc2, totalMerged)
+        res += Normalize(sc2, totalMerged, sample.id + "." + assignmentType + ".cumulative.percentage")
       }
     }
     res.toList
@@ -138,7 +138,7 @@ case class FileTypeB(project: ProjectGroup) extends FileType {
     }
   }
 
-  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", longMonoid) {
+  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.counts", longMonoid) {
     override def execute(item: Item, index: Int, context: Context): Long = {
       item._2._2.get(sampleId -> assignmentType).map(_.direct).getOrElse(0)
     }
@@ -184,7 +184,7 @@ case class FileTypeC(project: ProjectGroup) extends FileType {
     }
   }
 
-  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", longMonoid, hidden = true) {
+  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.counts", longMonoid, hidden = true) {
     override def execute(item: Item, index: Int, context: Context): Long = {
       item._2._2.get(sampleId -> assignmentType).map(_.direct).getOrElse(0)
     }
@@ -200,7 +200,7 @@ case class FileTypeC(project: ProjectGroup) extends FileType {
       for (assignmentType <- List(BBH, LCA)) {
         val sd = SampleDirect(sample, assignmentType)
         res += sd
-        res += Normalize(sd, totalMerged)
+        res += Normalize(sd, totalMerged, sample.id + "." + assignmentType + ".direct.percentage")
       }
     }
     res.toList
@@ -226,14 +226,14 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
     }
   }
 
-  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.absolute", longMonoid, true) {
+  case class SampleDirect(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".direct.counts", longMonoid, true) {
     override def execute(item: Item, index: Int, context: Context): Long = {
       item._2._2.get(sampleId -> assignmentType).map(_.direct).getOrElse(0)
     }
   }
 
 
-  case class SampleCumulative(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.absolute", longMonoid, true) {
+  case class SampleCumulative(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.counts", longMonoid, true) {
     override def execute(item: Item, index: Int, context: Context): Long = {
       item._2._2.get(sampleId -> assignmentType).map(_.cumulative).getOrElse(0)
     }
@@ -256,13 +256,13 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
       for (assignmentType <- List(BBH, LCA)) {
         val sd = SampleDirect(sample, assignmentType)
         res += sd
-        val rd = Normalize(sd, totalMerged)
+        val rd = Normalize(sd, totalMerged, sample.id + "." + assignmentType + ".direct.percentage")
         res += rd
         relDirect += ((assignmentType, rd))
 
         val sc = SampleCumulative(sample, assignmentType)
         res += sc
-        val rc = Normalize(sc, totalMerged)
+        val rc = Normalize(sc, totalMerged, sample.id + "." + assignmentType + ".cumulative.percentage")
         res += rc
         relCumulative += ((assignmentType, rc))
       }

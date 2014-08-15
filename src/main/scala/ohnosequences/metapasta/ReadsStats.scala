@@ -12,16 +12,16 @@ case object Assigned extends AssignmentCategory {
   override def taxId = "assigned"
 }
 case object NoHit extends AssignmentCategory {
-  override def taxId = "nohit"
+  override def taxId = "No hit"
 }
 case object NoTaxId extends AssignmentCategory {
-  override def taxId = "notaxid"
+  override def taxId = "Not assigned via GI"
 }
 case object NotMerged extends AssignmentCategory {
   override def taxId = "notmerged"
 }
 case object NotAssignedCat extends AssignmentCategory {
-  override def taxId = "notassigned"
+  override def taxId = "Not assigned due to threshold"
 }
 
 
