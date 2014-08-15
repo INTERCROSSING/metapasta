@@ -33,8 +33,9 @@ class FastasWriter(s3logger: S3Logger, nodeRetriever: NodeRetriever, logging: Bo
         noTaxIdFasta.append(read.toFasta)
         noTaxIdFasta.append(System.lineSeparator())
       }
-      case unknown => {
-        s3logger.warn("fastasWriter: unknown assignment: " + unknown)
+      case NotAssigned(reason, refIds, taxIds) => {
+        notAssignedFasta.append(read.toFasta(fastaHeader(chunk.sample, reason, refIds)))
+        noTaxIdFasta.append(System.lineSeparator())
       }
     }
   }
@@ -50,7 +51,7 @@ class FastasWriter(s3logger: S3Logger, nodeRetriever: NodeRetriever, logging: Bo
     if (logging) {
       // upload fastas
       aws.s3.putWholeObject(S3Paths.noHitFasta(readsDirectory, chunk), noHitFasta.toString())
-      aws.s3.putWholeObject(S3Paths.noTaxIdFasta(readsDirectory, chunk), noTaxIdFasta.toString())
+      aws.s3.putWholeObject(S3Paths.noTaxIdFasta(readsDirectory, chunk, assignmentType), noTaxIdFasta.toString())
       aws.s3.putWholeObject(S3Paths.notAssignedFasta(readsDirectory, chunk, assignmentType), notAssignedFasta.toString())
       aws.s3.putWholeObject(S3Paths.assignedFasta(readsDirectory, chunk, assignmentType), assignedFasta.toString())
     }

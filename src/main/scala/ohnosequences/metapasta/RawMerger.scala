@@ -20,6 +20,10 @@ class FastaMerger(aws: AWS, readObject: ObjectAddress, resultsObject: ObjectAddr
 
 
       for (asType <- List(LCA, BBH)) {
+
+        logger.info("merging noTaxIds fastas for sample " + sample + " for " + asType)
+        rawMerge(S3Paths.noTaxIdFastas(readObject, sample, asType), S3Paths.mergedNoTaxIdFasta(resultsObject, sample, asType), lm)
+
         logger.info("merging notAssigned fastas for sample " + sample + " for " + asType)
         rawMerge(S3Paths.notAssignedFastas(readObject, sample, asType), S3Paths.mergedNotAssignedFasta(resultsObject, sample, asType), lm)
 

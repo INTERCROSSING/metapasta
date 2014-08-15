@@ -7,7 +7,6 @@ import ohnosequences.formats.{RawHeader, FASTQ}
 import ohnosequences.nisperon.{AWS, MapMonoid}
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.nisperon.logging.S3Logger
-import scala.collection.mutable.ListBuffer
 
 case class Hit(readId: String, refId: String, score: Int)
 
@@ -28,12 +27,6 @@ case class NotAssigned(reason: String, refIds: List[String], taxIds: List[String
 }
 
 
-//trait Assignment {
-//  def score: Int
-//}
-//case class TaxIdAssignment(taxId: String, score: Int = 0) extends Assignment
-//case class RefIdAssignment(refId: String, score: Int = 0) extends Assignment
-
 
 class Assigner(aws: AWS,
                nodeRetriever: NodeRetriever,
@@ -49,13 +42,8 @@ class Assigner(aws: AWS,
 
   def assign(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit],
              s3logger: S3Logger): (AssignTable, Map[(String, AssignmentType), ReadsStats]) = {
-    // case BestHit => assignBestHit(chunk, reads, hits)
-    // case LCA(scoreThreshold, p) => assignLCA(chunk, reads, hits, scoreThreshold, p)
 
-    //logger.info("lca")
     val lcaRes = assignLCA(chunk, reads, hits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p, s3logger)
-
-    //logger.info("best score hit")
     val bbhRes = assignBestHit(chunk, reads, hits, s3logger)
 
 
@@ -92,18 +80,6 @@ class Assigner(aws: AWS,
     }
     // println(res.size)
     res.toList
-  }
-
-
-  def fastaHeader(sampleId: String, taxId: String, refIds: List[String]): String = {
-
-    val (taxname, rank) = try {
-      val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxId)
-      (node.getScientificName(), node.getRank())
-    } catch {
-      case t: Throwable => ("na", "na")
-    }
-    sampleId + "|" + taxname + "|" + taxId + "|" + rank + "|" + refIds.foldRight("")(_ + "|" + _)
   }
 
 
@@ -172,7 +148,6 @@ class Assigner(aws: AWS,
 
     val readsStatsBuilder = new ReadStatsBuilder()
 
-    //ref ids!!!!
     val hitsPerReads = mutable.HashMap[String, mutable.HashSet[String]]()
 
     //reads to best scores
@@ -185,6 +160,7 @@ class Assigner(aws: AWS,
       }
     }
 
+    //create set of ref ids for all hits
     hits.foreach {
       //filter all reads with bitscore below p * S (where p is fixed coefficient, e.g. 0.9)
       case hit if hit.score >= math.max(scoreThreshold, p * bestScores.getOrElse(hit.readId, 0)) => {
@@ -204,10 +180,8 @@ class Assigner(aws: AWS,
 
     for ((readId, refIds) <- hitsPerReads) {
 
-      // 1. map ref ids to
-
+      // get taxa ids from GIs
       val taxIds = new mutable.HashMap[String, String]()
-
       for (refId <- refIds) {
         getTaxIdFromRefId(refId) match {
           case Some(taxId) => taxIds.put(refId, taxId)
@@ -218,18 +192,18 @@ class Assigner(aws: AWS,
         }
       }
 
+      //now there are four cases:
+      //* we had some not filtered hits, but all of them have wrong gi - NoTaxIdAssignment
+      //* we have empty ref ids that means that all hits were filtered -  NotAssigned
+      // * rest hits form a line in the taxonomy tree. In this case we should choose the most specific tax id
+      // * in other cases we should calculate LCA
       val assignment = if (taxIds.isEmpty && !refIds.isEmpty) {
-
         //couldn't get taxa from any of ref id
         NoTaxIdAssignment(refIds.toList)
       } else if (taxIds.isEmpty && refIds.isEmpty) {
         //nothing to assign
         NotAssigned("hits were filtered", refIds.toList, taxIds.values.toList)
       } else {
-        //now there are two cases:
-        // * rest hits form a line in the taxonomy tree. In this case we should choose the most specific tax id
-        // * in other cases we should calculate LCA
-
         isInLine(taxIds.values.toSet) match {
           case Some(specific) => {
             s3logger.info("taxa form a line: " + taxIds.values.toList)
@@ -278,7 +252,6 @@ class Assigner(aws: AWS,
 
 
   //return most specific one if true
-
   //most specific is one that have longest parent line
   def isInLine(taxIds: Set[String]): Option[String] = {
     if (taxIds.isEmpty) {
@@ -296,8 +269,8 @@ class Assigner(aws: AWS,
           argmax = c
         }
       }
-      //first taxIds.size elements should be taxIds
 
+      //first taxIds.size elements should be taxIds
       if (argmax.take(taxIds.size).forall(taxIds.contains)) {
         argmax.headOption
       } else {
