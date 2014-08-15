@@ -6,7 +6,7 @@ import ohnosequences.nisperon.logging.S3Logger
 import ohnosequences.nisperon.AWS
 import ohnosequences.awstools.s3.ObjectAddress
 
-class FastasWriter(s3logger: S3Logger, logging: Boolean) {
+class FastasWriter(s3logger: S3Logger, nodeRetriever: NodeRetriever, logging: Boolean) {
   val noHitFasta = new mutable.StringBuilder()
   val noTaxIdFasta = new mutable.StringBuilder()
   val notAssignedFasta = new mutable.StringBuilder()

@@ -57,7 +57,7 @@ class FlashInstructions(
 
     val sample = input.head
 
-    val statsBuilder = new ReadsStatsBuilder()
+    val statsBuilder = new ReadStatsBuilder()
     val (resultObject, stats) = if (sample.fastq1.equals(sample.fastq2)) {
       logger.info("not paired-ended")
 
@@ -123,7 +123,7 @@ class FlashInstructions(
       val combinedRe = """\Q[FLASH]\E\s+\QCombined reads:\E\s+(\d+)""".r
       val uncombinedRe = """\Q[FLASH]\E\s+\QUncombined reads:\E\s+(\d+)""".r
 
-      val readsStats = new ReadsStatsBuilder()
+      val readsStats = new ReadStatsBuilder()
 
       flashOut.split("\n").foreach {
         case totalRe(n) => readsStats.total = n.toLong

@@ -20,7 +20,7 @@ case object NoTaxId extends AssignmentCategory {
 case object NotMerged extends AssignmentCategory {
   override def taxId = "notmerged"
 }
-case object NotAssigned extends AssignmentCategory {
+case object NotAssignedCat extends AssignmentCategory {
   override def taxId = "notassigned"
 }
 
@@ -44,9 +44,10 @@ class ReadStatsBuilder {
 
   def incrementByCategory(cat: AssignmentCategory) { cat match {
     case NoHit => noHit += 1
+    case NoTaxId => noTaxId += 1
     case NotMerged => notMerged += 1
     case Assigned => assigned += 1
-    case NotAssigned => notAssigned += 1
+    case NotAssignedCat => notAssigned += 1
   }}
 
 

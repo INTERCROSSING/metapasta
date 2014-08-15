@@ -141,7 +141,7 @@ object Test {
     }
   }
 
-  object Counter extends LongAttribute[(Int, String)]("counter", intMonoid) {
+  object Counter extends LongAttribute[(Int, String)]("counter", longMonoid) {
     override def execute(item: Item, index: Int, context: Context) = {
       context.get(Counter, index -1) + 1
     }

@@ -12,7 +12,7 @@ import scala.collection.mutable.ListBuffer
 import java.io.{PrintWriter, File}
 
 
-case class PerSampleData(direct: Int, cumulative: Int)
+case class PerSampleData(direct: Long, cumulative: Long)
 
 case class TaxonId(id: String)
 
@@ -113,17 +113,15 @@ class Reporter(aws: AWS,
     val ranks: List[Option[TaxonomyRank]] = TaxonomyRank.ranks.map(Some(_)) ++ List(None)
 
     val assignedToOtherLevel = new mutable.HashMap[(SampleId, AssignmentType), PerSampleData]()
-    val assignedToOtherLevel = (FileType.unassigned, (TaxonInfo("", ""),unassigned))
+    val assignedToOtherLevelItem = (FileType.assignedOnOtherKind, (TaxonInfo("", ""), assignedToOtherLevel))
 
     for ((sampleAssignmentType, stat) <- stats) {
       val sampleId = SampleId(sampleAssignmentType._1)
       val assignmentType = sampleAssignmentType._2
-      val d = (stat.notMerged + stat.notAssigned).toInt
-      unassigned.put((sampleId, assignmentType), PerSampleData(d, d))
+      //val d = (stat.notMerged + stat.notAssigned).toInt
+      //will be calculated after
+      assignedToOtherLevel.put((sampleId, assignmentType), PerSampleData(0, 0))
     }
-
-
-
 
     for (r <- ranks) {
 
@@ -146,10 +144,10 @@ class Reporter(aws: AWS,
         case Some(rr) => logger.info("generating for " + rr + " kind")
       }
 
-      val items: Iterable[FileType.Item] =  prepareMapping(table, r) += unassignedItem
+      val items: Iterable[FileType.Item] =  prepareMapping(table, r) += assignedToOtherLevelItem
 
       for (fType <- fileTypes) {
-        val csvPrinter = new CSVExecutor[FileType.Item](fType.attributes(), items)
+        val csvPrinter = new CSVExecutor[FileType.Item](fType.attributes(stats), items)
         val resultS = csvPrinter.execute()
         val dst = group match {
           case ProjectGroup(name, ss) => destination
@@ -191,6 +189,10 @@ class Reporter(aws: AWS,
         val filter = rank match {
           case None => false
           case Some(rk) if rk.toString.equals(taxonInfoInfo.rank) => false
+          case Some(rk) if taxonId.id.equals(NotAssignedCat.taxId) => false
+          case Some(rk) if taxonId.id.equals(NoHit.taxId) => false
+          case Some(rk) if taxonId.id.equals(NoTaxId.taxId) => false
+          case Some(rk) if taxonId.equals(FileType.assignedOnOtherKind) => false
           case _ => true
         }
 

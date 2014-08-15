@@ -12,19 +12,19 @@ import scala.collection.mutable.ListBuffer
 case class Hit(readId: String, refId: String, score: Int)
 
 sealed trait Assignment {
-  type AssignmentCategory <: AssignmentCategory
+  type AssignmentCat <: AssignmentCategory
 }
 
 case class TaxIdAssignment(taxId: String, refIds: List[String]) extends Assignment {
-  type AssignmentCategory = Assigned.type
+  type AssignmentCat = Assigned.type
 }
 
 case class NoTaxIdAssignment(refIds: List[String]) extends Assignment {
-  type AssignmentCategory = NoTaxId.type
+  type AssignmentCat = NoTaxId.type
 }
 
 case class NotAssigned(reason: String, refIds: List[String], taxIds: List[String]) extends Assignment {
-  type AssignmentCategory = NotAssigned.type
+  type AssignmentCat = NotAssignedCat.type
 }
 
 
@@ -114,7 +114,7 @@ class Assigner(aws: AWS,
                              initialReadsStats: ReadsStats = readsStatsMonoid.unit): (AssignTable, ReadsStats) = {
 
     val readsStatsBuilder = new ReadStatsBuilder()
-    val fastasWriter = new FastasWriter(s3logger, logging)
+    val fastasWriter = new FastasWriter(s3logger, nodeRetriever, logging)
 
     reads.foreach {
       fastq =>
@@ -159,7 +159,7 @@ class Assigner(aws: AWS,
 
     assignTable.put(NoHit.taxId, TaxInfo(readStats.noHit, readStats.noHit))
     assignTable.put(NoTaxId.taxId, TaxInfo(readStats.noTaxId, readStats.noTaxId))
-    assignTable.put(NotAssigned.taxId, TaxInfo(readStats.notAssigned, readStats.notAssigned))
+    assignTable.put(NotAssignedCat.taxId, TaxInfo(readStats.notAssigned, readStats.notAssigned))
 
     (AssignTable(Map((chunk.sample, assignmentType) -> assignTable.toMap)), readStats.mult(initialReadsStats))
   }
