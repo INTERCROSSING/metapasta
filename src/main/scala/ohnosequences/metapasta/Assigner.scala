@@ -74,11 +74,9 @@ class Assigner(aws: AWS,
       var parent = node.getParent()
       while (parent != null) {
         res += parent.getTaxId()
-        //println(parent.getTaxId())
         parent = parent.getParent()
       }
     }
-    // println(res.size)
     res.toList
   }
 
