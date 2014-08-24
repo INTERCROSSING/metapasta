@@ -14,7 +14,7 @@ sealed trait Assignment {
   type AssignmentCat <: AssignmentCategory
 }
 
-case class TaxIdAssignment(taxId: String, refIds: List[String]) extends Assignment {
+case class TaxIdAssignment(taxon: Taxon, refIds: List[String]) extends Assignment {
   type AssignmentCat = Assigned.type
 }
 
@@ -22,7 +22,7 @@ case class NoTaxIdAssignment(refIds: List[String]) extends Assignment {
   type AssignmentCat = NoTaxId.type
 }
 
-case class NotAssigned(reason: String, refIds: List[String], taxIds: List[String]) extends Assignment {
+case class NotAssigned(reason: String, refIds: List[String], taxIds: List[Taxon]) extends Assignment {
   type AssignmentCat = NotAssignedCat.type
 }
 
@@ -37,6 +37,7 @@ class Assigner(aws: AWS,
                logging: Boolean,
                readsDirectory: ObjectAddress) {
 
+  val tree: Tree[Taxon] = new Bio4JTaxonomyTree(nodeRetriever)
 
   val logger = Logger(this.getClass)
 
@@ -63,21 +64,6 @@ class Assigner(aws: AWS,
         None
       }
     }
-  }
-
-  def getParentsIds(tax: String): List[String] = {
-    val res = mutable.ListBuffer[String]()
-    val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(tax)
-    if (node == null) {
-      logger.error("can't receive node for " + tax)
-    } else {
-      var parent = node.getParent()
-      while (parent != null) {
-        res += parent.getTaxId()
-        parent = parent.getParent()
-      }
-    }
-    res.toList
   }
 
 
@@ -110,17 +96,16 @@ class Assigner(aws: AWS,
 
     fastasWriter.uploadFastas(aws, readsDirectory, chunk, assignmentType)
 
-    val assignTable = mutable.HashMap[String, TaxInfo]()
+    val assignTable = mutable.HashMap[Taxon, TaxInfo]()
 
     //generate assign table
     assignment.foreach {
-      case (readId, TaxIdAssignment(taxId, refIds)) =>
-        assignTable.get(taxId) match {
-          case None => assignTable.put(taxId, TaxInfo(1, 1))
-          case Some(TaxInfo(count, acc)) => assignTable.put(taxId, TaxInfo(count + 1, acc + 1))
+      case (readId, TaxIdAssignment(taxon, refIds)) =>
+        assignTable.get(taxon) match {
+          case None => assignTable.put(taxon, TaxInfo(1, 1))
+          case Some(TaxInfo(count, acc)) => assignTable.put(taxon, TaxInfo(count + 1, acc + 1))
         }
-        getParentsIds(taxId).foreach {
-          p =>
+        TreeUtils.getLineageExclusive(tree, taxon).foreach { p  =>
             assignTable.get(p) match {
               case None => assignTable.put(p, TaxInfo(0, 1))
               case Some(TaxInfo(count, acc)) => assignTable.put(p, TaxInfo(count, acc + 1))
@@ -131,9 +116,9 @@ class Assigner(aws: AWS,
 
     val readStats = readsStatsBuilder.build
 
-    assignTable.put(NoHit.taxId, TaxInfo(readStats.noHit, readStats.noHit))
-    assignTable.put(NoTaxId.taxId, TaxInfo(readStats.noTaxId, readStats.noTaxId))
-    assignTable.put(NotAssignedCat.taxId, TaxInfo(readStats.notAssigned, readStats.notAssigned))
+    assignTable.put(NoHit.taxon, TaxInfo(readStats.noHit, readStats.noHit))
+    assignTable.put(NoTaxId.taxon, TaxInfo(readStats.noTaxId, readStats.noTaxId))
+    assignTable.put(NotAssignedCat.taxon, TaxInfo(readStats.notAssigned, readStats.notAssigned))
 
     (AssignTable(Map((chunk.sample, assignmentType) -> assignTable.toMap)), readStats.mult(initialReadsStats))
   }
@@ -179,10 +164,10 @@ class Assigner(aws: AWS,
     for ((readId, refIds) <- hitsPerReads) {
 
       // get taxa ids from GIs
-      val taxIds = new mutable.HashMap[String, String]()
+      val taxIds = new mutable.HashMap[String, Taxon]()
       for (refId <- refIds) {
         getTaxIdFromRefId(refId) match {
-          case Some(taxId) => taxIds.put(refId, taxId)
+          case Some(taxId) => taxIds.put(refId, Taxon(taxId))
           case None => {
             s3logger.warn("couldn't find taxon for ref id: " + refId)
             readsStatsBuilder.addWrongRefId(refId)
@@ -202,33 +187,19 @@ class Assigner(aws: AWS,
         //nothing to assign
         NotAssigned("hits were filtered", refIds.toList, taxIds.values.toList)
       } else {
-        isInLine(taxIds.values.toSet) match {
+        TreeUtils.isInLine(tree, taxIds.values.toSet) match {
           case Some(specific) => {
             s3logger.info("taxa form a line: " + taxIds.values.toList)
             s3logger.info("the most specific taxon: " + specific)
             val specificRefIds: List[String] = taxIds.find {
               _._2.equals(specific)
             }.map(_._1).toList
-
             TaxIdAssignment(specific, specificRefIds)
           }
           case None => {
             //calculating lca
-            var res: Option[String] = taxIds.headOption.map(_._2) //initial taxon
-            for ((refId, taxId) <- taxIds) {
-              res = res.flatMap(lca(_, taxId, s3logger))
-              if(res.isEmpty) {
-                s3logger.warn("can't calculate lca(" + res + ", " + taxId + ")")
-              }
-            }
-            res match {
-              case None => {
-                NotAssigned("can't calculate lca for taxa", taxIds.keysIterator.toList, taxIds.values.toList)
-              }
-              case Some(rr) => {
-                TaxIdAssignment(rr, refIds.toList)
-              }
-            }
+            val lca = TreeUtils.lca(tree, taxIds.values.toList)
+            TaxIdAssignment(lca, refIds.toList)
           }
         }
       }
@@ -249,61 +220,6 @@ class Assigner(aws: AWS,
   }
 
 
-  //return most specific one if true
-  //most specific is one that have longest parent line
-  def isInLine(taxIds: Set[String]): Option[String] = {
-    if (taxIds.isEmpty) {
-      None
-    } else if (taxIds.size == 1) {
-      Some(taxIds.head)
-    } else {
-      var max = 0
-      var argmax = List[String]()
-
-      for (taxId <- taxIds) {
-        val c = List(taxId) ++ getParentsIds(taxId)
-        if (c.size > max) {
-          max = c.size
-          argmax = c
-        }
-      }
-
-      //first taxIds.size elements should be taxIds
-      if (argmax.take(taxIds.size).forall(taxIds.contains)) {
-        argmax.headOption
-      } else {
-        None
-      }
-    }
-  }
-
-  //todo  super slow
-  def lca(tax1: String, tax2: String, s3logger: S3Logger): Option[String] = {
-    if (tax1.equals(tax2)) {
-      Some(tax1)
-    } else {
-      val par1 = List(tax1) ++ getParentsIds(tax1)
-      val par2 = List(tax2) ++ getParentsIds(tax2)
-      var r = "1"
-
-      var p1 = par1.size - 1
-      var p2 = par2.size - 1
-
-      while ((p1 >= 0) && (p2 >= 0) && par1(p1).equals(par2(p2))) {
-        r = par1(p1)
-        p1 -= 1
-        p2 -= 1
-      }
-
-      if (p1 < 0 || p2 < 0) {
-       // s3logger.warn("reached root: lca(" + tax1 + ", " + tax2 + ") p_1=" + par1 + " p_2=" + par2)
-      }
-
-      s3logger.info("lca(" + tax1 + ", " + tax2 + ")=" + r + " p_1=" + p1 + " p2=" + p2)
-
-      if (r.isEmpty) None else Some(r)
-    }
-  }
 
 
   def assignBestHit(chunk: MergedSampleChunk, reads: List[FASTQ[RawHeader]], hits: List[Hit],
@@ -323,7 +239,7 @@ class Assigner(aws: AWS,
         case Some(tid) => {
           if (hit.score >= bestScores.getOrElse(tid, 0)) {
             bestScores.put(hit.readId, hit.score)
-            assignment.put(hit.readId, TaxIdAssignment(tid, List(hit.readId)))
+            assignment.put(hit.readId, TaxIdAssignment(Taxon(tid), List(hit.readId)))
           }
         }
       }

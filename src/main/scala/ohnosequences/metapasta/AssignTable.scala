@@ -19,11 +19,11 @@ object taxInfoMonoid extends Monoid[TaxInfo] {
 
 //(sample, AssignmentType -> (tax -> taxinfo)
 
-case class AssignTable(table: Map[(String, AssignmentType), Map[String, TaxInfo]])
+case class AssignTable(table: Map[(String, AssignmentType), Map[Taxon, TaxInfo]])
 
 
 object assignTableMonoid extends Monoid[AssignTable] {
-  val mapMonoid = new MapMonoid[(String, AssignmentType), Map[String, TaxInfo]](new MapMonoid[String, TaxInfo](taxInfoMonoid))
+  val mapMonoid = new MapMonoid[(String, AssignmentType), Map[Taxon, TaxInfo]](new MapMonoid[Taxon, TaxInfo](taxInfoMonoid))
 
   override def mult(x: AssignTable, y: AssignTable): AssignTable = AssignTable(mapMonoid.mult(x.table, y.table))
 
@@ -33,17 +33,17 @@ object assignTableMonoid extends Monoid[AssignTable] {
 
 object assignTableSerializer extends Serializer[AssignTable] {
 
-  val rawTableSerializer = new JsonSerializer[Map[String,  Map[String, TaxInfo]]]()
+  val rawTableSerializer = new JsonSerializer[Map[String,  Map[Taxon, TaxInfo]]]()
 
   override def toString(t: AssignTable): String = {
-    val raw: Map[String,  Map[String, TaxInfo]] = t.table.map { case (sampleAssignmentType, map)  =>
+    val raw: Map[String,  Map[Taxon, TaxInfo]] = t.table.map { case (sampleAssignmentType, map)  =>
       (sampleAssignmentType._1 + "###" + sampleAssignmentType._2.toString, map)
     }
     rawTableSerializer.toString(raw)
   }
 
   override def fromString(s: String): AssignTable = {
-    val raw : Map[String,  Map[String, TaxInfo]] = rawTableSerializer.fromString(s)
+    val raw : Map[String,  Map[Taxon, TaxInfo]] = rawTableSerializer.fromString(s)
     AssignTable(raw.map { case (sampleAssignmentType, stats)  =>
       val parts = sampleAssignmentType.split("###")
       ((parts(0), AssignmentType.fromString(parts(1))), stats)

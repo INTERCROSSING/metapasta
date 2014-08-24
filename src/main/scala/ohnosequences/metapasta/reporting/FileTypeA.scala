@@ -7,9 +7,9 @@ import ohnosequences.metapasta.reporting.spreadsheeet._
 import ohnosequences.awstools.s3.ObjectAddress
 
 object FileType {
-  type Item = (TaxonId, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))
+  type Item = (Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))
 
-  val assignedOnOtherKind = TaxonId("Not assigned at this rank")
+  val assignedOnOtherKind = Taxon("Not assigned at this rank")
   val emptyStringMonoid = new StringConstantMonoid("")
 }
 
@@ -32,7 +32,7 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
 
   object taxId extends StringAttribute[Item]("TaxonomyID", new StringConstantMonoid("total")) {
     override def execute(item: Item, index: Int, context: Context): String = {
-      item._1.id
+      item._1.taxId
     }
   }
 

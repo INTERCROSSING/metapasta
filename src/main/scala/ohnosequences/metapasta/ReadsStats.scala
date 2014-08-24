@@ -6,22 +6,22 @@ import scala.collection.mutable
 
 
 sealed  trait AssignmentCategory {
-  def taxId: String
+  def taxon: Taxon
 }
 case object Assigned extends AssignmentCategory {
-  override def taxId = "assigned"
+  override def taxon = Taxon("assigned")
 }
 case object NoHit extends AssignmentCategory {
-  override def taxId = "No hit"
+  override def taxon = Taxon("No hit")
 }
 case object NoTaxId extends AssignmentCategory {
-  override def taxId = "Not assigned via GI"
+  override def taxon = Taxon("Not assigned via GI")
 }
 case object NotMerged extends AssignmentCategory {
-  override def taxId = "notmerged"
+  override def taxon = Taxon("notmerged")
 }
 case object NotAssignedCat extends AssignmentCategory {
-  override def taxId = "Not assigned due to threshold"
+  override def taxon = Taxon("Not assigned due to threshold")
 }
 
 

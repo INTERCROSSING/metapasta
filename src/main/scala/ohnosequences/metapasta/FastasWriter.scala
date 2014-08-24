@@ -25,8 +25,8 @@ class FastasWriter(s3logger: S3Logger, nodeRetriever: NodeRetriever, logging: Bo
 
   def write(chunk: MergedSampleChunk, read: FASTQ[RawHeader], readId: String, assignment: Assignment) {
     assignment match {
-      case TaxIdAssignment(taxId, refIds) => {
-        assignedFasta.append(read.toFasta(fastaHeader(chunk.sample, taxId, refIds)))
+      case TaxIdAssignment(taxon, refIds) => {
+        assignedFasta.append(read.toFasta(fastaHeader(chunk.sample, taxon.taxId, refIds)))
         assignedFasta.append(System.lineSeparator())
       }
       case NoTaxIdAssignment(refId) => {

@@ -3,6 +3,7 @@ package ohnosequences.metapasta
 import java.io.{PrintWriter, File}
 import org.clapper.avsl.Logger
 import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.metapasta.reporting.{FileType, FileTypeA}
 
 object DOTExporter {
 
@@ -17,34 +18,35 @@ object DOTExporter {
 
   //1 [label="root", shape=box];
 // b -- d;
-  def generateDot(data: Map[String, TaxInfo], nodeRetriever: com.ohnosequences.bio4j.titan.model.util.NodeRetrieverTitan, dst: File) {
+  def generateDot(data: Map[Taxon, TaxInfo], nodeRetriever: com.ohnosequences.bio4j.titan.model.util.NodeRetrieverTitan, dst: File) {
     logger.info("generating dot file: " + dst.getAbsolutePath)
 
     val result = new PrintWriter(dst)
 
 
+    val specialTaxa = Set(Assigned.taxon, NoHit.taxon, NoTaxId.taxon, NotAssignedCat.taxon, FileType.assignedOnOtherKind)
     result.println("graph tax {")
-    data.foreach { case (taxId, taxInfo) =>
+    data.foreach { case (taxon, taxInfo) =>
       //print node
 
-      if(taxId.equals("unassigned")) {
-        result.println(taxId + "[label=\"" + taxId + "\\n" + taxInfo +  "\", shape=box];")
+      if(specialTaxa.contains(taxon)) {
+        result.println(taxon.taxId + "[label=\"" + taxon.taxId + "\\n" + taxInfo +  "\", shape=box];")
       } else {
 
         try {
           logger.info("taxInfo: " + taxInfo)
-          val node = nodeRetriever.getNCBITaxonByTaxId(taxId)
+          val node = nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
           val name = node.getScientificName()
-          result.println(taxId + " [label=\"" + name + "\\n" + taxInfo +  "\", shape=box];")
+          result.println(taxon.taxId + " [label=\"" + name + "\\n" + taxInfo +  "\", shape=box];")
         } catch {
           case t: Throwable => logger.warn(t.toString)
           t.printStackTrace()
         }
 
         try {
-          val node = nodeRetriever.getNCBITaxonByTaxId(taxId)
+          val node = nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
           val parent = node.getParent().getTaxId()
-          result.println(parent + "--" + taxId + ";")
+          result.println(parent + "--" + taxon.taxId + ";")
         } catch {
           case t: Throwable => logger.warn(t.toString)
             t.printStackTrace()

@@ -14,8 +14,6 @@ import java.io.{PrintWriter, File}
 
 case class PerSampleData(direct: Long, cumulative: Long)
 
-case class TaxonId(id: String)
-
 case class TaxonInfo(scientificName: String, rank: String)
 
 case class SampleId(id: String)
@@ -161,9 +159,9 @@ class Reporter(aws: AWS,
   }
 
 
-  def getTaxInfo(taxId: TaxonId) = {
+  def getTaxInfo(taxon: Taxon) = {
     try {
-      val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxId.id)
+      val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
       TaxonInfo(node.getScientificName(), node.getRank())
     } catch {
       case t: Throwable => t.printStackTrace(); TaxonInfo("na", "na")
@@ -172,9 +170,9 @@ class Reporter(aws: AWS,
 
 
 
-  def prepareMapping(table: AssignTable, rank: Option[TaxonomyRank]): mutable.HashMap[TaxonId, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData])] = {
+  def prepareMapping(table: AssignTable, rank: Option[TaxonomyRank]): mutable.HashMap[Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData])] = {
 
-    val result = new mutable.HashMap[TaxonId, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData])]()
+    val result = new mutable.HashMap[Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData])]()
 
     for ((sampleAssignmentType, taxonsInfos) <-  table.table) {
 
@@ -182,26 +180,24 @@ class Reporter(aws: AWS,
       val assignmentType = sampleAssignmentType._2
 
       for ((taxon, taxonInfo) <- taxonsInfos) {
-
-        val taxonId = TaxonId(taxon)
-        val taxonInfoInfo = getTaxInfo(taxonId)
+        val taxonInfoInfo = getTaxInfo(taxon)
 
         val filter = rank match {
           case None => false
           case Some(rk) if rk.toString.equals(taxonInfoInfo.rank) => false
-          case Some(rk) if taxonId.id.equals(NotAssignedCat.taxId) => false
-          case Some(rk) if taxonId.id.equals(NoHit.taxId) => false
-          case Some(rk) if taxonId.id.equals(NoTaxId.taxId) => false
-          case Some(rk) if taxonId.equals(FileType.assignedOnOtherKind) => false
+          case Some(rk) if taxon.equals(NotAssignedCat.taxon) => false
+          case Some(rk) if taxon.equals(NoHit.taxon) => false
+          case Some(rk) if taxon.equals(NoTaxId.taxon) => false
+          case Some(rk) if taxon.equals(FileType.assignedOnOtherKind) => false
           case _ => true
         }
 
         if(!filter) {
-          result.get(taxonId) match {
+          result.get(taxon) match {
             case None => {
               val map = new mutable.HashMap[(SampleId, AssignmentType), PerSampleData]()
               map.put((sampleId, assignmentType), new PerSampleData(direct = taxonInfo.count, cumulative = taxonInfo.acc))
-              result.put(taxonId, (taxonInfoInfo, map))
+              result.put(taxon, (taxonInfoInfo, map))
             }
             case Some((taxoninfo, map)) => {
               map.put((sampleId, assignmentType), new PerSampleData(direct = taxonInfo.count, cumulative = taxonInfo.acc))
