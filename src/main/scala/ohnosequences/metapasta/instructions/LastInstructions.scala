@@ -54,7 +54,8 @@ class LastInstructions(aws: AWS,
     val lastDatabase = databaseFactory.build(lm)
     val last = new LastFactory().build(lm)
     val giMapper = new InMemoryGIMapperFactory().build(lm)
-    val assigner = new Assigner(aws, nodeRetreiver, lastDatabase, giMapper, assignmentConfiguration, extractHeader, logging, readsDirectory)
+    val fastasWriter = new FastasWriter(aws, readsDirectory, nodeRetreiver)
+    val assigner = new Assigner(new Bio4JTaxonomyTree(nodeRetreiver), lastDatabase, giMapper, assignmentConfiguration, extractHeader, Some(fastasWriter))
     LastContext(nodeRetreiver, lastDatabase, last, assigner)
   }
 
@@ -139,14 +140,14 @@ class LastInstructions(aws: AWS,
       case comment(c) => //logger.info("skipping comment: " + c)
       case lastHit(_score, name1, start1, algSize1, strand1, seqSize1, name2) => {
         val readId = extractHeader(name2)
-        val score = Utils.parseInt(_score)
+        val score = Utils.parseDouble(_score)
         hits += Hit(readId, name1, score)
       }
 
       case l => logger.error("can't parse: " + l)
     }
 
-    context.assigner.assign(chunk, parsed, hits.toList, s3logger)
+    context.assigner.assign(s3logger, ChunkId(chunk), parsed, hits.toList)
 
     //result.toList
   }

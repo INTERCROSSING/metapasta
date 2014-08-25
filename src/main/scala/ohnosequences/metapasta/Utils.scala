@@ -18,4 +18,10 @@ object Utils {
   } catch {
     case t: Throwable => default
   }
+
+  def parseDouble(s: String, default: Double = 0D) = try {
+    s.toDouble
+  } catch {
+    case t: Throwable => default
+  }
 }

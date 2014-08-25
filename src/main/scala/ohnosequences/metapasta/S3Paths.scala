@@ -27,19 +27,19 @@ object S3Paths {
 
 
 
-  def noHitFasta(readsObject: ObjectAddress, chunk: MergedSampleChunk): ObjectAddress = {
-    noHitFastas(readsObject, chunk.sample) / (chunk.range._1 + "_" + chunk.range._2 + ".fasta")
+  def noHitFasta(readsObject: ObjectAddress, chunk: ChunkId): ObjectAddress = {
+    noHitFastas(readsObject, chunk.sample.id) / (chunk.start + "_" + chunk.end + ".fasta")
   }
 
-  def noTaxIdFasta(readsObject: ObjectAddress, chunk: MergedSampleChunk, assignmentType: AssignmentType): ObjectAddress = {
-    noTaxIdFastas(readsObject, chunk.sample, assignmentType) / (chunk.range._1 + "_" + chunk.range._2 + ".fasta")
+  def noTaxIdFasta(readsObject: ObjectAddress, chunk: ChunkId, assignmentType: AssignmentType): ObjectAddress = {
+    noTaxIdFastas(readsObject, chunk.sample.id, assignmentType) / (chunk.sample.id + chunk.start + "_" + chunk.end + ".fasta")
   }
 
-  def notAssignedFasta(readsObject: ObjectAddress, chunk: MergedSampleChunk, assignmentType: AssignmentType): ObjectAddress = {
-    notAssignedFastas(readsObject, chunk.sample, assignmentType) / (chunk.range._1 + "_" + chunk.range._2 + ".fasta")
+  def notAssignedFasta(readsObject: ObjectAddress, chunk: ChunkId, assignmentType: AssignmentType): ObjectAddress = {
+    notAssignedFastas(readsObject, chunk.sample.id, assignmentType) / (chunk.sample.id + chunk.start + "_" + chunk.end + ".fasta")
   }
-  def assignedFasta(readsObject: ObjectAddress, chunk: MergedSampleChunk, assignmentType: AssignmentType): ObjectAddress = {
-    assignedFastas(readsObject, chunk.sample, assignmentType) / (chunk.range._1 + "_" + chunk.range._2 + ".fasta")
+  def assignedFasta(readsObject: ObjectAddress, chunk: ChunkId, assignmentType: AssignmentType): ObjectAddress = {
+    assignedFastas(readsObject, chunk.sample.id, assignmentType) / (chunk.sample.id + chunk.start + "_" + chunk.end + ".fasta")
   }
 
   def treeDot(resultsObject: ObjectAddress, sample: String, assignmentType: AssignmentType) = {
@@ -50,8 +50,8 @@ object S3Paths {
     resultsObject / sample / (sample + "." + assignmentType + ".tree.pdf")
   }
 
-  def blastOut(readsObject: ObjectAddress, chunk: MergedSampleChunk): ObjectAddress = {
-    readsObject / chunk.sample / "blast" / (chunk.sample + chunk.range._1 + "_" + chunk.range._2 + ".blast")
+  def blastOut(readsObject: ObjectAddress, chunk: ChunkId): ObjectAddress = {
+    readsObject / chunk.sample.id / "blast" / (chunk.sample.id + chunk.start + "_" + chunk.end + ".blast")
   }
 
 }

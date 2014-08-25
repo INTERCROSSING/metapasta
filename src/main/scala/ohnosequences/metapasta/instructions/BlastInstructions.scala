@@ -45,7 +45,8 @@ class BlastInstructions(
     val blastDatabase = databaseFactory.build(lm)
     val blast = new BlastFactory().build(lm)
     val giMapper = new InMemoryGIMapperFactory().build(lm)
-    val assigner = new Assigner(aws, nodeRetreiver, blastDatabase, giMapper, assignmentConfiguration, extractHeader, logging, readsDirectory)
+    val fastasWriter = new FastasWriter(aws, readsDirectory, nodeRetreiver)
+    val assigner = new Assigner(new Bio4JTaxonomyTree(nodeRetreiver), blastDatabase, giMapper, assignmentConfiguration, extractHeader, Some(fastasWriter))
     BlastContext(nodeRetreiver, blastDatabase, blast, assigner)
   }
 
@@ -98,7 +99,7 @@ class BlastInstructions(
     }
 
     if(logging) {
-      aws.s3.putObject(S3Paths.blastOut(resultDirectory, chunk), outputFile)
+      aws.s3.putObject(S3Paths.blastOut(resultDirectory, ChunkId(chunk)), outputFile)
      // s3logger.uploadFile(outputFile)
     }
 
@@ -124,7 +125,7 @@ class BlastInstructions(
       case comment(c) => //logger.info("skipping comment: " + c)
       case blastHit(header, refId, _score) => {
         val readId = extractHeader(header)
-        val score = Utils.parseInt(_score)
+        val score = Utils.parseDouble(_score)
         hits += Hit(readId, refId, score)
       }
       case l => logger.error("can't parse: " + l)
@@ -133,7 +134,7 @@ class BlastInstructions(
     val t2 = System.currentTimeMillis()
     logger.info("parsed " + hits.size + " hits " + (t2 - t1) + " ms")
 
-    assigner.assign(chunk, parsed, hits.toList, s3logger)
+    assigner.assign(s3logger, ChunkId(chunk), parsed, hits.toList)
 
 
     //result.toList
