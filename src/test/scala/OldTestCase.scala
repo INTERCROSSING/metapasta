@@ -27,7 +27,7 @@ class OldTestCase {
 
 
 
-  @Test
+//  @Test
   def test {
     val aws = new AWS()
     val s3 = aws.s3

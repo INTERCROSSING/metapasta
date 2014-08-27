@@ -10,7 +10,7 @@ class ParserTest {
 
   import TestReads._
 
-  @Test
+  //@Test
   def duplicatesTest() = {
     def noDuplicates[T](reads: List[T]): Boolean = {
       val readsNumber = reads.length

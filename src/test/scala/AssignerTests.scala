@@ -1,14 +1,18 @@
+import ohnosequences.formats.FASTQ
+import ohnosequences.formats.RawHeader
 import ohnosequences.formats.{RawHeader, FASTQ}
 import ohnosequences.metapasta._
 import ohnosequences.metapasta.AssignmentConfiguration
 import ohnosequences.metapasta.databases.{GIMapper, Blast16SFactory}
 import ohnosequences.metapasta.databases.Blast16SFactory.BlastDatabase
+import ohnosequences.metapasta.Hit
+import ohnosequences.metapasta.reporting.SampleId
 import ohnosequences.metapasta.reporting.SampleId
 import ohnosequences.metapasta.Taxon
 import ohnosequences.nisperon.logging.ConsoleLogger
 import org.junit.Test
 import org.junit.Assert._
-import scala.Some
+
 
 class AssignerTests {
   val blast16s = new Blast16SFactory.BlastDatabase()
@@ -23,9 +27,16 @@ class AssignerTests {
     Taxon("5r") -> Taxon("4")
   ), Taxon("1"))
 
+
+
+  //we use fake 16s and fake taxonomy where taxid = gi
   val idGIMapper = new GIMapper {
     override def getTaxIdByGi(gi: String): Option[String] = {
-      Some(gi)
+      if (fakeTaxonomiTree.map.contains(Taxon(gi)) || fakeTaxonomiTree.root.taxId.equals(gi) || gi.equals("20142015")) {
+        Some(gi)
+      } else {
+        None
+      }
     }
   }
 
@@ -33,7 +44,7 @@ class AssignerTests {
 
   @Test
   def assignmentTest1() {
-    val assignmentConfiguration = AssignmentConfiguration(50, 0.8)
+    val assignmentConfiguration = AssignmentConfiguration(100, 0.8)
     val assigner = new Assigner(
       taxonomyTree = fakeTaxonomiTree,
       database = blast16s,
@@ -49,21 +60,74 @@ class AssignerTests {
     val reads = List(
       FASTQ(RawHeader("read1"), "ATG", "+", "quality"),
       FASTQ(RawHeader("read2"), "ATG", "+", "quality"),
-      FASTQ(RawHeader("read3"), "ATG", "+", "quality")
+      FASTQ(RawHeader("read3"), "ATG", "+", "quality"),
+      FASTQ(RawHeader("read4"), "ATG", "+", "quality"),
+      FASTQ(RawHeader("read5"), "ATG", "+", "quality"),
+      FASTQ(RawHeader("read6"), "ATG", "+", "quality"),
+      FASTQ(RawHeader("read7"), "ATG", "+", "quality"),
+      FASTQ(RawHeader("read8"), "ATG", "+", "quality"),
+      FASTQ(RawHeader("read9"), "ATG", "+", "quality"),
+      FASTQ(RawHeader("read10"), "ATG", "+", "quality")
     )
+
+    val wrongRefId = "سلام"
+    val refIdWithWrongGI = "gi|20142014|gb|GU939576.1|"
+    val refIdWithWrongTaxId = "gi|20142015|gb|GU939576.1|"
+
+
+    def refId(taxon: Taxon) = "gi|" + taxon.taxId + "|gb|000|"
+//    def refId(taxonId: String) = "gi|" + taxonId + "|gb|000|"
 
     val hits = List[Hit](
-      Hit("read1", "|gi5|gbssss", 50.5)
+      //Hit("read1", "gi|5|gb|GU939576.1|", 50.5), //no hits for read1
+      Hit("read2", wrongRefId , 50.5), //wrong ref id
+      Hit("read3", refIdWithWrongGI, 100), //ref id is correct but isn't presented in gi mapper
+      Hit("read4", refIdWithWrongTaxId, 100), //ref id is correct but corresponded tax id isn't presented in taxonomy database
+      Hit("read5", refId(fakeTaxonomiTree.root), 200), //one hit to root
+      Hit("read6", refId(Taxon("2")), 200) //one hit to sub root
+     // Hit("read7", refId(fakeTaxonomiTree.root), 100),
+     // Hit("read8", refId(fakeTaxonomiTree.root), 100),
+     // Hit("read9", refId(fakeTaxonomiTree.root), 100),
+     // Hit("read10", refId(fakeTaxonomiTree.root), 100),
     )
 
+    val logger = new ConsoleLogger("test")
     val (table, stats) = assigner.assign(
-      logger = new ConsoleLogger("test"),
+      logger =logger,
       chunk = chunkId,
       reads = reads,
       hits = hits
     )
 
-    assertEquals(2, stats(testSample -> LCA).noHit)
+    //common tests
+    for (assignmentType <- List(LCA, BBH)) {
+      assertEquals(5, stats(testSample -> assignmentType).noHit)
+      assertEquals(true, stats(testSample -> assignmentType).wrongRefIds.contains(wrongRefId))
+      assertEquals(true, stats(testSample -> assignmentType).wrongRefIds.contains(refIdWithWrongGI))
+      assertEquals(true, stats(testSample -> assignmentType).wrongRefIds.contains(refIdWithWrongTaxId))
+      assertEquals(1, table.table(testSample -> assignmentType)(fakeTaxonomiTree.root).count)
+      assertEquals(2, table.table(testSample -> assignmentType)(fakeTaxonomiTree.root).acc)
+      assertEquals(1, table.table(testSample -> assignmentType)(Taxon("2")).count)
+    }
+
+    //more specific LCA tests
+
+    val lcaHits = List[Hit](
+      //Hit("read1", "gi|5|gb|GU939576.1|", 50.5), //no hits for read1
+      Hit("read2", wrongRefId , 50.5), //wrong ref id
+      Hit("read3", refIdWithWrongGI, 100), //ref id is correct but isn't presented in gi mapper
+      Hit("read4", refIdWithWrongTaxId, 100), //ref id is correct but corresponded tax id isn't presented in taxonomy database
+      Hit("read5", refId(fakeTaxonomiTree.root), 200), //one hit to root
+      Hit("read6", refId(fakeTaxonomiTree.root), 200) //one hit under threshold
+
+
+      // Hit("read7", refId(fakeTaxonomiTree.root), 100),
+      // Hit("read8", refId(fakeTaxonomiTree.root), 100),
+      // Hit("read9", refId(fakeTaxonomiTree.root), 100),
+      // Hit("read10", refId(fakeTaxonomiTree.root), 100),
+    )
+
+    val r = assigner.assignLCA(logger, chunkId, reads, lcaHits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p)
   }
 
 

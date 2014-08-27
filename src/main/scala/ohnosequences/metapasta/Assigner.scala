@@ -52,11 +52,11 @@ class Assigner(taxonomyTree: Tree[Taxon],
   def getTaxIdFromRefId(logger: Logger, refId: String): Option[String] = {
     database.parseGI(refId) match {
       case Some(gi) => giMapper.getTaxIdByGi(gi) match {
-        case None => logger.error("database error: can't parse taxId from gi: " + refId); None
+        case None => /*logger.error("database error: can't parse taxId from gi: " + refId);*/ None
         case Some(taxId) => Some(taxId)
       }
       case None => {
-        logger.error("database error: can't parse gi from ref id: " + refId)
+        //logger.error("database error: can't parse gi from ref id: " + refId)
         None
       }
     }
@@ -78,12 +78,12 @@ class Assigner(taxonomyTree: Tree[Taxon],
           case None => {
             //nohit
             fastasWriter.foreach(_.writeNoHit(fastq, readId))
-            logger.info("no hits for read id " + readId)
+            logger.info(readId + " -> " + "no hits")
             readsStatsBuilder.incrementByCategory(NoHit)
           }
           case Some(assignment1) => {
             fastasWriter.foreach(_.write(chunk.sample, fastq, readId, assignment1))
-            logger.info(assignment + " for " + readId)
+            logger.info(readId + " -> " + assignment1)
             readsStatsBuilder.incrementByAssignment(assignment1)
           }
         }
@@ -120,7 +120,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
 
   def assignLCA(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit], scoreThreshold: Int, p: Double): (AssignTable, ReadsStats) = {
 
-    logger.info("LCA assignment")
+  //  logger.info("LCA assignment")
     var t1 = System.currentTimeMillis()
 
     val readsStatsBuilder = new ReadStatsBuilder()
@@ -161,9 +161,13 @@ class Assigner(taxonomyTree: Tree[Taxon],
       val taxIds = new mutable.HashMap[String, Taxon]()
       for (refId <- refIds) {
         getTaxIdFromRefId(logger, refId) match {
-          case Some(taxId) => taxIds.put(refId, Taxon(taxId))
+          case Some(taxId) if taxonomyTree.isNode(Taxon(taxId)) => taxIds.put(refId, Taxon(taxId))
           case None => {
             logger.warn("couldn't find taxon for ref id: " + refId)
+            readsStatsBuilder.addWrongRefId(refId)
+          }
+          case Some(taxId) => {
+            logger.warn("taxon with id: " + taxId + " is not presented in " + database.name)
             readsStatsBuilder.addWrongRefId(refId)
           }
         }
@@ -203,7 +207,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
     var t2 = System.currentTimeMillis()
     logger.info("LCA assignment finished " + (t2 - t1) + " ms")
 
-    logger.info("preparing results")
+   // logger.info("preparing results")
     t1 = System.currentTimeMillis()
     //generate stats
     val res = prepareAssignedResults(logger, chunk, LCA, reads, finalAssignments, readsStatsBuilder.build)
@@ -217,7 +221,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
 
 
   def assignBestHit(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (AssignTable, ReadsStats) = {
-    logger.info("BBH assignment")
+  //  logger.info("BBH assignment")
     var t1 = System.currentTimeMillis()
     val bestScores = mutable.HashMap[String, Double]()
     val assignment = mutable.HashMap[String, Assignment]()
@@ -227,20 +231,28 @@ class Assigner(taxonomyTree: Tree[Taxon],
       getTaxIdFromRefId(logger, hit.refId) match {
         case None => {
           readsStatsBuilder.addWrongRefId(hit.refId)
+          logger.warn("couldn't find taxon for ref id: " + hit.refId)
           assignment.put(hit.readId, NoTaxIdAssignment(List(hit.refId)))
         }
         case Some(tid) => {
-          if (hit.score >= bestScores.getOrElse(tid, 0D)) {
-            bestScores.put(hit.readId, hit.score)
-            assignment.put(hit.readId, TaxIdAssignment(Taxon(tid), List(hit.readId)))
+          if (taxonomyTree.isNode(Taxon(tid))) {
+            if (hit.score >= bestScores.getOrElse(tid, 0D)) {
+              bestScores.put(hit.readId, hit.score)
+              assignment.put(hit.readId, TaxIdAssignment(Taxon(tid), List(hit.readId)))
+            }
+          } else {
+            logger.warn("taxon with id: " + tid + " is not presented in " + database.name)
+            assignment.put(hit.readId, NoTaxIdAssignment(List(hit.refId)))
+            readsStatsBuilder.addWrongRefId(hit.refId)
           }
         }
+
       }
     }
     var t2 = System.currentTimeMillis()
     logger.info("BBH assignment finished " + (t2 - t1) + " ms")
 
-    logger.info("preparing results")
+   // logger.info("preparing results")
     t1 = System.currentTimeMillis()
     val res = prepareAssignedResults(logger, chunk, BBH, reads, assignment, readsStatsBuilder.build)
     t2 = System.currentTimeMillis()

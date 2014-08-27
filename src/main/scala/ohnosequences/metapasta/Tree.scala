@@ -9,15 +9,17 @@ import ohnosequences.nisperon.logging.{Logger, S3Logger}
  */
 trait Tree[N] {
   def getParent(node: N): Option[N]
-  def getRoot: N
+  val root: N
+  def isNode(node: N): Boolean
 }
 
-class MapTree[N](map: Map[N, N], root: N) extends Tree[N] {
+class MapTree[N](val map: Map[N, N], val root: N) extends Tree[N] {
 
   override def getParent(node: N): Option[N] = map.get(node)
 
-  override def getRoot: N = root
-
+  override def isNode(node: N): Boolean = {
+    root.equals(node) || map.contains(node)
+  }
 }
 
 case class Taxon(taxId: String)
@@ -33,7 +35,21 @@ class Bio4JTaxonomyTree(nodeRetriever: NodeRetriever) extends Tree[Taxon] {
     }
   }
 
-  override def getRoot: Taxon = Taxon("1")
+  override val root: Taxon = Taxon("1")
+
+  override def isNode(node0: Taxon): Boolean = {
+    val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(node0.taxId)
+    if (node == null) {
+      false
+    } else {
+      val taxId = node.getTaxId()
+      if (taxId == null || taxId.isEmpty) {
+        false
+      } else {
+        true
+      }
+    }
+  }
 }
 
 
@@ -105,7 +121,7 @@ object TreeUtils {
   }
 
   def lca[N](tree: Tree[N], nodes: List[N]): N = nodes match {
-    case Nil => tree.getRoot
+    case Nil => tree.root
     case h :: t => t.foldLeft(h) {
       case (nn1, nn2) => val r = lca(tree, nn1, nn2); r
     }
