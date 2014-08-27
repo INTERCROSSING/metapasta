@@ -6,6 +6,7 @@ import ohnosequences.metapasta._
 import ohnosequences.awstools.autoscaling._
 import ohnosequences.nisperon._
 import ohnosequences.awstools.ec2._
+import ohnosequences.metapasta.databases.Blast16SFactory
 
 object mockSamples {
   val testBucket = "metapasta-test"
@@ -33,12 +34,14 @@ class meta4m(
 object configuration extends BlastConfiguration (
   metadataBuilder = new NisperonMetadataBuilder(new meta4m()),
   email = "$email$",
+  password = "$password$",
   mappingWorkers = Group(size = 10, max = 20, instanceType = InstanceType.T1Micro, purchaseModel = OnDemand),
   uploadWorkers = None,
   samples = mockSamples.samples,
   logging = true,
-  database = NTDatabase,
-  xmlOutput = true
+  databaseFactory = Blast16SFactory,
+  xmlOutput = true,
+  assignmentConfiguration = AssignmentConfiguration(100, 0.4)
 )
 
 object meta4 extends Metapasta(configuration) {

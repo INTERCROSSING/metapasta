@@ -27,13 +27,13 @@ class OldTestCase {
 
 
 
-  @Test
+//  @Test
   def test {
     val aws = new AWS()
     val s3 = aws.s3
 
     val file = ObjectAddress("metapasta-test", "microtest.fastq")
-    val chunks = new S3Splitter(s3, file, 10000).chunks()
+    val chunks = new S3Splitter(s3, file, 100000).chunks()
     import ohnosequences.formats._
     import ohnosequences.parsers._
     val reader = S3ChunksReader(s3, file)

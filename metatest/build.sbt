@@ -1,23 +1,24 @@
-Nice.scalaProject
+import AssemblyKeys._
 
-name := "metapasta"
+Statika.distributionProject
 
-description := "metapasta project"
+name := "metatest"
+
+description := ""
 
 organization := "ohnosequences"
 
-
 libraryDependencies ++= Seq(
-  "ohnosequences" % "compota_2.10" % "0.9.9-SNAPSHOT",
-  "com.novocode" % "junit-interface" % "0.10" % "test",
-  "ohnosequences" % "bio4j-ncbi-taxonomy_2.10" % "0.1.0"  classifier("")
+  "ohnosequences" % "metapasta_2.10" % "0.8.4-SNAPSHOT"
 )
-
-resolvers += Resolver.url("Statika public ivy releases", url("http://releases.statika.ohnosequences.com.s3.amazonaws.com/"))(ivy)
 
 resolvers +=  Resolver.url("era7" + " public ivy releases",  url("http://releases.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
 
 resolvers +=  Resolver.url("era7" + " public ivy snapshots",  url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+
+resolvers += Resolver.sonatypeRepo("snapshots")
+
+metadataObject := name.value
 
 dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.7.1-SNAPSHOT"
 
