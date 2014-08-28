@@ -37,11 +37,30 @@ class Assigner(taxonomyTree: Tree[Taxon],
 
  // val tree: Tree[Taxon] = new Bio4JTaxonomyTree(nodeRetriever)
 
+
   def assign(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit]):
     (AssignTable, Map[(String, AssignmentType), ReadsStats]) = {
 
-    val lcaRes = assignLCA(logger, chunk, reads, hits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p)
-    val bbhRes = assignBestHit(logger, chunk, reads, hits)
+
+
+    val (lcaAssignments, lcaStats) = logger.benchExecute("LCA assignment") {
+      assignLCA(logger, chunk, reads, hits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p)
+    }
+
+
+    val lcaRes = logger.benchExecute("preparing results") {
+      prepareAssignedResults(logger, chunk, LCA, reads, lcaAssignments, lcaStats)
+    }
+
+
+    val (bbhAssignments, bbhStats) = logger.benchExecute("BBH assignment") {
+      assignBestHit(logger, chunk, reads, hits)
+    }
+
+    val bbhRes = logger.benchExecute("preparing results") {
+      prepareAssignedResults(logger, chunk, BBH, reads, bbhAssignments, bbhStats)
+    }
+
 
 
     (assignTableMonoid.mult(lcaRes._1, bbhRes._1), Map((chunk.sample.id, LCA) -> lcaRes._2, (chunk.sample.id, BBH) -> bbhRes._2))
@@ -118,7 +137,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
     (AssignTable(Map((chunk.sample.id, assignmentType) -> assignTable.toMap)), readStats.mult(initialReadsStats))
   }
 
-  def assignLCA(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit], scoreThreshold: Int, p: Double): (AssignTable, ReadsStats) = {
+  def assignLCA(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit], scoreThreshold: Int, p: Double): (mutable.HashMap[String, Assignment], ReadsStats) = {
 
   //  logger.info("LCA assignment")
     var t1 = System.currentTimeMillis()
@@ -204,23 +223,15 @@ class Assigner(taxonomyTree: Tree[Taxon],
       finalAssignments.put(readId, assignment)
     }
 
-    var t2 = System.currentTimeMillis()
-    logger.info("LCA assignment finished " + (t2 - t1) + " ms")
 
-   // logger.info("preparing results")
-    t1 = System.currentTimeMillis()
-    //generate stats
-    val res = prepareAssignedResults(logger, chunk, LCA, reads, finalAssignments, readsStatsBuilder.build)
-    t2 = System.currentTimeMillis()
-    logger.info("preparing results finished " + (t2 - t1) + " ms")
 
-    res
+    (finalAssignments, readsStatsBuilder.build)
   }
 
 
 
 
-  def assignBestHit(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (AssignTable, ReadsStats) = {
+  def assignBestHit(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (mutable.HashMap[String, Assignment], ReadsStats) = {
   //  logger.info("BBH assignment")
     var t1 = System.currentTimeMillis()
     val bestScores = mutable.HashMap[String, Double]()
@@ -249,16 +260,9 @@ class Assigner(taxonomyTree: Tree[Taxon],
 
       }
     }
-    var t2 = System.currentTimeMillis()
-    logger.info("BBH assignment finished " + (t2 - t1) + " ms")
 
-   // logger.info("preparing results")
-    t1 = System.currentTimeMillis()
-    val res = prepareAssignedResults(logger, chunk, BBH, reads, assignment, readsStatsBuilder.build)
-    t2 = System.currentTimeMillis()
-    logger.info("preparing results finished " + (t2 - t1) + " ms")
+    (assignment, readsStatsBuilder.build)
 
-    res
   }
 
 }

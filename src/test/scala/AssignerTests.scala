@@ -80,7 +80,7 @@ class AssignerTests {
 
     val hits = List[Hit](
       //Hit("read1", "gi|5|gb|GU939576.1|", 50.5), //no hits for read1
-      Hit("read2", wrongRefId , 50.5), //wrong ref id
+      Hit("read2", wrongRefId , 100), //wrong ref id
       Hit("read3", refIdWithWrongGI, 100), //ref id is correct but isn't presented in gi mapper
       Hit("read4", refIdWithWrongTaxId, 100), //ref id is correct but corresponded tax id isn't presented in taxonomy database
       Hit("read5", refId(fakeTaxonomiTree.root), 200), //one hit to root
@@ -99,9 +99,12 @@ class AssignerTests {
       hits = hits
     )
 
+
     //common tests
     for (assignmentType <- List(LCA, BBH)) {
+      println(stats(testSample -> assignmentType).wrongRefIds)
       assertEquals(5, stats(testSample -> assignmentType).noHit)
+
       assertEquals(true, stats(testSample -> assignmentType).wrongRefIds.contains(wrongRefId))
       assertEquals(true, stats(testSample -> assignmentType).wrongRefIds.contains(refIdWithWrongGI))
       assertEquals(true, stats(testSample -> assignmentType).wrongRefIds.contains(refIdWithWrongTaxId))
@@ -110,24 +113,37 @@ class AssignerTests {
       assertEquals(1, table.table(testSample -> assignmentType)(Taxon("2")).count)
     }
 
+    //assignLCA(logger, chunk, reads, hits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p)
+
+
     //more specific LCA tests
 
     val lcaHits = List[Hit](
       //Hit("read1", "gi|5|gb|GU939576.1|", 50.5), //no hits for read1
-      Hit("read2", wrongRefId , 50.5), //wrong ref id
+      Hit("read2", wrongRefId , 100.1), //wrong ref id
       Hit("read3", refIdWithWrongGI, 100), //ref id is correct but isn't presented in gi mapper
       Hit("read4", refIdWithWrongTaxId, 100), //ref id is correct but corresponded tax id isn't presented in taxonomy database
       Hit("read5", refId(fakeTaxonomiTree.root), 200), //one hit to root
-      Hit("read6", refId(fakeTaxonomiTree.root), 200) //one hit under threshold
-
-
-      // Hit("read7", refId(fakeTaxonomiTree.root), 100),
-      // Hit("read8", refId(fakeTaxonomiTree.root), 100),
-      // Hit("read9", refId(fakeTaxonomiTree.root), 100),
-      // Hit("read10", refId(fakeTaxonomiTree.root), 100),
+      Hit("read6", refId(fakeTaxonomiTree.root), 10), //one hit under threshold
+      Hit("read7", refId(fakeTaxonomiTree.root), 100),
+      Hit("read8", refId(fakeTaxonomiTree.root), 100),
+      Hit("read9", refId(fakeTaxonomiTree.root), 100),
+      Hit("read10", refId(fakeTaxonomiTree.root), 100)
     )
 
-    val r = assigner.assignLCA(logger, chunkId, reads, lcaHits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p)
+    val (lcaAssignments, lcaStats) = assigner.assignLCA(logger, chunkId, reads, lcaHits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p)
+
+    import org.hamcrest.CoreMatchers.instanceOf
+
+    assertEquals(false, lcaAssignments.contains("read1"))
+    assertThat(lcaAssignments("read2"), instanceOf(classOf[NoTaxIdAssignment]))
+    //assertEquals(NoTaxIdAssignment, lcaAssignments("read3"))
+    //assertEquals(NoTaxIdAssignment, lcaAssignments("read4"))
+    //assertEquals(TaxIdAssignment, lcaAssignments("read5"))
+   // assertEquals(NoTaxIdAssignment, lcaAssignments("read2"))
+   // assertEquals(NoTaxIdAssignment, lcaAssignments("read2"))
+   // assertEquals(NoTaxIdAssignment, lcaAssignments("read2"))
+
   }
 
 
