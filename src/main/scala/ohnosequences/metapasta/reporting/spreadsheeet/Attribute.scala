@@ -93,7 +93,7 @@ case class Freq[I](a: LongAttribute[I]) extends DoubleAttribute[I](a.name + ".fr
   }
 }
 
-case class Normalize[I](a: LongAttribute[I], d: LongAttribute[I], oname: String) extends DoubleAttribute[I](oname, doubleMonoid) {
+case class  Normalize[I](a: LongAttribute[I], d: LongAttribute[I], oname: String) extends DoubleAttribute[I](oname, doubleMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {
     if(context.getTotal(d) == 0 ) {
       if (context.get(a, index) == 0) {
@@ -126,39 +126,7 @@ case class Average[I](a: List[DoubleAttribute[I]]) extends DoubleAttribute[I]("m
   }
 }
 
-object Test {
-  object Id extends StringAttribute[(Int, String)]("id", new StringConstantMonoid("total")) {
-    override type Item = (Int, String)
-    override  def execute(item: Item, index: Int, context: Context) = {
-      item._1.toString
-    }
-  }
 
-  object Name extends StringAttribute[(Int, String)]("name", new StringConstantMonoid("")) {
-    override type Item = (Int, String)
-    override  def execute(item: Item, index: Int, context: Context) = {
-      item._2
-    }
-  }
-
-  object Counter extends LongAttribute[(Int, String)]("counter", longMonoid) {
-    override def execute(item: Item, index: Int, context: Context) = {
-      context.get(Counter, index -1) + 1
-    }
-  }
-
-
-  def main(args: Array[String]) {
-    val items = List (
-      (1, "one"), (2, "two"), (3, "three"), (123, "one-two-three")
-    )
-
-    val attributes = List[AnyAttribute.For[(Int, String)]](Id, Name, Counter, Sum(List(Counter, Counter)), Freq(Counter))
-    val executor = new CSVExecutor(attributes, items)
-    println(executor.execute())
-
-  }
-}
 
 
 class Executor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[Item]) {
