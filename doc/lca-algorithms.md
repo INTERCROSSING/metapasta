@@ -22,8 +22,11 @@ It's quite hard to estimate complexity of this improved version of the algorithm
 The *LCA* of $S$ can be defined as a root of minimal rooted subtree in $T$ that contains all nodes from $S$. 
 
 > **TODO** prove that LCA that for fining LCA we should traverse this tree
+ 
 > **TODO** describe (on examples?) why the algorithm above is not optimal (it traverse several nodes in this tree twice)
+
 > **TODO** describe algorithm that will mark visited nodes in order to reach optimal performance
+
 > **TODO** describe algorithm that will precalculate depths for all nodes.
 
   
