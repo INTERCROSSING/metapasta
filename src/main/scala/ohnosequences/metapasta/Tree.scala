@@ -3,6 +3,7 @@ package ohnosequences.metapasta
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import ohnosequences.nisperon.logging.{Logger, S3Logger}
+import scala.collection.mutable
 
 /**
  * a layer for bio4j taxonomy tree
@@ -20,6 +21,8 @@ class MapTree[N](val map: Map[N, N], val root: N) extends Tree[N] {
   override def isNode(node: N): Boolean = {
     root.equals(node) || map.contains(node)
   }
+
+  override def toString: String = map.toString()
 }
 
 case class Taxon(taxId: String)
@@ -76,6 +79,9 @@ object TreeUtils {
   }
 
 
+ // def takeParents[N](tree: Tree[N], node: N, n: Int)
+
+
 
   /** Tests if the set of nodes form a line in the tree    *
     *  @return ``Some(node)` if there they are, node is most specific node `None` otherwise.
@@ -103,6 +109,23 @@ object TreeUtils {
       }
     }
   }
+
+//  todo: linear algorithm, with map and stacks
+//  def isInLine[N](tree: Tree[N], nodes: Seq[N]): Option[N] = {
+//    val distances = new mutable.HashMap[N, Int]()
+//
+//
+//    nodes.find { node =>
+//      var curent = node
+//      val visited = new mutable.Stack[N]()
+//
+//      whi
+//
+//      true
+//    }
+//  }
+
+
 
   def lca[N](tree: Tree[N], n1: N, n2: N): N = {
     if (n1.equals(n2)) {

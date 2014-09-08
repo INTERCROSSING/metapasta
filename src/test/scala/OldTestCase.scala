@@ -1,3 +1,4 @@
+import java.io.File
 import ohnosequences.awstools.s3.{S3, ObjectAddress}
 
 import ohnosequences.nisperon.AWS
@@ -29,7 +30,7 @@ class OldTestCase {
 
 //  @Test
   def test {
-    val aws = new AWS()
+  val aws = new AWS(new File(System.getProperty("user.home"), "nispero.credentials"))
     val s3 = aws.s3
 
     val file = ObjectAddress("metapasta-test", "microtest.fastq")

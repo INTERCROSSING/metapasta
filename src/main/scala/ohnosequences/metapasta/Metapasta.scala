@@ -1,7 +1,7 @@
 package ohnosequences.metapasta
 
 import ohnosequences.nisperon._
-import ohnosequences.nisperon.queues.{Merger, ProductQueue}
+import ohnosequences.nisperon.queues.{QueueMerger, ProductQueue}
 import scala.collection.mutable
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions, FlashInstructions}
@@ -11,6 +11,7 @@ import java.io.File
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
 
 
+  override val credentialsFile = new File(System.getProperty("user.home"), "metapasta.credentials")
 
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
     managerGroupConfiguration = configuration.managerGroupConfiguration,
@@ -24,33 +25,33 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     removeAllQueues = configuration.removeAllQueues
   )
 
-  val pairedSamples = queue(
+  object pairedSamples extends DynamoDBQueue (
     name = "pairedSamples",
     monoid = new ListMonoid[PairedSample],
     serializer = new JsonSerializer[List[PairedSample]],
     throughputs = (1, 1)
   )
 
-  val writeThrouput = configuration.mergeQueueThroughput match {
+  val writeThroughput = configuration.mergeQueueThroughput match {
     case Fixed(m) => m
     case SampleBased(ratio, max) => math.max(ratio * configuration.samples.size, max).toInt
   }
 
-  val mergedSampleChunks = queue(
+  object mergedSampleChunks extends DynamoDBQueue(
     name = "mergedSampleChunks",
     monoid = new ListMonoid[MergedSampleChunk](),
     serializer = new JsonSerializer[List[MergedSampleChunk]](),
-    throughputs = (writeThrouput, 1)
+    throughputs = (writeThroughput, 1)
   )
 
-  val readsStats = s3queue(
+  object readsStats extends S3Queue(
     name = "readsStats",
     monoid = new MapMonoid[(String, AssignmentType), ReadsStats](readsStatsMonoid),
     serializer = readsStatsSerializer
   )
 
 
-  val assignTable = s3queue(
+  object assignTable extends S3Queue(
     name = "table",
     monoid = assignTableMonoid,
     serializer = assignTableSerializer
@@ -126,8 +127,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
     val nodeRetriever = new BundleNodeRetrieverFactory().build(configuration.metadataBuilder)
 
-    val tableAddress = Merger.mergeDestination(Metapasta.this, assignTable)
-    val statsAddress = Merger.mergeDestination(Metapasta.this, readsStats)
+    val tableAddress = QueueMerger.destination(nisperonConfiguration.results, assignTable)
+    val statsAddress = QueueMerger.destination(nisperonConfiguration.results,  readsStats)
 
     logger.info("reading assign table " + tableAddress)
 
@@ -139,7 +140,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       tagging.put(SampleId(sample.name), tags)
     }
 
-    val reporter = new Reporter(aws, List(tableAddress), List(statsAddress), tagging.toMap, nodeRetriever, ObjectAddress(nisperonConfiguration.bucket, "results"), nisperonConfiguration.id)
+    val reporter = new Reporter(aws, List(tableAddress), List(statsAddress), tagging.toMap, nodeRetriever,
+      ObjectAddress(nisperonConfiguration.bucket, "results"), nisperonConfiguration.id)
     reporter.generate()
 
 
