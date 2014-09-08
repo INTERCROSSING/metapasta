@@ -6,9 +6,12 @@ description := "metapasta project"
 
 organization := "ohnosequences"
 
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.0" % "test"
+
+testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-maxSize", "5", "-minSuccessfulTests", "33", "-workers", "1", "-verbosity", "1")
 
 libraryDependencies ++= Seq(
-  "ohnosequences" % "compota_2.10" % "0.9.9-SNAPSHOT",
+  "ohnosequences" % "compota_2.10" % "0.9.10-SNAPSHOT",
   "com.novocode" % "junit-interface" % "0.10" % "test",
   "ohnosequences" % "bio4j-ncbi-taxonomy_2.10" % "0.1.0"  classifier("")
 )
