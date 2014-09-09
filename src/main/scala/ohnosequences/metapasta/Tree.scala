@@ -22,7 +22,7 @@ class MapTree[N](val map: Map[N, N], val root: N) extends Tree[N] {
     root.equals(node) || map.contains(node)
   }
 
-  override def toString: String = map.toString()
+  override def toString: String = map.toString() + "|" + root
 }
 
 case class Taxon(taxId: String)
@@ -102,7 +102,9 @@ object TreeUtils {
       }
 
       //first taxIds.size elements should be taxIds
-      if (maxLineage.takeRight(nodes.size).forall(nodes.contains)) {
+      val maxLineageTail = maxLineage.takeRight(nodes.size)
+      if (maxLineageTail.size.equals(nodes.size) && maxLineageTail.forall(nodes.contains)) {
+       // println("maxlin: " + maxLineageTail + "nodes: " + nodes)
         maxLineage.lastOption
       } else {
         None

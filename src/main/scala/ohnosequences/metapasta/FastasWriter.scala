@@ -20,21 +20,21 @@ class FastasWriter(aws: AWS, readsDirectory: ObjectAddress, nodeRetriever: NodeR
   val notAssignedFasta = new mutable.StringBuilder()
   val assignedFasta = new mutable.StringBuilder()
 
-  def fastaHeader(sampleId: String, taxId: String, refIds: List[String]): String = {
+  def fastaHeader(sampleId: String, taxon: Taxon, refIds: Set[RefId], reason: Option[String] = None): String = {
 
     val (taxname, rank) = try {
-      val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxId)
+      val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
       (node.getScientificName(), node.getRank())
     } catch {
       case t: Throwable => ("na", "na")
     }
-    sampleId + "|" + taxname + "|" + taxId + "|" + rank + "|" + refIds.foldRight("")(_ + "|" + _)
+    sampleId + "|" + taxname + "|" + taxon.taxId + "|" + rank + "|" + refIds.foldLeft("")(_ + "|" + _.refId) + reason.map("|" + _).getOrElse("")
   }
 
-  def write(sample: SampleId, read: FASTQ[RawHeader], readId: String, assignment: Assignment) {
+  def write(sample: SampleId, read: FASTQ[RawHeader], readId: ReadId, assignment: Assignment) {
     assignment match {
       case TaxIdAssignment(taxon, refIds) => {
-        assignedFasta.append(read.toFasta(fastaHeader(sample.id, taxon.taxId, refIds)))
+        assignedFasta.append(read.toFasta(fastaHeader(sample.id, taxon, refIds)))
         assignedFasta.append(System.lineSeparator())
       }
       case NoTaxIdAssignment(refId) => {
@@ -42,14 +42,14 @@ class FastasWriter(aws: AWS, readsDirectory: ObjectAddress, nodeRetriever: NodeR
         noTaxIdFasta.append(System.lineSeparator())
       }
       case NotAssigned(reason, refIds, taxIds) => {
-        notAssignedFasta.append(read.toFasta(fastaHeader(sample.id, reason, refIds)))
+        notAssignedFasta.append(read.toFasta(fastaHeader(sample.id, Taxon(""), refIds, Some(reason))))
         noTaxIdFasta.append(System.lineSeparator())
       }
     }
   }
 
   //hohit
-  def writeNoHit(read: FASTQ[RawHeader], readId: String) {
+  def writeNoHit(read: FASTQ[RawHeader], readId: ReadId) {
     noHitFasta.append(read.toFasta)
     noHitFasta.append(System.lineSeparator())
 

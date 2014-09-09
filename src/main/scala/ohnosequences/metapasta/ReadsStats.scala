@@ -61,7 +61,7 @@ class ReadStatsBuilder {
     total += 1
   }
 
-  def addWrongRefId(id: String) = {wrongRefIds += id}
+  def addWrongRefId(id: RefId) = {wrongRefIds += id.refId}
 
   def build = ReadsStats(
       total = total,

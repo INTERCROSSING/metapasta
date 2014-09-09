@@ -1,16 +1,13 @@
 package ohnosequences.metapasta.automatic
 
-import org.scalacheck.{Arbitrary, Gen, Properties}
+import org.scalacheck.{Gen, Arbitrary, Properties}
 import org.scalacheck.Prop._
-import ohnosequences.metapasta.{TreeUtils, MapTree, Tree}
+import ohnosequences.metapasta.{Tree, TreeUtils, MapTree}
 import scala.collection.mutable
 import scala.annotation.tailrec
 import scala.util.Random
-import scala.Some
 
 object Generators {
-
-
 
   @tailrec
   def repeat[T](gen: Gen[T], attempt: Int = 10): Option[T] = {
@@ -25,6 +22,41 @@ object Generators {
       }
     }
   }
+
+  @tailrec
+  def genListAux[U, T](list: List[U], res: Gen[List[T]], gen: U => Gen[T]): Gen[List[T]] = list match {
+    case Nil => res.map(_.reverse)
+    case head :: tail => {
+      val newRes = for {
+        headN <- gen(head)
+        resR <- res
+      } yield headN :: resR
+      genListAux(tail, newRes, gen)
+    }
+  }
+
+  def genList[U, T](list: List[U], gen: U => Gen[T]): Gen[List[T]] = genListAux(list, Gen.const(List[T]()), gen)
+
+
+  @tailrec
+  def genMapAux[U, T](list: List[U], res: Gen[Map[U, T]], gen: U => Gen[T]): Gen[Map[U, T]] = list match {
+    case Nil => res
+    case head :: tail => {
+      val newRes = for {
+        headN <- gen(head)
+        resR <- res
+      } yield  resR + (head -> headN)
+
+      genMapAux(tail, newRes, gen)
+    }
+  }
+
+  def genMap[U, T](list: List[U], gen: U => Gen[T]): Gen[Map[U, T]] = genMapAux[U, T](list, Gen.const(Map[U, T]()), gen)
+
+  def genPair[T, S](gen1: Gen[T], gen2: Gen[S]): Gen[(T, S)] = for {
+    v1 <- gen1
+    v2 <- gen2
+  } yield (v1, v2)
 
 
   val random = new Random()
@@ -42,7 +74,13 @@ object Generators {
   def intLabeling(i: Int) = i
   def stringLabeling(i: Int) = i.toString
 
-  def tree[T](size: Int, labeling: Int => T): Gen[Tree[T]] = treeRawAux(size, new mutable.HashMap[T, T](), labeling)
+
+  def tree[T](labeling: Int => T): Gen[Tree[T]] = sizedTree(labeling).map(_._1)
+
+  def sizedTree[T](labeling: Int => T): Gen[(Tree[T], Int)] = Gen.sized { size =>
+    treeRawAux(size + 1, new mutable.HashMap[T, T](), labeling).map { tree => (tree, size + 1)}
+  }
+
 
   def partitions(size: Int): Gen[List[Int]] = {
 
@@ -68,61 +106,51 @@ object Generators {
     }
   }
 
-//  def tree[T](size: Int, gen: Gen[T]): Gen[Tree[T]] = {
-//
-//    val elements = new mutable.HashMap[Int, T]()
-//    @tailrec
-//    def fill(i: Int): Boolean = {
-//      gen.
-//    }
-//
-//
-//    for ( i <- 1 to size) {
-//      elements.put(i, gen.sample)
-//    }
-//
-//    var allowed =
-//  }
-// too slow
-//  case class CaseTree[T](root: T, subtrees: List[Tree[T]]) extends Tree[T] {
-//
-//    val tree = root
-//
-//    override def isNode(node: T): Boolean = {
-//      if (root.equals(node)) {
-//        true
-//      } else {
-//        subtrees.exists(_.isNode(node))
-//      }
-//    }
-//
-//    override def getParent(node: T): Option[T] = {
-//      if (root.equals(node)) {
-//        None
-//      } else {
-//        subtrees.fin
-//      }
-//    }
-//  }
-//
-//  def tree[T](size: Int, gen: Gen[T]): Gen[Tree[T]] = {
-//    match {}
-//  }
+  //todo: write note why scalacheck is crap: Gen[T] \times Gen[S] \to Gen[T \times S]
+  def randomNode[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T)] = sizedTree.map{ case (tree: Tree[String], size) =>
+
+    (tree, labeling(random.nextInt(size) + 1))
+  }
+
+  def randomNodePair[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T, T)] = sizedTree.map{ case (tree: Tree[String], size) =>
+    val r = (tree, labeling(random.nextInt(size) + 1), labeling(random.nextInt(size) + 1))
+
+    r
+  }
+
+
+  def randomNodeSet[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], Set[T])] = sizedTree.map{ case (tree: Tree[String], size) =>
+    val randomNodes = random.nextInt(size) + 1
+    val set = (1 to randomNodes).map{n => labeling(random.nextInt(n) + 1)}.toSet
+    (tree, set)
+  }
+
+  def randomNodeSets[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T, setsBount: Int): Gen[(Tree[T], List[Set[T]])] = sizedTree.map{ case (tree: Tree[String], size) =>
+    val randomNodes = random.nextInt(size) + 1
+    val sets = (1 to setsBount).toList.map{_ => (1 to randomNodes).map{n => labeling(random.nextInt(n) + 1)}.toSet}
+    (tree, sets)
+  }
+
+  def randomNodeList[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], List[T])] = sizedTree.map{ case (tree: Tree[String], size) =>
+    val randomNodes = random.nextInt(size) + 1
+    val list = (1 to randomNodes).map{n => labeling(random.nextInt(n) + 1)}.toList
+    (tree, list)
+  }
+
 }
 
 object ScalaCheckDemo extends Properties("Tree") {
+  import Generators._
 
-
-  property("root") = forAll (Generators.tree(10, Generators.stringLabeling)) { tree: Tree[String] =>
+  property("root") = forAll (tree(stringLabeling)) { tree =>
     tree.isNode(tree.root)
   }
 
-  property("is node") = forAll (Generators.tree(10, Generators.stringLabeling), Gen.choose(1,10)) { case (tree: Tree[String], n: Int) =>
-    tree.isNode(Generators.stringLabeling(n))
+  property("is node") = forAll (randomNode(sizedTree(stringLabeling), stringLabeling)) { case (tree: Tree[String], node: String) =>
+    tree.isNode(node)
   }
 
-  property("parent") = forAll (Generators.tree(10, Generators.stringLabeling), Gen.choose(1,10)) { case (tree: Tree[String], n: Int) =>
-   val node = Generators.stringLabeling(n)
+  property("parent") = forAll (randomNode(sizedTree(stringLabeling), stringLabeling)) {  case (tree: Tree[String], node: String) =>
     if (tree.root.equals(node)) {
       tree.getParent(node).isEmpty
     } else {
@@ -130,27 +158,28 @@ object ScalaCheckDemo extends Properties("Tree") {
     }
   }
 
-  property("lca min") = forAll (Generators.tree(10, Generators.stringLabeling), Gen.choose(1,10), Gen.choose(1,10)) { case (tree: Tree[String], n: Int, m: Int) =>
-    val node1 = Generators.stringLabeling(n)
-    val node2 = Generators.stringLabeling(n)
-    val lca = TreeUtils.lca(tree, node1, node2)
-    node1.equals(lca) || node2.equals(lca)
+  property("lca idem") = forAll (randomNode(sizedTree(stringLabeling), stringLabeling)) { case (tree: Tree[String], node: String) =>
+    val lca = TreeUtils.lca(tree, node, node)
+    node.equals(lca)
   }
 
-  property("lca shuffle") = forAll (Generators.tree(10, Generators.stringLabeling), Gen.choose(1,10), Gen.choose(1,10), Gen.choose(1,10)) { case (tree: Tree[String], n1: Int, n2: Int, n3: Int) =>
-    val nodes = List(Generators.stringLabeling(n1), Generators.stringLabeling(n2), Generators.stringLabeling(n3))
+  property("lca shuffle") = forAll (randomNodeList(sizedTree(stringLabeling), stringLabeling)) { case (tree: Tree[String], nodes: List[String]) =>
     val lca1 = TreeUtils.lca(tree, nodes)
-    val lca2 = TreeUtils.lca(tree, Generators.random.shuffle(nodes))
+    val lca2 = TreeUtils.lca(tree, random.shuffle(nodes))
     lca1.equals(lca2)
   }
 
-  property("in line") = forAll (Generators.tree(20, Generators.stringLabeling), Gen.listOfN(5, Gen.choose(1,20))) { case (tree: Tree[String], list: List[Int]) =>
-    val nodes = list.map(Generators.stringLabeling).toSet
+  property("in line") = forAll (randomNodeSet(sizedTree(stringLabeling), stringLabeling)) { case (tree: Tree[String], nodes: Set[String]) =>
     TreeUtils.isInLine(tree, nodes) match {
       case None => {
         true //check something
+        nodes.forall { node =>
+          !TreeUtils.getLineage(tree, node).take(nodes.size).toSet.equals(nodes)
+        }
+        true
       }
       case Some(node) => {
+        //println("are in line, tree: " + tree.toString + " nodes:" + nodes)
         TreeUtils.getLineage(tree, node).take(nodes.size).toSet.equals(nodes)
       }
     }

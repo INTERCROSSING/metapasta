@@ -141,7 +141,7 @@ class LastInstructions(aws: AWS,
       case lastHit(_score, name1, start1, algSize1, strand1, seqSize1, name2) => {
         val readId = extractHeader(name2)
         val score = Utils.parseDouble(_score)
-        hits += Hit(readId, name1, score)
+        hits += Hit(ReadId(readId), RefId(name1), score)
       }
 
       case l => logger.error("can't parse: " + l)

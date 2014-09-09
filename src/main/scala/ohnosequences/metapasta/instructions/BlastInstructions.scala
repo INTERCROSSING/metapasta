@@ -126,7 +126,7 @@ class BlastInstructions(
       case blastHit(header, refId, _score) => {
         val readId = extractHeader(header)
         val score = Utils.parseDouble(_score)
-        hits += Hit(readId, refId, score)
+        hits += Hit(ReadId(readId), RefId(refId), score)
       }
       case l => logger.error("can't parse: " + l)
     }
