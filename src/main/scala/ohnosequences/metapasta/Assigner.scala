@@ -7,8 +7,6 @@ import ohnosequences.nisperon.{AWS, MapMonoid}
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.nisperon.logging.{Logger, S3Logger}
 import ohnosequences.metapasta.reporting.SampleId
-import ohnosequences.metapasta.AssignmentConfiguration
-import ohnosequences.metapasta.AssignmentConfiguration
 import scala.collection.mutable.ListBuffer
 
 case class ReadId(readId: String)
@@ -19,7 +17,7 @@ sealed trait Assignment {
   type AssignmentCat <: AssignmentCategory
 }
 
-case class TaxIdAssignment(taxon: Taxon, refIds: Set[RefId]) extends Assignment {
+case class TaxIdAssignment(taxon: Taxon, refIds: Set[RefId], lca: Boolean = false, line: Boolean = false) extends Assignment {
   type AssignmentCat = Assigned.type
 }
 
@@ -74,7 +72,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
 
 
     val (lcaAssignments, lcaStats) = logger.benchExecute("LCA assignment") {
-      assignLCA(logger, chunk, reads, hits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p)
+      assignLCA(logger, chunk, reads, hits)
     }
 
 
@@ -102,7 +100,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
     database.parseGI(refId.refId) match {
       case Some(gi) => giMapper.getTaxIdByGi(gi) match {
         case None => /*logger.error("database error: can't parse taxId from gi: " + refId);*/ None
-        case Some(taxId) => Some(Taxon(taxId))
+        case Some(taxon) => Some(taxon)
       }
       case None => {
         //logger.error("database error: can't parse gi from ref id: " + refId)
@@ -144,7 +142,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
 
     //generate assign table
     assignment.foreach {
-      case (readId, TaxIdAssignment(taxon, refIds)) =>
+      case (readId, TaxIdAssignment(taxon, refIds, _, _)) =>
         assignTable.get(taxon) match {
           case None => assignTable.put(taxon, TaxInfo(1, 1))
           case Some(TaxInfo(count, acc)) => assignTable.put(taxon, TaxInfo(count + 1, acc + 1))
@@ -167,7 +165,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
     (AssignTable(Map((chunk.sample.id, assignmentType) -> assignTable.toMap)), readStats.mult(initialReadsStats))
   }
 
-  def assignLCA(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit], scoreThreshold: Int, p: Double): (mutable.HashMap[ReadId, Assignment], ReadsStats) = {
+  def assignLCA(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (mutable.HashMap[ReadId, Assignment], ReadsStats) = {
 
     val hitsPerReads = mutable.HashMap[ReadId, mutable.HashSet[RefId]]()
 
@@ -233,12 +231,12 @@ class Assigner(taxonomyTree: Tree[Taxon],
             logger.info("taxa form a line: " + taxa)
             logger.info("the most specific taxon: " + specific)
             val specificRefIds = refid2taxon.filter(_._2.equals(specific)).keys.toSet
-            TaxIdAssignment(specific, specificRefIds)
+            TaxIdAssignment(specific, specificRefIds, line = true)
           }
           case None => {
             //calculating lca
             val lca = TreeUtils.lca(taxonomyTree, taxa.toList)
-            TaxIdAssignment(lca, refIds.toSet)
+            TaxIdAssignment(lca, refIds.toSet, lca = true)
           }
         }
       }

@@ -5,6 +5,17 @@ import scala.collection.mutable.ListBuffer
 import ohnosequences.nisperon.logging.{Logger, S3Logger}
 import scala.collection.mutable
 
+object Tree {
+  def relabel[T, S](tree: Tree[T], f: T => S, g: S => T): Tree[S] = new Tree[S] {
+
+    override def getParent(node: S): Option[S] = tree.getParent(g(node)).map(f)
+
+    override def isNode(node: S): Boolean = tree.isNode(g(node))
+
+    override val root: S = f(tree.root)
+  }
+}
+
 /**
  * a layer for bio4j taxonomy tree
  */

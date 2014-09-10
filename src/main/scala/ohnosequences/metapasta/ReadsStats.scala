@@ -36,8 +36,15 @@ class ReadStatsBuilder {
   var assigned = 0L
   var wrongRefIds = new mutable.HashSet[String]() //all wrong refs are ignored
 
+  var lcaAssigned = 0L
+  var lineAssigned = 0L
+
   def incrementByAssignment(assignment:  Assignment) { assignment match {
-    case TaxIdAssignment(_, _) => assigned += 1
+    case TaxIdAssignment(_, _, lca, line) => {
+      if (lca) lcaAssigned +=1
+      if (line) lineAssigned +=1
+      assigned += 1
+    }
     case NoTaxIdAssignment(_) => noTaxId += 1
     case NotAssigned(_, _, _) => notAssigned += 1
   }}
@@ -61,6 +68,7 @@ class ReadStatsBuilder {
     total += 1
   }
 
+
   def addWrongRefId(id: RefId) = {wrongRefIds += id.refId}
 
   def build = ReadsStats(
@@ -71,7 +79,9 @@ class ReadStatsBuilder {
       noTaxId = noTaxId,
       notAssigned = notAssigned,
       assigned = assigned,
-      wrongRefIds = wrongRefIds.toSet
+      wrongRefIds = wrongRefIds.toSet,
+      lcaAssigned = lcaAssigned,
+      lineAssigned = lineAssigned
     )
 }
 
@@ -84,7 +94,9 @@ case class ReadsStats(total: Long,
                       noTaxId: Long,
                       notAssigned: Long,
                       assigned: Long,
-                      wrongRefIds: Set[String] = Set[String]()) {
+                      wrongRefIds: Set[String] = Set[String](),
+                      lcaAssigned: Long,
+                      lineAssigned: Long) {
   def mult(y: ReadsStats): ReadsStats = readsStatsMonoid.mult(this, y)
 }
 
@@ -101,11 +113,13 @@ object readsStatsMonoid extends Monoid[ReadsStats] {
       noTaxId = x.noTaxId + y.noTaxId,
       notAssigned = x.notAssigned + y.notAssigned,
       assigned = x.assigned + y.assigned,
-      wrongRefIds = x.wrongRefIds ++ y.wrongRefIds
+      wrongRefIds = x.wrongRefIds ++ y.wrongRefIds,
+      lcaAssigned = x.lcaAssigned + y.lcaAssigned,
+      lineAssigned = x.lineAssigned + y.lineAssigned
     )
   }
 
-  val _unit = ReadsStats(0, 0, 0, 0, 0, 0, 0, Set[String]())
+  val _unit = ReadsStats(0, 0, 0, 0, 0, 0, 0, Set[String](), 0, 0)
   override def unit: ReadsStats = _unit
 }
 

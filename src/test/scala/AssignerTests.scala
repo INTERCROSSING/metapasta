@@ -36,9 +36,9 @@ class AssignerTests {
 
   //we use fake 16s and fake taxonomy where taxid = gi
   val idGIMapper = new GIMapper {
-    override def getTaxIdByGi(gi: String): Option[String] = {
+    override def getTaxIdByGi(gi: String): Option[Taxon] = {
       if (fakeTaxonomiTree.map.contains(Taxon(gi)) || fakeTaxonomiTree.root.taxId.equals(gi) || gi.equals("20142015")) {
-        Some(gi)
+        Some(Taxon(gi))
       } else {
         None
       }
@@ -136,7 +136,7 @@ class AssignerTests {
       Hit(ReadId("read10"), refId(fakeTaxonomiTree.root), 100)
     )
 
-    val (lcaAssignments, lcaStats) = assigner.assignLCA(logger, chunkId, reads, lcaHits, assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p)
+    val (lcaAssignments, lcaStats) = assigner.assignLCA(logger, chunkId, reads, lcaHits)
 
     import org.hamcrest.CoreMatchers.instanceOf
 
