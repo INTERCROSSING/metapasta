@@ -117,7 +117,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
     val wrongRefs = new mutable.HashSet[RefId]()
     val taxons = hits.flatMap { hit =>
       getTaxIdFromRefId(hit.refId, logger) match {
-        case Some(taxon) if taxonomyTree.isNode(taxon) => Some(hit.refId, taxon)
+        case Some(taxon) if taxonomyTree.isNode(taxon) => Some((hit.refId, taxon))
         case None => {
           logger.warn("couldn't find taxon for ref id: " + hit.refId.refId)
           wrongRefs += hit.refId

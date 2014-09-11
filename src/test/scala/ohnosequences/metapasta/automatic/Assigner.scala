@@ -12,30 +12,6 @@ import ohnosequences.metapasta.Hit
 import ohnosequences.formats.{RawHeader, FASTQ}
 
 
-object HitsGenerator {
-  import Generators.{genList, genMap}
-
-  val random = new Random()
-
-  def hitsPerReadId(readId: Int, treeSize: Int, labeling: Int => String): Gen[List[Hit]] = {
-    Gen.listOf(Gen.choose(1, treeSize).map(labeling).flatMap(hit(readId, _)))
-  }
-
-  def hit(readId: Int, node: String): Gen[Hit] = {
-    for {
-      quality <- Gen.chooseNum(300, 400)
-    } yield Hit(ReadId(readId.toString), refId(Taxon(node)), quality)
-  }
-
-  def refId(taxon: Taxon) = RefId("gi|" + taxon.taxId + "|gb|000|")
-
-  def groupedHits(readsAmount: Int, treeSize: Int, labeling: Int => String): Gen[Map[Int, List[Hit]]] = {
-    genMap((1 to readsAmount).toList, { id => hitsPerReadId(id, treeSize, labeling)})
-  }
-
-  def read(readId: Int) = FASTQ(RawHeader(readId.toString), "ATG", "+", "quality")
-
-}
 
 object Assigner  extends Properties("Assigner") {
 
@@ -49,11 +25,11 @@ object Assigner  extends Properties("Assigner") {
     map.forall{ case (key, value) => key >= value}
   }
 
-  property("hits general") = forAll (HitsGenerator.groupedHits(10, 100, stringLabeling)) { case map =>
+  property("hits general") = forAll (groupedHits(10, 100, stringLabeling)) { case map =>
     (1 to 10).forall(map.contains(_))
   }
 
-  property("hits nodes") = forAll (HitsGenerator.groupedHits(10, 100, stringLabeling)) { case map =>
+  property("hits nodes") = forAll (groupedHits(10, 100, stringLabeling)) { case map =>
     (1 to 10).forall { readId =>
       map(readId).forall { hit =>
         hit.readId.readId.toInt.equals(readId)
@@ -67,10 +43,10 @@ object Assigner  extends Properties("Assigner") {
   def extractHeader(header: String) = header
 
 
-  property("assign check stats") = forAll (sizedTree(stringLabeling).flatMap { case (tree, treeSize) =>
-    val groupedHits = Gen.choose(1, 100).flatMap(HitsGenerator.groupedHits(_, treeSize, stringLabeling))
-    groupedHits.map { hits => (tree, treeSize, hits)}
-  }, Gen.oneOf(LCA, BBH)) { case ((tree, treeSize, groupedHits), assignmentType) =>
+  property("assign check stats") = forAll (boundedTree(stringLabeling, 1000).flatMap { case (tree, treeSize) =>
+    val randomGroupedHits = Gen.choose(1, 100).flatMap(groupedHits(_, treeSize, stringLabeling))
+    randomGroupedHits.map { hits => (tree, treeSize, hits)}
+  }, Gen.oneOf(LCA, BBH)) { case ((tree, treeSize, randomGroupedHits), assignmentType) =>
 
     val randomTaxonomyTree: Tree[Taxon] = Tree.relabel(tree, {s: String => Taxon(s)}, {tax: Taxon => tax.taxId})
 
@@ -97,8 +73,8 @@ object Assigner  extends Properties("Assigner") {
       None
     )
 
-    val reads  = groupedHits.keys.toList.map(HitsGenerator.read(_))
-    val hits: List[Hit] = groupedHits.values.toList.flatMap {list => list}
+    val reads  = randomGroupedHits.keys.toList.map(read(_))
+    val hits: List[Hit] = randomGroupedHits.values.toList.flatMap {list => list}
 
     val logger = new ConsoleLogger("assign one", verbose = false)
     val testSample = "test"
@@ -129,8 +105,8 @@ object Assigner  extends Properties("Assigner") {
   }
 
 
-  property("assign lca") = forAll (sizedTree(stringLabeling).flatMap { case (tree, treeSize) =>
-    val gropedHits = Gen.choose(1, 100).flatMap(HitsGenerator.groupedHits(_, treeSize, stringLabeling))
+  property("assign deep tests") = forAll (boundedTree(stringLabeling, 1000).flatMap { case (tree, treeSize) =>
+    val gropedHits = Gen.choose(1, 100).flatMap(groupedHits(_, treeSize, stringLabeling))
     gropedHits.map { hits => (tree, treeSize, hits)}
   }) { case (tree, treeSize, gropedHits) =>
 
@@ -159,10 +135,10 @@ object Assigner  extends Properties("Assigner") {
       None
     )
 
-    val reads  = gropedHits.keys.toList.map(HitsGenerator.read(_))
+    val reads  = gropedHits.keys.toList.map(read(_))
     val hits: List[Hit] = gropedHits.values.toList.flatMap {list => list}
 
-    val logger = new ConsoleLogger("assign one", verbose = false)
+    val logger = new ConsoleLogger("assign deep tests", verbose = false)
     val testSample = "test"
     val chunkId = ChunkId(SampleId(testSample), 1, 1000)
 
@@ -187,23 +163,28 @@ object Assigner  extends Properties("Assigner") {
       case _ => None
     }
 
-    val lcaAssignments = assignments.filter {
-      case (readId, assignment: TaxIdAssignment) if assignment.lca => true
-      case _ => false
+    val lcaAssignments = assignments.flatMap {
+      case (readId, assignment: TaxIdAssignment) if assignment.lca => Some((readId, assignment))
+      case _ => None
     }
 
     val bestScores = AssignerAlgorithms.bestScores(hits)
 
-
     (oneLineAssignments.size == stats.lineAssigned) :| "one line amount check" &&
     (lcaAssignments.size == stats.lcaAssigned) :| "one line amount check" &&
-    (oneLineAssignments.forall { case (read, assignment) =>
+    oneLineAssignments.forall { case (read, assignment) =>
       val readHits: List[Hit]  = hits.filter(_.readId.equals(read))
       val filteredHits = readHits.filter { hit => AssignerAlgorithms.filterHit(hit, bestScores, assignmentConfiguration, logger)}
       val taxaSet = assigner.getTaxIds(filteredHits, logger)._1.map(_._2).toSet
       //check that all tax in lineage of most specific
       TreeUtils.getLineage(randomTaxonomyTree, assignment.taxon).takeRight(taxaSet.size).toSet.equals(taxaSet)
-    })  :| "check one line taxa"
+    }  :| "check one line assignments" &&
+    lcaAssignments.forall { case (read, assignment) =>
+      val readHits: List[Hit]  = hits.filter(_.readId.equals(read))
+      val filteredHits = readHits.filter { hit => AssignerAlgorithms.filterHit(hit, bestScores, assignmentConfiguration, logger)}
+      val taxaSet = assigner.getTaxIds(filteredHits, logger)._1.map(_._2).toSet
+      TreeUtils.lca(randomTaxonomyTree, taxaSet).equals(assignment.taxon)
+    }  :| "check lca assignments"
 
   }
 }

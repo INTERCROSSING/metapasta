@@ -96,7 +96,7 @@ class AssignerTests {
      // Hit("read10", refId(fakeTaxonomiTree.root), 100),
     )
 
-    val logger = new ConsoleLogger("test")
+    val logger = new ConsoleLogger("test", verbose = false)
     val (table, stats) = assigner.assign(
       logger = logger,
       chunk = chunkId,
@@ -107,7 +107,7 @@ class AssignerTests {
 
     //common tests
     for (assignmentType <- List(LCA, BBH)) {
-      println(stats(testSample -> assignmentType).wrongRefIds)
+     // println(stats(testSample -> assignmentType).wrongRefIds)
       assertEquals(5, stats(testSample -> assignmentType).noHit)
 
       assertEquals(true, stats(testSample -> assignmentType).wrongRefIds.contains(wrongRefId))

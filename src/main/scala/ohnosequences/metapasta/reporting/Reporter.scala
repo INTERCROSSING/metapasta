@@ -28,7 +28,6 @@ class Reporter(aws: AWS,
                destination: ObjectAddress,
                projectName: String
                ) {
-
   val assignmentTableSerializer = ohnosequences.metapasta.assignTableSerializer
   val statsMonoid = new MapMonoid[(String, AssignmentType), ReadsStats](readsStatsMonoid)
   val statsSerializer = readsStatsSerializer
@@ -204,7 +203,6 @@ class Reporter(aws: AWS,
             }
           }
         }
-
       }
     }
 

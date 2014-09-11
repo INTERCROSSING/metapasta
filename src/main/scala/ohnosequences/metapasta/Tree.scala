@@ -1,9 +1,7 @@
 package ohnosequences.metapasta
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ListBuffer
-import ohnosequences.nisperon.logging.{Logger, S3Logger}
-import scala.collection.mutable
+
 
 object Tree {
   def relabel[T, S](tree: Tree[T], f: T => S, g: S => T): Tree[S] = new Tree[S] {
@@ -69,32 +67,30 @@ class Bio4JTaxonomyTree(nodeRetriever: NodeRetriever) extends Tree[Taxon] {
 
 object TreeUtils {
 
-  //@tailrec
-  //def getParents2[N](tree: Tree[N], res: ListBuffer[N], node: N): List
-  //how to do it with tail rec?
 
   @tailrec
-  def getLineage[N](tree: Tree[N], node: N, acc: List[N] = List[N]()): List[N] = {
+  def getLineageAux[N](tree: Tree[N], node: N, acc: List[N] = List[N]()): List[N] = {
     tree.getParent(node) match {
       case None => node :: acc
-      case Some(p) => getLineage(tree, p, node :: acc)
+      case Some(p) => getLineageAux(tree, p, node :: acc)
     }
   }
+
+  def getLineage[N](tree: Tree[N], node: N): List[N] = getLineageAux(tree, node)
 
   @tailrec
-  def getLineageExclusive[N](tree: Tree[N], node: N, acc: List[N] = List[N]()): List[N] = {
+  def getLineageExclusiveAux[N](tree: Tree[N], node: N, acc: List[N] = List[N]()): List[N] = {
     tree.getParent(node) match {
       case None => acc
-      case Some(p) => getLineageExclusive(tree, p, p :: acc)
+      case Some(p) => getLineageExclusiveAux(tree, p, p :: acc)
     }
   }
 
-
- // def takeParents[N](tree: Tree[N], node: N, n: Int)
-
+  def getLineageExclusive[N](tree: Tree[N], node: N): List[N] = getLineageExclusiveAux(tree, node)
 
 
-  /** Tests if the set of nodes form a line in the tree    *
+
+  /** Tests if the set of nodes form a line in the tree
     *  @return ``Some(node)` if there they are, node is most specific node `None` otherwise.
     */
   def isInLine[N](tree: Tree[N], nodes: Set[N]): Option[N] = {
@@ -137,7 +133,6 @@ object TreeUtils {
 //      true
 //    }
 //  }
-
 
 
   def lca[N](tree: Tree[N], n1: N, n2: N): N = {
