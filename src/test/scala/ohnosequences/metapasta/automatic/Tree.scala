@@ -35,23 +35,22 @@ object TreeTests extends Properties("Tree") {
     node.equals(lca)
   }
 
-  property("lca shuffle") = forAll (randomNodeList(boundedTree(stringLabeling, 1000), stringLabeling)) { case (tree, nodes) =>
+  property("lca shuffle") = forAll (randomNodeList(boundedTree(stringLabeling, 10000), stringLabeling)) { case (tree, nodes) =>
     val lca1 = TreeUtils.lca(tree, nodes.toSet)
     val lca2 = TreeUtils.lca(tree, random.shuffle(nodes.toSet))
     lca1.equals(lca2)
   }
 
-  property("in line") = forAll (randomNodeSet(boundedTree(stringLabeling, 1000), stringLabeling)) { case (tree, nodes) =>
+  property("in line") = forAll (randomNodeSet(boundedTree(stringLabeling, 10000), stringLabeling)) { case (tree, nodes) =>
     TreeUtils.isInLine(tree, nodes) match {
       case None => {
         nodes.forall { node =>
           !TreeUtils.getLineage(tree, node).take(nodes.size).toSet.equals(nodes)
         }
-        true
       }
       case Some(node) => {
         //println("are in line, tree: " + tree.toString + " nodes:" + nodes)
-        TreeUtils.getLineage(tree, node).take(nodes.size).toSet.equals(nodes)
+        TreeUtils.getLineage(tree, node).takeRight(nodes.size).toSet.equals(nodes)
       }
     }
   }

@@ -116,33 +116,28 @@ object Generators {
     }
   }
 
-  def randomNode[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T)] = sizedTree.map{ case (tree, size) =>
-
-    (tree, labeling(random.nextInt(size) + 1))
+  def randomNode[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T)] = sizedTree.flatMap{ case (tree, size) =>
+    Gen.choose(1, size).map { num => (tree, labeling(num))}
   }
 
-  def randomNodePair[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T, T)] = sizedTree.map{ case (tree, size) =>
-    val r = (tree, labeling(random.nextInt(size) + 1), labeling(random.nextInt(size) + 1))
-    r
+  def randomNodePair[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T, T)] = sizedTree.flatMap{ case (tree, size) =>
+    genPair(Gen.choose(1, size), Gen.choose(1, size)).map { case (num1, num2) => (tree, labeling(num1), labeling(num2))}
   }
 
-
-  def randomNodeSet[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], Set[T])] = sizedTree.map{ case (tree, size) =>
-    val randomNodes = random.nextInt(size) + 1
-    val set = (1 to randomNodes).map{n => labeling(random.nextInt(n) + 1)}.toSet
-    (tree, set)
+  def randomNodeSetAux[T](tree: Tree[T], size: Int, labeling: Int => T): Gen[Set[T]] = {
+    Gen.choose(1, size).flatMap { n => Gen.listOfN(n, Gen.choose(1, size).map(labeling))}.map { list => list.toSet }
   }
 
-  def randomNodeSets[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T, setsBount: Int): Gen[(Tree[T], List[Set[T]])] = sizedTree.map{ case (tree, size) =>
-    val randomNodes = random.nextInt(size) + 1
-    val sets = (1 to setsBount).toList.map{_ => (1 to randomNodes).map{n => labeling(random.nextInt(n) + 1)}.toSet}
-    (tree, sets)
+  def randomNodeSet[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], Set[T])] = sizedTree.flatMap{ case (tree, size) =>
+    randomNodeSetAux(tree, size, labeling).map { set => (tree, set)}
   }
 
-  def randomNodeList[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], List[T])] = sizedTree.map{ case (tree, size) =>
-    val randomNodes = random.nextInt(size) + 1
-    val list = (1 to randomNodes).map{n => labeling(random.nextInt(n) + 1)}.toList
-    (tree, list)
+  def randomNodeSets[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T, setsBount: Int): Gen[(Tree[T], List[Set[T]])] = sizedTree.flatMap{ case (tree, size) =>
+    Gen.choose(1, setsBount).flatMap{ n => Gen.listOfN(n, randomNodeSetAux(tree, size, labeling))}.map { sets => (tree, sets)}
+  }
+
+  def randomNodeList[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], List[T])] = sizedTree.flatMap { case (tree, size) =>
+    Gen.choose(1, size).flatMap { n => Gen.listOfN(n, Gen.choose(1, size).map(labeling))}.map { list => (tree, list)}
   }
 
   def hitsPerReadId(readId: Int, treeSize: Int, labeling: Int => String): Gen[List[Hit]] = {
