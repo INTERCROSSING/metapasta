@@ -17,7 +17,7 @@ sealed trait Assignment {
   type AssignmentCat <: AssignmentCategory
 }
 
-case class TaxIdAssignment(taxon: Taxon, refIds: Set[RefId], lca: Boolean = false, line: Boolean = false) extends Assignment {
+case class TaxIdAssignment(taxon: Taxon, refIds: Set[RefId], lca: Boolean = false, line: Boolean = false, bbh: Boolean = false) extends Assignment {
   type AssignmentCat = Assigned.type
 }
 
@@ -44,14 +44,17 @@ object AssignerAlgorithms {
     bestScores
   }
   
-  def filterHit(hit: Hit, bestScores: mutable.HashMap[ReadId, Double], assignmentConfiguration: AssignmentConfiguration): Boolean = {
+  def filterHit(hit: Hit, bestScores: mutable.HashMap[ReadId, Double], assignmentConfiguration: AssignmentConfiguration, logger: Logger): Boolean = {
     val bestScore = bestScores.getOrElse(hit.readId, 0D)
     if (hit.score >= math.max(assignmentConfiguration.bitscoreThreshold, assignmentConfiguration.p * bestScore)) {
       true
     } else {
+      logger.warn("hit " + hit + " has been filtered; best score for read id is " + bestScore)
       false
     }
   }
+
+
 
  // def groupHits(hits: List[Hit], )
 }
@@ -96,7 +99,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
 
   }
 
-  def getTaxIdFromRefId(logger: Logger, refId: RefId): Option[Taxon] = {
+  def getTaxIdFromRefId(refId: RefId, logger: Logger): Option[Taxon] = {
     database.parseGI(refId.refId) match {
       case Some(gi) => giMapper.getTaxIdByGi(gi) match {
         case None => /*logger.error("database error: can't parse taxId from gi: " + refId);*/ None
@@ -107,6 +110,27 @@ class Assigner(taxonomyTree: Tree[Taxon],
         None
       }
     }
+  }
+
+  //
+  def getTaxIds(hits: List[Hit], logger: Logger): (List[(RefId, Taxon)], Set[RefId]) = {
+    val wrongRefs = new mutable.HashSet[RefId]()
+    val taxons = hits.flatMap { hit =>
+      getTaxIdFromRefId(hit.refId, logger) match {
+        case Some(taxon) if taxonomyTree.isNode(taxon) => Some(hit.refId, taxon)
+        case None => {
+          logger.warn("couldn't find taxon for ref id: " + hit.refId.refId)
+          wrongRefs += hit.refId
+          None
+        }
+        case Some(taxon) => {
+          logger.warn("taxon with id: " + taxon.taxId + " is not presented in " + database.name)
+          wrongRefs += hit.refId
+          None
+        }
+      }
+    }
+    (taxons, wrongRefs.toSet)
   }
 
 
@@ -142,7 +166,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
 
     //generate assign table
     assignment.foreach {
-      case (readId, TaxIdAssignment(taxon, refIds, _, _)) =>
+      case (readId, TaxIdAssignment(taxon, refIds, _, _, _)) =>
         assignTable.get(taxon) match {
           case None => assignTable.put(taxon, TaxInfo(1, 1))
           case Some(TaxInfo(count, acc)) => assignTable.put(taxon, TaxInfo(count + 1, acc + 1))
@@ -167,76 +191,42 @@ class Assigner(taxonomyTree: Tree[Taxon],
 
   def assignLCA(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit]): (mutable.HashMap[ReadId, Assignment], ReadsStats) = {
 
-    val hitsPerReads = mutable.HashMap[ReadId, mutable.HashSet[RefId]]()
-
     val bestScores = AssignerAlgorithms.bestScores(hits)
 
-    //filter hits
-    hits.foreach { hit =>
-      val refs = hitsPerReads.get(hit.readId) match {
-        case None => {
-          val refsSet = new mutable.HashSet[RefId]()
-          hitsPerReads.put(hit.readId, refsSet)
-          refsSet
-        }
-        case Some(refsIds) => refsIds
-      }
+    val hitsPerReads: Map[ReadId, List[Hit]] = hits.groupBy(_.readId)
 
-      if (AssignerAlgorithms.filterHit(hit, bestScores, assignmentConfiguration)) {
-        refs += hit.refId
-      } else {
-        val bestScore = bestScores.getOrElse(hit.readId, 0D)
-        logger.warn("hit " + hit + " has been filtered; best score for read id is " + bestScore)
-      }
-    }
-
-    //now hitsPerReads contains empty hash set for reads with filtered hits
     val finalAssignments = mutable.HashMap[ReadId, Assignment]()
     val readsStatsBuilder = new ReadStatsBuilder()
 
-    for ((readId, refIds) <- hitsPerReads) {
+    for ((readId, hits) <- hitsPerReads) {
 
-      //we will need thsi mapping to get all ref ids
-      val refid2taxon = new mutable.HashMap[RefId, Taxon]()
-      for (refId <- refIds) {
-        getTaxIdFromRefId(logger, refId) match {
-          case Some(taxon) if taxonomyTree.isNode(taxon) => refid2taxon += ((refId, taxon))
-          case None => {
-            logger.warn("couldn't find taxon for ref id: " + refId)
-            readsStatsBuilder.addWrongRefId(refId)
-          }
-          case Some(taxId) => {
-            logger.warn("taxon with id: " + taxId + " is not presented in " + database.name)
-            readsStatsBuilder.addWrongRefId(refId)
-          }
-        }
-      }
-
-      val taxa: Set[Taxon] = refid2taxon.values.toSet
+      val filteredHits  = hits.filter(AssignerAlgorithms.filterHit(_, bestScores, assignmentConfiguration, logger))
+      val (taxa, wrongRefIds) = getTaxIds(filteredHits, logger)
+      wrongRefIds.foreach { refId => readsStatsBuilder.addWrongRefId(refId)}
+      val refIds = taxa.map(_._1).toSet
 
       //now there are four cases:
       //* we had some not filtered hits, but all of them have wrong gi - NoTaxIdAssignment
       //* we have empty ref ids that means that all hits were filtered -  NotAssigned
       // * rest hits form a line in the taxonomy tree. In this case we should choose the most specific tax id
       // * in other cases we should calculate LCA
-      val assignment = if (taxa.isEmpty && !refIds.isEmpty) {
+      val assignment = if (filteredHits.isEmpty) {
+        NotAssigned("hits were filtered", hits.map(_.refId).toSet, Set[Taxon]())
+      } else if (taxa.isEmpty && filteredHits.nonEmpty) {
         //couldn't get taxa from any of ref id
-        NoTaxIdAssignment(refIds.toSet)
-      } else if (refIds.isEmpty) {
-        //nothing to assign
-        NotAssigned("hits were filtered", refIds.toSet, taxa)
+        NoTaxIdAssignment(filteredHits.map(_.refId).toSet)
       } else {
-        TreeUtils.isInLine(taxonomyTree, taxa) match {
+        val taxaSet: Set[Taxon] = taxa.map{_._2}.toSet
+        TreeUtils.isInLine(taxonomyTree, taxaSet) match {
           case Some(specific) => {
             logger.info("taxa form a line: " + taxa)
             logger.info("the most specific taxon: " + specific)
-            val specificRefIds = refid2taxon.filter(_._2.equals(specific)).keys.toSet
-            TaxIdAssignment(specific, specificRefIds, line = true)
+            TaxIdAssignment(specific, refIds, line = true)
           }
           case None => {
             //calculating lca
-            val lca = TreeUtils.lca(taxonomyTree, taxa.toList)
-            TaxIdAssignment(lca, refIds.toSet, lca = true)
+            val lca = TreeUtils.lca(taxonomyTree, taxaSet)
+            TaxIdAssignment(lca, refIds, lca = true)
           }
         }
       }
@@ -254,7 +244,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
     val readsStatsBuilder = new ReadStatsBuilder()
 
     for (hit <- hits) {
-      getTaxIdFromRefId(logger, hit.refId) match {
+      getTaxIdFromRefId(hit.refId, logger) match {
         case None => {
           readsStatsBuilder.addWrongRefId(hit.refId)
           logger.warn("couldn't find taxon for ref id: " + hit.refId)
@@ -265,7 +255,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
             val bestScore = bestScores.getOrElse(hit.readId, 0D)
             if (hit.score >= bestScore) {
               bestScores.put(hit.readId, hit.score)
-              assignment.put(hit.readId, TaxIdAssignment(taxon, Set(hit.refId)))
+              assignment.put(hit.readId, TaxIdAssignment(taxon, Set(hit.refId), bbh = true))
             } else {
               logger.warn("hit " + hit + " has been filtered; best score for read id is " + bestScore)
             }

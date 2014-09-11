@@ -33,7 +33,7 @@ class FastasWriter(aws: AWS, readsDirectory: ObjectAddress, nodeRetriever: NodeR
 
   def write(sample: SampleId, read: FASTQ[RawHeader], readId: ReadId, assignment: Assignment) {
     assignment match {
-      case TaxIdAssignment(taxon, refIds, _, _) => {
+      case TaxIdAssignment(taxon, refIds, _, _, _) => {
         assignedFasta.append(read.toFasta(fastaHeader(sample.id, taxon, refIds)))
         assignedFasta.append(System.lineSeparator())
       }

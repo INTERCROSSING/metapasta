@@ -156,12 +156,14 @@ object TreeUtils {
     }
   }
 
-  def lca[N](tree: Tree[N], nodes: List[N]): N = nodes match {
+  def lcaAux[N](tree: Tree[N], nodes: List[N]): N = nodes match {
     case Nil => tree.root
     case h :: t => t.foldLeft(h) {
       case (nn1, nn2) => val r = lca(tree, nn1, nn2); r
     }
   }
+
+  def lca[N](tree: Tree[N], nodes: Set[N]): N = lcaAux(tree, nodes.toList)
 }
 
 

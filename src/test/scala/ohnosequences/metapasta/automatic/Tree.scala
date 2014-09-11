@@ -164,8 +164,8 @@ object ScalaCheckDemo extends Properties("Tree") {
   }
 
   property("lca shuffle") = forAll (randomNodeList(sizedTree(stringLabeling), stringLabeling)) { case (tree: Tree[String], nodes: List[String]) =>
-    val lca1 = TreeUtils.lca(tree, nodes)
-    val lca2 = TreeUtils.lca(tree, random.shuffle(nodes))
+    val lca1 = TreeUtils.lca(tree, nodes.toSet)
+    val lca2 = TreeUtils.lca(tree, random.shuffle(nodes.toSet))
     lca1.equals(lca2)
   }
 

@@ -36,13 +36,15 @@ class ReadStatsBuilder {
   var assigned = 0L
   var wrongRefIds = new mutable.HashSet[String]() //all wrong refs are ignored
 
+  var bbhAssigned = 0L
   var lcaAssigned = 0L
   var lineAssigned = 0L
 
   def incrementByAssignment(assignment:  Assignment) { assignment match {
-    case TaxIdAssignment(_, _, lca, line) => {
+    case TaxIdAssignment(_, _, lca, line, bbh) => {
       if (lca) lcaAssigned +=1
       if (line) lineAssigned +=1
+      if (bbh) bbhAssigned +=1
       assigned += 1
     }
     case NoTaxIdAssignment(_) => noTaxId += 1
@@ -81,7 +83,8 @@ class ReadStatsBuilder {
       assigned = assigned,
       wrongRefIds = wrongRefIds.toSet,
       lcaAssigned = lcaAssigned,
-      lineAssigned = lineAssigned
+      lineAssigned = lineAssigned,
+      bbhAssigned = bbhAssigned
     )
 }
 
@@ -96,7 +99,8 @@ case class ReadsStats(total: Long,
                       assigned: Long,
                       wrongRefIds: Set[String] = Set[String](),
                       lcaAssigned: Long,
-                      lineAssigned: Long) {
+                      lineAssigned: Long,
+                      bbhAssigned: Long) {
   def mult(y: ReadsStats): ReadsStats = readsStatsMonoid.mult(this, y)
 }
 
@@ -115,11 +119,12 @@ object readsStatsMonoid extends Monoid[ReadsStats] {
       assigned = x.assigned + y.assigned,
       wrongRefIds = x.wrongRefIds ++ y.wrongRefIds,
       lcaAssigned = x.lcaAssigned + y.lcaAssigned,
-      lineAssigned = x.lineAssigned + y.lineAssigned
+      lineAssigned = x.lineAssigned + y.lineAssigned,
+      bbhAssigned = x.bbhAssigned + y.bbhAssigned
     )
   }
 
-  val _unit = ReadsStats(0, 0, 0, 0, 0, 0, 0, Set[String](), 0, 0)
+  val _unit = ReadsStats(0, 0, 0, 0, 0, 0, 0, Set[String](), 0, 0, 0)
   override def unit: ReadsStats = _unit
 }
 
