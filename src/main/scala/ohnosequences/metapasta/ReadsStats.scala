@@ -25,7 +25,7 @@ case object NotAssignedCat extends AssignmentCategory {
 }
 
 
-class ReadStatsBuilder {
+class ReadStatsBuilder(var wrongRefIds: mutable.HashSet[RefId] = new mutable.HashSet[RefId]()) {
 
   var total = 0L
   var merged = 0L
@@ -34,7 +34,7 @@ class ReadStatsBuilder {
   var noTaxId = 0L
   var notAssigned = 0L //thresholds are to strict, in some cases (best blast hit) it can be due to wrong refs
   var assigned = 0L
-  var wrongRefIds = new mutable.HashSet[String]() //all wrong refs are ignored
+   //all wrong refs are ignored
 
   var bbhAssigned = 0L
   var lcaAssigned = 0L
@@ -71,7 +71,7 @@ class ReadStatsBuilder {
   }
 
 
-  def addWrongRefId(id: RefId) = {wrongRefIds += id.refId}
+  def addWrongRefId(id: RefId) = {wrongRefIds += id}
 
   def build = ReadsStats(
       total = total,
@@ -81,7 +81,7 @@ class ReadStatsBuilder {
       noTaxId = noTaxId,
       notAssigned = notAssigned,
       assigned = assigned,
-      wrongRefIds = wrongRefIds.toSet,
+      wrongRefIds = wrongRefIds.map(_.refId).toSet,
       lcaAssigned = lcaAssigned,
       lineAssigned = lineAssigned,
       bbhAssigned = bbhAssigned

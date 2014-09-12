@@ -142,20 +142,16 @@ object Assigner  extends Properties("Assigner") {
     val testSample = "test"
     val chunkId = ChunkId(SampleId(testSample), 1, 1000)
 
-    val (assignments, stats0) = assigner.assignLCA(
-      logger = logger,
-      chunk = chunkId,
-      reads = reads,
-      hits = hits
-    )
+
+    val (assignments, wrongRefId) = new LCAAlgorithm(assignmentConfiguration).assignAll(randomTaxonomyTree, hits, reads, assigner.getTaxIds, logger)
 
     val (table, stats) = assigner.prepareAssignedResults(
       logger = logger,
       chunk = chunkId,
       assignmentType = LCA,
       reads = reads,
-      assignment = assignments,
-      initialReadsStats = stats0
+      assignments = assignments,
+      wrongRefId = wrongRefId
     )
 
     val oneLineAssignments = assignments.flatMap {
@@ -168,21 +164,31 @@ object Assigner  extends Properties("Assigner") {
       case _ => None
     }
 
-    val bestScores = AssignerAlgorithms.bestScores(hits)
+   // val bestScores = AssignerAlgorithms.bestScores(hits)
 
     (oneLineAssignments.size == stats.lineAssigned) :| "one line amount check" &&
     (lcaAssignments.size == stats.lcaAssigned) :| "one line amount check" &&
     oneLineAssignments.forall { case (read, assignment) =>
       val readHits: List[Hit]  = hits.filter(_.readId.equals(read))
-      val filteredHits = readHits.filter { hit => AssignerAlgorithms.filterHit(hit, bestScores, assignmentConfiguration, logger)}
-      val taxaSet = assigner.getTaxIds(filteredHits, logger)._1.map(_._2).toSet
+      val maxScore = readHits.map(_.score).max
+      val filteredHits = readHits.filter { hit =>
+        hit.score >= assignmentConfiguration.bitscoreThreshold &&
+        hit.score >= assignmentConfiguration.p * maxScore
+      }
+      val hitsTaxa = assigner.getTaxIds(filteredHits, logger)
+      val taxaSet = hitsTaxa._1.map(_._2).toSet
       //check that all tax in lineage of most specific
       TreeUtils.getLineage(randomTaxonomyTree, assignment.taxon).takeRight(taxaSet.size).toSet.equals(taxaSet)
     }  :| "check one line assignments" &&
     lcaAssignments.forall { case (read, assignment) =>
       val readHits: List[Hit]  = hits.filter(_.readId.equals(read))
-      val filteredHits = readHits.filter { hit => AssignerAlgorithms.filterHit(hit, bestScores, assignmentConfiguration, logger)}
-      val taxaSet = assigner.getTaxIds(filteredHits, logger)._1.map(_._2).toSet
+      val maxScore = readHits.map(_.score).max
+      val filteredHits = readHits.filter { hit =>
+        hit.score >= assignmentConfiguration.bitscoreThreshold &&
+          hit.score >= assignmentConfiguration.p * maxScore
+      }
+      val hitsTaxa = assigner.getTaxIds(filteredHits, logger)
+      val taxaSet = hitsTaxa._1.map(_._2).toSet
       TreeUtils.lca(randomTaxonomyTree, taxaSet).equals(assignment.taxon)
     }  :| "check lca assignments"
 

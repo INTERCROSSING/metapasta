@@ -136,7 +136,8 @@ class AssignerTests {
       Hit(ReadId("read10"), refId(fakeTaxonomiTree.root), 100)
     )
 
-    val (lcaAssignments, lcaStats) = assigner.assignLCA(logger, chunkId, reads, lcaHits)
+
+    val (lcaAssignments, lcaStats) = new LCAAlgorithm(assignmentConfiguration).assignAll(fakeTaxonomiTree, hits, reads, assigner.getTaxIds, logger)
 
     import org.hamcrest.CoreMatchers.instanceOf
 
