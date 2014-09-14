@@ -192,5 +192,8 @@ object Assigner  extends Properties("Assigner") {
       TreeUtils.lca(randomTaxonomyTree, taxaSet).equals(assignment.taxon)
     }  :| "check lca assignments"
 
+    //todo test not assigned
+    //todo small test + groups
+
   }
 }

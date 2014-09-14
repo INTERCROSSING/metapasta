@@ -60,6 +60,12 @@ object Generators {
     v2 <- gen2
   } yield (v1, v2)
 
+  def genTriple[T, S, U](gen1: Gen[T], gen2: Gen[S], gen3: Gen[U]): Gen[(T, S, U)] = for {
+    v1 <- gen1
+    v2 <- gen2
+    v3 <- gen3
+  } yield (v1, v2, v3)
+
 
   val random = new Random()
 
@@ -122,6 +128,10 @@ object Generators {
 
   def randomNodePair[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T, T)] = sizedTree.flatMap{ case (tree, size) =>
     genPair(Gen.choose(1, size), Gen.choose(1, size)).map { case (num1, num2) => (tree, labeling(num1), labeling(num2))}
+  }
+
+  def randomNodeTriple[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T, T, T)] = sizedTree.flatMap{ case (tree, size) =>
+    genTriple(Gen.choose(1, size), Gen.choose(1, size), Gen.choose(1, size)).map { case (num1, num2, num3) => (tree, labeling(num1), labeling(num2), labeling(num3))}
   }
 
   def randomNodeSetAux[T](tree: Tree[T], size: Int, labeling: Int => T): Gen[Set[T]] = {
