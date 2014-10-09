@@ -43,7 +43,8 @@ So we need for each sample the following outcomes:
 - An alert message if the law above is not true (something went wrong)
 
 
-The number of reads in each set are in the output file with sufix **stats**
+
+The number of reads in each subset are in the output file with sufix **stats**
 
 
 
