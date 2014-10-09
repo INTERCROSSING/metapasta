@@ -4,7 +4,7 @@
 
 In the Metapasta tool **all the reads** follow this process: 
 
-![metapasta-reads-fate](./Metapasta_reads_fate_V2.fw)
+![metapasta-reads-fate](/Metapasta_reads_fate_V2.fw.png)
 
 Given we work with huge amount of reads in this kind of projects, it is extremely important to track the reads fate in an easy way.
 We need to know to which point each read got in the process above. 
