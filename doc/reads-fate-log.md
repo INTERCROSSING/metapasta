@@ -14,10 +14,7 @@ To track this we could classify the reads in these mutually exclusive categories
 1. **notMerged**: Reads that were not merged after FLASh step
 2. **noHit**: Reads that were merged in the FLASH step but did not have any hit in the database
 3. **notAssigned**: Reads that were merged in the FLASh step, had a hit in the database but this hit (with its corresponding GI) was not assigned to any Taxon ID. This could be due to the lack of correspondence between GI - NCBI taxonomy IDs.
-   - **notAssigned** (in LCA assignment mode) It includes the reads with a bitscore under the required threshold in the LCA method.
-   - 
-![See file about LCA method](./LCA-MEGAN-like-taxonomy-node-assignment-algorithm.md)
-
+   - **notAssigned** (in LCA assignment mode) It includes the reads with a bitscore under the required threshold in the LCA method.![See file about LCA method](https://github.com/ohnosequences/metapasta/tree/master/doc)
    - **wrongRefIds** (the GI is not included in the table with the GI to TaxID mapping)
    - **noTaxId** (the TaxID to which mapped the GI is not included in the taxonomy tree)
                
