@@ -15,11 +15,11 @@ SBT version > 0.13 should be installed: http://www.scala-sbt.org/
 
 nisperoCLI tries to resolve credentials from:
 
-* file `~/nispero.credentials` (path to credentials file can be specified as the last argument to nisperoCLI)
+* file `~/metapasta.credentials` (path to credentials file can be specified as the last argument to nisperoCLI)
 * enviroment variables `AWS_ACCESS_KEY` and `AWS_SECRET_ACCESS_KEY`
 * instance profile credentials (so it means that everything will work automatically on instances with right IAM role)
 
-To configure your `~/nispero.credentials` just put these lines there
+To configure your `~/metapasta.credentials` just put these lines there
 
 ```bash
 accessKey = <access_key>
@@ -50,19 +50,19 @@ nispero create ohnosequences/metapasta.g8
 After downloading the template, all metapasta parameters can be installed.
 
 #### samples
-Reads should be either single or paired ended with intersection. Example for mock community:
+Reads should be either single or paired ended with intersection. Example for an mock community:
 
 ```scala
 object mockSamples {
   val testBucket = "metapasta-test"
 
-  val ss1 = "SRR172902"
+  val ss1 = "supermock3"
   val s1 = PairedSample(ss1, ObjectAddress(testBucket, "mock/" + ss1 + ".fastq"), ObjectAddress(testBucket, "mock/" + ss1 + ".fastq"))
 
-  val ss2 = "SRR172903"
-  val s2 = PairedSample(ss2, ObjectAddress(testBucket, "mock/" + ss2 + ".fastq"), ObjectAddress(testBucket, "mock/" + ss2 + ".fastq"))
-
-  val samples = List(s1, s2)
+  val samples = List(s1)
+  
+  val t1 = SampleTag("t1")
+  val tagging = Map(s1 -> List(t1))
 }
 ```
 
@@ -72,10 +72,10 @@ object mockSamples {
 Configuration depends on mapping tool (BLAST or LAST). Some useful parameters:
 
 ##### mappingWorkers  
-configuration of auto scaling group with mapping workers. It is recommended to use `T1Micro` for BLAST and `M1Large` for LAST. In general BLAST performs mapping quite slow, so for it you will need hundred of mapping workers. Example:
+configuration of auto scaling group with mapping workers. It is recommended to use `c1_medium` for BLAST and `m1_large` for LAST. In general BLAST performs mapping quite slow, so for it you will need hundred of mapping workers. Example:
 
 ```scala
-mappingWorkers = Group(size = 200, max = 200, instanceType = InstanceType.T1Micro, purchaseModel = SpotAuto)
+mappingWorkers = Group(size = 1, max = 100, instanceType = InstanceType.c1_medium, purchaseModel = SpotAuto)
 ```
 
 LAST requires not so a lot instances but they should have at least 3GB RAM (for nt.16S database).
