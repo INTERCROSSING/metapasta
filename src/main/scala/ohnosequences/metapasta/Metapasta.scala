@@ -11,7 +11,7 @@ import java.io.File
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
 
 
-  override val credentialsFile = new File(System.getProperty("user.home"), "metapasta.credentials")
+  override val aws = new AWS(new File(System.getProperty("user.home"), "metapasta.credentials"))
 
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
     managerGroupConfiguration = configuration.managerGroupConfiguration,
@@ -64,7 +64,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     outputQueue = ProductQueue(readsStats, mergedSampleChunks),
     instructions = new FlashInstructions(
       aws, configuration.chunksSize, ObjectAddress(nisperonConfiguration.bucket, "reads"),
-    configuration.chunksThreshold),
+    configuration.chunksThreshold, configuration.flashTemplate),
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flash")
   )
 
@@ -236,15 +236,16 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   }
 
 
-  def checkTasks(): Boolean = {
+  override def checkTasks(verbose: Boolean): Boolean = {
     var res = true
     logger.info("checking samples")
     configuration.samples.foreach {
       sample =>
 
         try {
-        //  println("aws.s3.objectExists(sample.fastq1)")
-          aws.s3.objectExists(sample.fastq1)
+          val t = aws.s3.objectExists(sample.fastq1)
+          res = res && t
+          if (verbose) println("aws.s3.objectExists(" + sample.fastq1 + ") = " + t)
         } catch {
           case t: Throwable => {
             res = false
@@ -254,7 +255,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
         }
 
         try {
-          aws.s3.objectExists(sample.fastq2)
+          val t = aws.s3.objectExists(sample.fastq2)
+          res = res && t
+          if (verbose) println("aws.s3.objectExists(" + sample.fastq2 + ") = " + t)
         } catch {
           case t: Throwable => {
             res = false
@@ -270,7 +273,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     //logger.info("creating bucket " + bucket)
     aws.s3.createBucket(nisperonConfiguration.bucket)
 
-    if (checkTasks()) {
+    if (checkTasks(false)) {
       pairedSamples.initWrite()
       val t1 = System.currentTimeMillis()
       configuration.samples.foreach {

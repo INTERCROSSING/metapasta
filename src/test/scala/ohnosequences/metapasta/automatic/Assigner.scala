@@ -105,7 +105,7 @@ object Assigner  extends Properties("Assigner") {
   }
 
 
-  property("assign deep tests") = forAll (boundedTree(stringLabeling, 1000).flatMap { case (tree, treeSize) =>
+  property("assign deep tests") = forAll (boundedTree(stringLabeling, 100).flatMap { case (tree, treeSize) =>
     val gropedHits = Gen.choose(1, 100).flatMap(groupedHits(_, treeSize, stringLabeling))
     gropedHits.map { hits => (tree, treeSize, hits)}
   }) { case (tree, treeSize, gropedHits) =>

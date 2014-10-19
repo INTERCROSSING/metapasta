@@ -141,7 +141,10 @@ class Reporter(aws: AWS,
         case Some(rr) => logger.info("generating for " + rr + " kind")
       }
 
-      val items: Iterable[FileType.Item] =  prepareMapping(table, r) += assignedToOtherLevelItem
+      val items: Iterable[FileType.Item] = r match {
+        case None => prepareMapping(table, r)
+        case Some(rr) => prepareMapping(table, r) += assignedToOtherLevelItem
+      }
 
       for (fType <- fileTypes) {
         val csvPrinter = new CSVExecutor[FileType.Item](fType.attributes(stats), items)
@@ -163,7 +166,7 @@ class Reporter(aws: AWS,
       val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
       TaxonInfo(node.getScientificName(), node.getRank())
     } catch {
-      case t: Throwable => t.printStackTrace(); TaxonInfo("na", "na")
+      case t: Throwable => t.printStackTrace(); TaxonInfo("", "")
     }
   }
 
@@ -182,7 +185,8 @@ class Reporter(aws: AWS,
         val taxonInfoInfo = getTaxInfo(taxon)
 
         val filter = rank match {
-          case None => false
+          case None if taxon.equals(FileType.assignedOnOtherKind) => true
+          case None if !taxon.equals(FileType.assignedOnOtherKind) => false
           case Some(rk) if rk.toString.equals(taxonInfoInfo.rank) => false
           case Some(rk) if taxon.equals(NotAssignedCat.taxon) => false
           case Some(rk) if taxon.equals(NoHit.taxon) => false

@@ -3,9 +3,7 @@ package ohnosequences.metapasta.automatic
 import org.scalacheck.{Gen, Arbitrary, Properties}
 import org.scalacheck.Prop._
 import ohnosequences.metapasta.{Tree, TreeUtils, MapTree}
-import scala.collection.mutable
-import scala.annotation.tailrec
-import scala.util.Random
+
 
 
 

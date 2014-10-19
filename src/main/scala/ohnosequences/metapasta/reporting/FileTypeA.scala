@@ -110,13 +110,13 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
         res += sd1
         val sd2 = SampleDirect2(sample, assignmentType, sd1, totalMerged)
         res += sd2
-        res += Normalize(sd2, totalMerged, sample.id + "." + assignmentType + ".direct.percentage")
+        res += Normalize(sd2, totalMerged, sample.id + "." + assignmentType + ".direct.percentage", percentage = true)
 
         val sc1 = SampleCumulative1(sample, assignmentType)
         res += sc1
         val sc2 = SampleCumulative2(sample, assignmentType, sc1, totalMerged)
         res += sc2
-        res += Normalize(sc2, totalMerged, sample.id + "." + assignmentType + ".cumulative.percentage")
+        res += Normalize(sc2, totalMerged, sample.id + "." + assignmentType + ".cumulative.percentage", percentage = true)
       }
     }
     res.toList
@@ -200,7 +200,7 @@ case class FileTypeC(project: ProjectGroup) extends FileType {
       for (assignmentType <- List(BBH, LCA)) {
         val sd = SampleDirect(sample, assignmentType)
         res += sd
-        res += Normalize(sd, totalMerged, sample.id + "." + assignmentType + ".direct.percentage")
+        res += Normalize(sd, totalMerged, sample.id + "." + assignmentType + ".direct.percentage", percentage = true)
       }
     }
     res.toList
@@ -256,13 +256,13 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
       for (assignmentType <- List(BBH, LCA)) {
         val sd = SampleDirect(sample, assignmentType)
         res += sd
-        val rd = Normalize(sd, totalMerged, sample.id + "." + assignmentType + ".direct.percentage")
+        val rd = Normalize(sd, totalMerged, sample.id + "." + assignmentType + ".direct.percentage", percentage = true)
         res += rd
         relDirect += ((assignmentType, rd))
 
         val sc = SampleCumulative(sample, assignmentType)
         res += sc
-        val rc = Normalize(sc, totalMerged, sample.id + "." + assignmentType + ".cumulative.percentage")
+        val rc = Normalize(sc, totalMerged, sample.id + "." + assignmentType + ".cumulative.percentage", percentage = true)
         res += rc
         relCumulative += ((assignmentType, rc))
       }

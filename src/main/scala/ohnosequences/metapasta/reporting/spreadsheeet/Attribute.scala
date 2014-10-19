@@ -93,7 +93,7 @@ case class Freq[I](a: LongAttribute[I]) extends DoubleAttribute[I](a.name + ".fr
   }
 }
 
-case class  Normalize[I](a: LongAttribute[I], d: LongAttribute[I], oname: String) extends DoubleAttribute[I](oname, doubleMonoid) {
+case class  Normalize[I](a: LongAttribute[I], d: LongAttribute[I], oname: String, percentage: Boolean, override val hidden: Boolean = false) extends DoubleAttribute[I](oname, doubleMonoid, hidden) {
   override def execute(item: Item, index: Int, context: Context) = {
     if(context.getTotal(d) == 0 ) {
       if (context.get(a, index) == 0) {
@@ -103,12 +103,13 @@ case class  Normalize[I](a: LongAttribute[I], d: LongAttribute[I], oname: String
         0D
       }
     } else {
-      (context.get(a, index).toDouble / context.getTotal(d)) * 100
+      val r = (context.get(a, index).toDouble / context.getTotal(d))
+      if (percentage) r * 100 else r
     }
   }
 }
 
-case class Sum[I](a: List[LongAttribute[I]]) extends LongAttribute[I](a.map(_.name).reduce { _ + "+" + _}, longMonoid) {
+case class Sum[I](a: List[LongAttribute[I]], override val hidden: Boolean = false) extends LongAttribute[I](a.map(_.name).reduce { _ + "+" + _}, longMonoid, hidden) {
   override def execute(item: Item, index: Int, context: Context) = {
     a.map {context.get(_, index)}.reduce{_ + _}
   }
@@ -116,7 +117,7 @@ case class Sum[I](a: List[LongAttribute[I]]) extends LongAttribute[I](a.map(_.na
 
 
 
-case class Average[I](a: List[DoubleAttribute[I]]) extends DoubleAttribute[I]("mean(" + a.map(_.name).reduce { _ + "," + _} + ")", doubleMonoid) {
+case class Average[I](a: List[DoubleAttribute[I]], override val hidden: Boolean = false, override val monoid: Monoid[Double] = doubleMonoid) extends DoubleAttribute[I]("mean(" + a.map(_.name).reduce { _ + "," + _} + ")", monoid, hidden) {
   override def execute(item: Item, index: Int, context: Context) = {
     (a.map {
       context.get(_, index)
@@ -159,8 +160,7 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
     val context = new ListContext(attributes)
 
 
-
-    println("executing")
+   // println("executing")
     for (attribute <- attributes) {
       var index = 0
       for (item <- items) {
@@ -175,17 +175,22 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
     val lines = new mutable.StringBuilder()
 
     var index = 0
+
     val line = new mutable.StringBuilder()
 
-    for (attribute <- attributes if !attribute.hidden) {
-      if(!line.isEmpty) {
-        line.append(separator)
-      }
-      line.append(quote(attribute.name))
-    }
+    if(headers) {
 
-    lines.append(line.toString() + System.lineSeparator())
-    line.clear()
+
+      for (attribute <- attributes if !attribute.hidden) {
+        if (!line.isEmpty) {
+          line.append(separator)
+        }
+        line.append(quote(attribute.name))
+      }
+
+      lines.append(line.toString() + System.lineSeparator())
+      line.clear()
+    }
     for (item <- items) {
 
       for (attribute <- attributes if !attribute.hidden) {

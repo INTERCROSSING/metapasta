@@ -189,7 +189,7 @@ class Assigner(taxonomyTree: Tree[Taxon],
         assignments.get(readId) match {
           case None => {
             //nohit
-            fastasWriter.foreach(_.writeNoHit(fastq, readId))
+            fastasWriter.foreach(_.writeNoHit(fastq, readId, chunk.sample))
             logger.info(readId + " -> " + "no hits")
             readsStatsBuilder.incrementByCategory(NoHit)
           }

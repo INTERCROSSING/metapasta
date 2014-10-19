@@ -8,10 +8,10 @@ organization := "ohnosequences"
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.0" % "test"
 
-testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-maxSize", "40", "-minSuccessfulTests", "100", "-workers", "1", "-verbosity", "1")
+testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-maxSize", "40", "-minSuccessfulTests", "10", "-workers", "1", "-verbosity", "1")
 
 libraryDependencies ++= Seq(
-  "ohnosequences" % "compota_2.10" % "0.9.10-SNAPSHOT",
+  "ohnosequences" % "compota_2.10" % "0.9.12-SNAPSHOT",
   "com.novocode" % "junit-interface" % "0.10" % "test",
   "ohnosequences" % "bio4j-ncbi-taxonomy_2.10" % "0.1.0"  classifier("")
 )
@@ -22,7 +22,7 @@ resolvers +=  Resolver.url("era7" + " public ivy releases",  url("http://release
 
 resolvers +=  Resolver.url("era7" + " public ivy snapshots",  url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
 
-dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.7.1-SNAPSHOT"
+dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.8.1-SNAPSHOT"
 
 dependencyOverrides += "ohnosequences" % "aws-statika_2.10" % "1.0.1"
 
