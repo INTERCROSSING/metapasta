@@ -14,14 +14,22 @@ object Utils {
   }
 
   def parseInt(s: String, default: Int = 0) = try {
-    s.toInt
+    if (s == null) {
+      default
+    } else {
+      s.toInt
+    }
   } catch {
-    case t: Throwable => default
+    case t: NumberFormatException => default
   }
 
   def parseDouble(s: String, default: Double = 0D) = try {
-    s.toDouble
+    if (s == null) {
+      default
+    } else {
+      s.toDouble
+    }
   } catch {
-    case t: Throwable => default
+    case t: NumberFormatException => default
   }
 }

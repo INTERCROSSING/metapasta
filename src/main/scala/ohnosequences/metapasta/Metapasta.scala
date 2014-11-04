@@ -230,38 +230,18 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
       }
       case _ =>  undeployActions(false)
     }
-
   }
 
 
   def checkTasks(): Boolean = {
     var res = true
     logger.info("checking samples")
-    configuration.samples.foreach {
-      sample =>
-
-        try {
-        //  println("aws.s3.objectExists(sample.fastq1)")
-          aws.s3.objectExists(sample.fastq1)
-        } catch {
-          case t: Throwable => {
-            res = false
-            logger.error("check sample " + sample.fastq1)
-            t.printStackTrace()
-          }
-        }
-
-        try {
-          aws.s3.objectExists(sample.fastq2)
-        } catch {
-          case t: Throwable => {
-            res = false
-            logger.error("check sample " + sample.fastq2)
-            t.printStackTrace()
-          }
-        }
+    configuration.samples.forall { sample =>
+      aws.s3.objectExists(sample.fastq1, Some(logger))
     }
-    res
+    configuration.samples.forall { sample =>
+      aws.s3.objectExists(sample.fastq2, Some(logger))
+    }
   }
 
   def addTasks() {

@@ -8,7 +8,7 @@ organization := "ohnosequences"
 
 
 libraryDependencies ++= Seq(
-  "ohnosequences" % "compota_2.10" % "0.9.9-SNAPSHOT",
+  "ohnosequences" % "compota_2.10" % "0.9.13-SNAPSHOT",
   "com.novocode" % "junit-interface" % "0.10" % "test",
   "ohnosequences" % "bio4j-ncbi-taxonomy_2.10" % "0.1.0"  classifier("")
 )
@@ -19,7 +19,7 @@ resolvers +=  Resolver.url("era7" + " public ivy releases",  url("http://release
 
 resolvers +=  Resolver.url("era7" + " public ivy snapshots",  url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
 
-dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.7.1-SNAPSHOT"
+dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.9.0-SNAPSHOT"
 
 dependencyOverrides += "ohnosequences" % "aws-statika_2.10" % "1.0.1"
 
