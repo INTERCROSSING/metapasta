@@ -39,6 +39,7 @@ trait  MetapastaConfiguration {
    val generateDot: Boolean
    val assignmentConfiguration: AssignmentConfiguration
    val defaultInstanceSpecs: InstanceSpecs
+   val flashTemplate: String
 }
 
 
@@ -68,7 +69,8 @@ case class BlastConfiguration(
                                assignmentConfiguration: AssignmentConfiguration = AssignmentConfiguration(400, 0.8),
                                managerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.t1_micro, SpotAuto),
                                metamanagerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.m1_medium, SpotAuto),
-                               defaultInstanceSpecs: InstanceSpecs = NisperonConfiguration.defaultInstanceSpecs
+                               defaultInstanceSpecs: InstanceSpecs = NisperonConfiguration.defaultInstanceSpecs,
+                               flashTemplate: String = "flash 1.fastq 2.fastq"
                                ) extends MetapastaConfiguration {
 }
 
@@ -94,7 +96,8 @@ case class LastConfiguration(
                                assignmentConfiguration: AssignmentConfiguration,
                                managerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.t1_micro, SpotAuto),
                                metamanagerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.m1_medium, SpotAuto),
-                               defaultInstanceSpecs: InstanceSpecs = NisperonConfiguration.defaultInstanceSpecs
+                               defaultInstanceSpecs: InstanceSpecs = NisperonConfiguration.defaultInstanceSpecs,
+                               flashTemplate: String = "flash 1.fastq 2.fastq"
                               ) extends MetapastaConfiguration {
 }
 

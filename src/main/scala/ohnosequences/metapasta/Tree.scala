@@ -1,8 +1,18 @@
 package ohnosequences.metapasta
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ListBuffer
-import ohnosequences.nisperon.logging.{Logger, S3Logger}
+
+
+object Tree {
+  def relabel[T, S](tree: Tree[T], f: T => S, g: S => T): Tree[S] = new Tree[S] {
+
+    override def getParent(node: S): Option[S] = tree.getParent(g(node)).map(f)
+
+    override def isNode(node: S): Boolean = tree.isNode(g(node))
+
+    override val root: S = f(tree.root)
+  }
+}
 
 /**
  * a layer for bio4j taxonomy tree
@@ -20,6 +30,8 @@ class MapTree[N](val map: Map[N, N], val root: N) extends Tree[N] {
   override def isNode(node: N): Boolean = {
     root.equals(node) || map.contains(node)
   }
+
+  override def toString: String = map.toString() + "|" + root
 }
 
 case class Taxon(taxId: String)
@@ -55,29 +67,30 @@ class Bio4JTaxonomyTree(nodeRetriever: NodeRetriever) extends Tree[Taxon] {
 
 object TreeUtils {
 
-  //@tailrec
-  //def getParents2[N](tree: Tree[N], res: ListBuffer[N], node: N): List
-  //how to do it with tail rec?
 
   @tailrec
-  def getLineage[N](tree: Tree[N], node: N, acc: List[N] = List[N]()): List[N] = {
+  def getLineageAux[N](tree: Tree[N], node: N, acc: List[N] = List[N]()): List[N] = {
     tree.getParent(node) match {
       case None => node :: acc
-      case Some(p) => getLineage(tree, p, node :: acc)
+      case Some(p) => getLineageAux(tree, p, node :: acc)
     }
   }
+
+  def getLineage[N](tree: Tree[N], node: N): List[N] = getLineageAux(tree, node)
 
   @tailrec
-  def getLineageExclusive[N](tree: Tree[N], node: N, acc: List[N] = List[N]()): List[N] = {
+  def getLineageExclusiveAux[N](tree: Tree[N], node: N, acc: List[N] = List[N]()): List[N] = {
     tree.getParent(node) match {
       case None => acc
-      case Some(p) => getLineageExclusive(tree, p, p :: acc)
+      case Some(p) => getLineageExclusiveAux(tree, p, p :: acc)
     }
   }
 
+  def getLineageExclusive[N](tree: Tree[N], node: N): List[N] = getLineageExclusiveAux(tree, node)
 
 
-  /** Tests if the set of nodes form a line in the tree    *
+
+  /** Tests if the set of nodes form a line in the tree
     *  @return ``Some(node)` if there they are, node is most specific node `None` otherwise.
     */
   def isInLine[N](tree: Tree[N], nodes: Set[N]): Option[N] = {
@@ -96,13 +109,31 @@ object TreeUtils {
       }
 
       //first taxIds.size elements should be taxIds
-      if (maxLineage.takeRight(nodes.size).forall(nodes.contains)) {
+      val maxLineageTail = maxLineage.takeRight(nodes.size)
+      if (maxLineageTail.size.equals(nodes.size) && maxLineageTail.forall(nodes.contains)) {
+       // println("maxlin: " + maxLineageTail + "nodes: " + nodes)
         maxLineage.lastOption
       } else {
         None
       }
     }
   }
+
+//  todo: linear algorithm, with map and stacks
+//  def isInLine[N](tree: Tree[N], nodes: Seq[N]): Option[N] = {
+//    val distances = new mutable.HashMap[N, Int]()
+//
+//
+//    nodes.find { node =>
+//      var curent = node
+//      val visited = new mutable.Stack[N]()
+//
+//      whi
+//
+//      true
+//    }
+//  }
+
 
   def lca[N](tree: Tree[N], n1: N, n2: N): N = {
     if (n1.equals(n2)) {
@@ -120,12 +151,14 @@ object TreeUtils {
     }
   }
 
-  def lca[N](tree: Tree[N], nodes: List[N]): N = nodes match {
+  def lcaAux[N](tree: Tree[N], nodes: List[N]): N = nodes match {
     case Nil => tree.root
     case h :: t => t.foldLeft(h) {
       case (nn1, nn2) => val r = lca(tree, nn1, nn2); r
     }
   }
+
+  def lca[N](tree: Tree[N], nodes: Set[N]): N = lcaAux(tree, nodes.toList)
 }
 
 

@@ -49,9 +49,9 @@ class TreeTests {
     ), "1")
 
     assertEquals("3", TreeUtils.lca(tree, "4", "4l"))
-    assertEquals("3", TreeUtils.lca(tree, List("4", "4l", "5")))
-    assertEquals("1", TreeUtils.lca(tree, List()))
-    assertEquals("2l", TreeUtils.lca(tree, List("2l")))
+    assertEquals("3", TreeUtils.lca(tree, Set("4", "4l", "5")))
+    assertEquals("1", TreeUtils.lca(tree, Set[String]()))
+    assertEquals("2l", TreeUtils.lca(tree, Set("2l")))
 
 
   }

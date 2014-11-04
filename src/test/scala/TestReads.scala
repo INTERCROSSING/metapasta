@@ -10,7 +10,7 @@ import ohnosequences.nisperon.AWS
 // This can be reused in other tests, not only for the parser
 case object TestReads {
 
-  val aws = new AWS()
+  val aws = new AWS(new File(System.getProperty("user.home"), "nispero.credentials"))
   val s3 = aws.s3
   val file = ObjectAddress("metapasta-test", "microtest2.fastq")
 

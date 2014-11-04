@@ -17,12 +17,12 @@ class FlashInstructions(
                          aws: AWS,
                          chunkSize: Int = 2000000,
                          readsDirectory: ObjectAddress,
-                         chunksThreshold: Option[Int]
+                         chunksThreshold: Option[Int],
+                         flashTemplate: String
                          ) extends Instructions[List[PairedSample], (Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] {
 
   import scala.sys.process._
 
-  val logger = Logger(this.getClass)
 
   val lm = aws.s3.createLoadingManager()
 
@@ -52,7 +52,7 @@ class FlashInstructions(
   }
 
   //(String, String), ReadsStats] (sample,assignmentType) -> readsStat
-  def solve(input: List[PairedSample], s3logger: S3Logger, context: Context): List[(Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] = {
+  def solve(input: List[PairedSample], logger: S3Logger, context: Context): List[(Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] = {
     import sys.process._
 
     val sample = input.head
@@ -98,7 +98,7 @@ class FlashInstructions(
       if(sample.fastq1.key.endsWith(".gz")) {
         lm.download(sample.fastq1, new File("1.fastq.gz"))
         logger.info("extracting")
-        "gunzip 1.fastq.gz".!
+        "gunzip -f 1.fastq.gz".!
       } else {
         lm.download(sample.fastq1, new File("1.fastq"))
       }
@@ -106,14 +106,16 @@ class FlashInstructions(
       if(sample.fastq2.key.endsWith(".gz")) {
         lm.download(sample.fastq2, new File("2.fastq.gz"))
         logger.info("extracting")
-        "gunzip 2.fastq.gz".!
+        "gunzip -f 2.fastq.gz".!
       } else {
         lm.download(sample.fastq2, new File("2.fastq"))
       }
 
 
-      logger.info("executing FLASh")
-      val flashOut = "flash 1.fastq 2.fastq".!!
+      //"flash 1.fastq 2.fastq"
+      val flashCommand = flashTemplate
+      logger.info("executing FLASh " + flashCommand)
+      val flashOut = flashCommand.!!
 
       //[FLASH] Read combination statistics:
       //[FLASH]     Total reads:      334434

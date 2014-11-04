@@ -6,6 +6,9 @@ description := "metapasta project"
 
 organization := "ohnosequences"
 
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.0" % "test"
+
+testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-maxSize", "40", "-minSuccessfulTests", "10", "-workers", "1", "-verbosity", "1")
 
 libraryDependencies ++= Seq(
   "ohnosequences" % "compota_2.10" % "0.9.13-SNAPSHOT",
@@ -18,6 +21,7 @@ resolvers += Resolver.url("Statika public ivy releases", url("http://releases.st
 resolvers +=  Resolver.url("era7" + " public ivy releases",  url("http://releases.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
 
 resolvers +=  Resolver.url("era7" + " public ivy snapshots",  url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+
 
 dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.9.0-SNAPSHOT"
 
