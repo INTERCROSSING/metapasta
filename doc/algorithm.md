@@ -105,12 +105,12 @@ Reads stats. For each sample and assignment algorithm:
 
 #### Step description
 
-1. Grouping all hits by read id
-2. Retrieving taxa identifiers from reference identifiers in 16S. If no taxon corresponded to the reference from 16S found, the read assigned to TaxIdAssignment
-3. Running LCA and BBH assigning algorithms (see bellow) for each read id and list hits together with taxa
-4. Final counts:
-Each reads that have been assigned to a taxon contributes (value 1) to direct frequency of that taxon in the sample, 
-and accumulative frequency of all ancestors of that taxon. 
+
+1. Grouping all hits by their read id
+2. Retrieving taxon identifiers from the reference identifiers in 16S database. Assigning the read to `TaxIdAssignment` in case if corresponded taxon identifiers are nor found for all hits.
+3. Running LCA and BBH assigning algorithms (see bellow) for each read and its hits together with retrieved taxon identifiers.
+4. Counting for each assignment algorithm (LCA, BBH) and each taxon: *direct frequency* -- amount of reads that have been assigned to the taxon; *accumulative frequency* -- amount of reads that have been assigned to the taxon or its descendant taxa. 
+
 
 
 ### LCA assignment
