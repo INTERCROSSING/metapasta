@@ -1,11 +1,16 @@
 package ohnosequences.metapasta
 
-import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
-import ohnosequences.nisperon.{NisperonConfiguration, SingleGroup, GroupConfiguration, Group}
 import ohnosequences.awstools.ec2.{InstanceSpecs, InstanceType}
 import ohnosequences.awstools.autoscaling.{SpotAuto, OnDemand}
+import ohnosequences.awstools.s3.{S3, ObjectAddress, LoadingManager}
+import ohnosequences.compota.aws.GroupConfiguration
+import ohnosequences.formats.{RawHeader, FASTQ}
+import ohnosequences.logging.Logger
 import ohnosequences.metapasta.databases._
+import ohnosequences.metapasta.instructions.MappingTool
 import ohnosequences.metapasta.reporting.{SampleTag}
+
+import scala.util.Try
 
 
 //todo extract mapping configuration
@@ -40,6 +45,33 @@ trait  MetapastaConfiguration {
    val assignmentConfiguration: AssignmentConfiguration
    val defaultInstanceSpecs: InstanceSpecs
    val flashTemplate: String
+
+
+
+  def loadingManager(logger: Logger): Try[LoadingManager]
+
+  type DatabaseReferenceId = GI
+
+  type Database = BlastDatabase16S[DatabaseReferenceId]
+
+
+  def mappingTool(logger: Logger, loadingManager: LoadingManager): Try[MappingTool[DatabaseReferenceId, Database]]
+
+
+  def mappingDatabase(logger: Logger, loadingManager: LoadingManager): Try[Database]
+
+  def taxonRetriever(logger: Logger, loadingManager: LoadingManager): Try[TaxonRetriever[DatabaseReferenceId]]
+
+  def bio4j(logger: Logger, loadingManager: LoadingManager): Try[Bio4j]
+
+  def taxonomyTree(logger: Logger, loadingManager: LoadingManager, bio4j: Bio4j): Try[Tree[Taxon]]
+
+  def extractReadHeader(header: String): String
+
+  def readDirectory: ObjectAddress
+
+  def chunksReader(s3: S3, chunk: MergedSampleChunk): List[FASTQ[RawHeader]]
+
 }
 
 

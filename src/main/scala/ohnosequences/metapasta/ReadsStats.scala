@@ -1,5 +1,6 @@
 package ohnosequences.metapasta
 
+import ohnosequences.compota.monoid.{Monoid, MapMonoid}
 import ohnosequences.nisperon.{JsonSerializer, Serializer, Monoid}
 import scala.collection.mutable
 
@@ -127,6 +128,9 @@ object readsStatsMonoid extends Monoid[ReadsStats] {
   val _unit = ReadsStats(0, 0, 0, 0, 0, 0, 0, Set[String](), 0, 0, 0)
   override def unit: ReadsStats = _unit
 }
+
+
+object readStatMapMonoid extends MapMonoid[(String, AssignmentType), ReadsStats](readsStatsMonoid)
 
 object readsStatsSerializer extends Serializer[Map[(String, AssignmentType), ReadsStats]] {
 

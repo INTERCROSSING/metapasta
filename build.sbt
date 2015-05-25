@@ -11,29 +11,30 @@ libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.0" % "test"
 testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-maxSize", "40", "-minSuccessfulTests", "10", "-workers", "1", "-verbosity", "1")
 
 libraryDependencies ++= Seq(
-  "ohnosequences" % "compota_2.10" % "0.10.0-SNAPSHOT",
-  "com.novocode" % "junit-interface" % "0.10" % "test",
-  "ohnosequences" % "bio4j-ncbi-taxonomy_2.10" % "0.1.0"  classifier("")
+  "ohnosequences" %% "compota" % "0.10.0-SNAPSHOT",
+  "ohnosequences" % "bio4j-titandb" % "0.3.1" exclude("com.amazonaws", "aws-java-sdk"),
+  "com.novocode" % "junit-interface" % "0.10" % "test"
 )
 
-resolvers += Resolver.url("Statika public ivy releases", url("http://releases.statika.ohnosequences.com.s3.amazonaws.com/"))(ivy)
+//dependencyOverrides += "com.amazonaws" % "aws-java-sdk" % "1.9.25"
 
-resolvers +=  Resolver.url("era7" + " public ivy releases",  url("http://releases.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+dependencyOverrides += "org.apache.httpcomponents" % "httpclient" % "4.3.4"
 
-resolvers +=  Resolver.url("era7" + " public ivy snapshots",  url("http://snapshots.era7.com.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.13.0-SNAPSHOT"
 
-
-dependencyOverrides += "ohnosequences" % "aws-scala-tools_2.10" % "0.9.0-SNAPSHOT"
-
-dependencyOverrides += "ohnosequences" % "aws-statika_2.10" % "1.0.1"
-
-dependencyOverrides += "ohnosequences" % "amazon-linux-ami_2.10" % "0.14.1"
+dependencyOverrides += "commons-logging" % "commons-logging" % "1.1.3"
 
 dependencyOverrides += "commons-codec" % "commons-codec" % "1.6"
+
+dependencyOverrides += "commons-io" % "commons-io" % "2.4"
 
 dependencyOverrides += "com.fasterxml.jackson.core" % "jackson-core" % "2.1.2"
 
 dependencyOverrides += "com.fasterxml.jackson.core" % "jackson-databind" % "2.1.2"
+
+dependencyOverrides += "org.scala-lang.modules" % "scala-parser-combinators_2.11" % "1.0.2"
+
+dependencyOverrides += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.2"
 
 dependencyOverrides += "jline" % "jline" % "2.6"
 

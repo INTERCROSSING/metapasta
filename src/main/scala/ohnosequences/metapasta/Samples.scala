@@ -28,3 +28,4 @@ class S3Splitter(s3: S3, address: ObjectAddress, chunksSize: Long) {
 case class MergedSampleChunk(fastq: ObjectAddress, sample: String, range: (Long, Long)) {
   def chunkId = range._1 + "-" + sample
 }
+

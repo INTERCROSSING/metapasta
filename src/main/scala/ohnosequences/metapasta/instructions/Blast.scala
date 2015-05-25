@@ -4,7 +4,6 @@ import ohnosequences.metapasta.databases.BlastDatabase16S
 import ohnosequences.metapasta.Factory
 import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
 import java.io.File
-import org.clapper.avsl.Logger
 
 
 trait Blast {

@@ -1,11 +1,9 @@
 package ohnosequences.metapasta.instructions
 
 import ohnosequences.awstools.s3.{S3, ObjectAddress}
-import ohnosequences.nisperon.{MapMonoid, Instructions, AWS, MapInstructions}
-import org.clapper.avsl.Logger
 import java.io.File
+import ohnosequences.compota.Instructions
 import ohnosequences.formats.FASTQ
-import ohnosequences.nisperon.logging.S3Logger
 import ohnosequences.metapasta._
 import ohnosequences.metapasta.MergedSampleChunk
 import ohnosequences.metapasta.PairedSample
@@ -14,7 +12,6 @@ import ohnosequences.metapasta.ReadsStats
 
 
 class FlashInstructions(
-                         aws: AWS,
                          chunkSize: Int = 2000000,
                          readsDirectory: ObjectAddress,
                          chunksThreshold: Option[Int],

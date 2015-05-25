@@ -54,17 +54,17 @@ object ParsableHeaders {
 }
 
 /* Class which works reads S3 by chunks and parses them */
-case class S3ChunksReader(s3: S3, address: ObjectAddress) {
+case class S3ChunksReader(s3: AmazonS3, address: ObjectAddress) {
 
   /* This function reads part/chunk of an S3 object and returns it as `S3Object` */
   def s3ObjectChunk(start: Long, end: Long): S3Object = {
-    val objSize = s3.s3.getObjectMetadata(address.bucket, address.key).getContentLength
+    val objSize = s3.getObjectMetadata(address.bucket, address.key).getContentLength
     val left = List(start, end, objSize).min // real left end of range
     val right = List(start, List(end, objSize).min).max // real right end, but not further than the end of file
     val request = new GetObjectRequest(address.bucket, address.key).withRange(left, right)
     // TODO: deal somehow with `InvalidRange` exception
     // try {
-    s3.s3.getObject(request)
+    s3.getObject(request)
     // } catch {
     //   case e: com.amazonaws.AmazonServiceException
     //     if e.getErrorCode == "InvalidRange" => ???

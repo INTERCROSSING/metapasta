@@ -1,7 +1,7 @@
 package ohnosequences.metapasta
 
 import scala.collection.mutable
-import ohnosequences.metapasta.databases.{GIMapper, Database16S}
+import ohnosequences.metapasta.databases.{TaxonRetriever, ReferenceId, GIMapper, Database16S}
 import ohnosequences.formats.{RawHeader, FASTQ}
 import ohnosequences.nisperon.{AWS, MapMonoid}
 import ohnosequences.nisperon.logging.{Logger, S3Logger}
@@ -104,9 +104,9 @@ object AssignerAlgorithms {
  // def groupHits(hits: List[Hit], )
 }
 
-class Assigner(taxonomyTree: Tree[Taxon],
-               database: Database16S,
-               giMapper: GIMapper,
+class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
+               blastDatabase: Database16S[R],
+               giMapper: TaxonRetriever[R],
                assignmentConfiguration: AssignmentConfiguration,
                extractReadHeader: String => String,
                fastasWriter: Option[FastasWriter]) {

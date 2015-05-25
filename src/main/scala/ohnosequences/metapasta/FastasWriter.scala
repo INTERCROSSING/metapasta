@@ -4,7 +4,7 @@ import ohnosequences.formats.{RawHeader, FASTQ}
 import scala.collection.mutable
 import ohnosequences.nisperon.logging.{Logger, S3Logger}
 import ohnosequences.nisperon.AWS
-import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
 import ohnosequences.metapasta.reporting.SampleId
 
 
@@ -14,7 +14,7 @@ object ChunkId {
   def apply(chunk: MergedSampleChunk): ChunkId = ChunkId(SampleId(chunk.sample), chunk.range._1, chunk.range._2)
 }
 
-class FastasWriter(aws: AWS, readsDirectory: ObjectAddress, nodeRetriever: NodeRetriever) {
+class FastasWriter(loadingManager: LoadingManager, readsDirectory: ObjectAddress, bio4j: Bio4j) {
   val noHitFasta = new mutable.StringBuilder()
   val noTaxIdFasta = new mutable.StringBuilder()
   val notAssignedFasta = new mutable.StringBuilder()
@@ -71,6 +71,7 @@ class FastasWriter(aws: AWS, readsDirectory: ObjectAddress, nodeRetriever: NodeR
   }
 
   def uploadFastas(chunk: ChunkId, assignmentType: AssignmentType) {
+
     aws.s3.putWholeObject(S3Paths.noHitFasta(readsDirectory, chunk), noHitFasta.toString())
     aws.s3.putWholeObject(S3Paths.noTaxIdFasta(readsDirectory, chunk, assignmentType), noTaxIdFasta.toString())
     aws.s3.putWholeObject(S3Paths.notAssignedFasta(readsDirectory, chunk, assignmentType), notAssignedFasta.toString())
