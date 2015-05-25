@@ -3,6 +3,7 @@ package ohnosequences.metapasta.instructions
 import ohnosequences.awstools.s3.{S3, ObjectAddress}
 import java.io.File
 import ohnosequences.compota.Instructions
+import ohnosequences.compota.environment.Env
 import ohnosequences.formats.FASTQ
 import ohnosequences.metapasta._
 import ohnosequences.metapasta.MergedSampleChunk
@@ -10,24 +11,23 @@ import ohnosequences.metapasta.PairedSample
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.metapasta.ReadsStats
 
+import scala.util.Try
+
 
 class FlashInstructions(
-                         chunkSize: Int = 2000000,
-                         readsDirectory: ObjectAddress,
-                         chunksThreshold: Option[Int],
-                         flashTemplate: String
-                         ) extends Instructions[List[PairedSample], (Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] {
+                         metapastaConfiguration: MetapastaConfiguration
+                         )
+  extends Instructions[List[PairedSample], (Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] {
 
   import scala.sys.process._
 
 
-  val lm = aws.s3.createLoadingManager()
-
   override type Context = Unit
 
-  override def prepare() {
+  override def prepare(env: Env): Try[Context] =  {
 
     val flash = "flash"
+
     val flashDst = new File("/usr/bin", flash)
     lm.download(ObjectAddress("metapasta", flash), flashDst)
     flashDst.setExecutable(true)
