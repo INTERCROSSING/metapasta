@@ -28,23 +28,28 @@ class MappingInstructions(metapastaConfiguration: MetapastaConfiguration) extend
 
   override type Context = MappingContext
 
+
+
   override def prepare(env: Env): Try[MappingContext] = {
     val logger = env.logger
+    val workingDirectory = env.workingDirectory
+
     metapastaConfiguration.loadingManager(logger).flatMap { loadingManager =>
-      metapastaConfiguration.bio4j(logger, loadingManager).flatMap { bio4j =>
-        metapastaConfiguration.mappingDatabase(logger, loadingManager).flatMap { blastDatabase =>
-          metapastaConfiguration.taxonRetriever(logger, loadingManager).flatMap { taxonRetriever =>
-            metapastaConfiguration.taxonomyTree(logger, loadingManager, bio4j).flatMap { tree =>
-              metapastaConfiguration.mappingTool(logger, loadingManager).map { mappingTool =>
-                val fastasWriter = new FastasWriter(loadingManager, metapastaConfiguration.readDirectory, bio4j)
+      metapastaConfiguration.bio4j(logger, workingDirectory, loadingManager).flatMap { bio4j =>
+        metapastaConfiguration.mappingDatabase(logger, workingDirectory, loadingManager).flatMap { database =>
+          metapastaConfiguration.taxonRetriever(logger, workingDirectory, loadingManager).flatMap { taxonRetriever =>
+            metapastaConfiguration.taxonomyTree(logger, workingDirectory, loadingManager, bio4j).flatMap { tree =>
+              metapastaConfiguration.mappingTool(logger, workingDirectory, loadingManager, database).map { mappingTool =>
+                mappingTool
                 val assigner = new Assigner(
                   tree,
-                  blastDatabase,
-                  taxonRetriever, metapastaConfiguration.assignmentConfiguration,
-                  metapastaConfiguration.extractReadHeader,
-                  Some(fastasWriter)
+                  database,
+                  taxonRetriever,
+                  mappingTool.extractReadId,
+                  metapastaConfiguration.assignmentConfiguration,
+                  metapastaConfiguration.fastaWriter(loadingManager,  bio4j)
                 )
-                MappingContext(loadingManager, bio4j, blastDatabase, mappingTool, assigner)
+                MappingContext(loadingManager, bio4j, database, mappingTool, assigner)
               }
             }
           }
@@ -75,6 +80,7 @@ class MappingInstructions(metapastaConfiguration: MetapastaConfiguration) extend
 
     import context._
     val logger = env.logger
+    val workingDirectory = env.workingDirectory
     val emptyResults = (assignTableMonoid.unit, readStatMapMonoid.unit)
 
     input.headOption match {
@@ -94,7 +100,7 @@ class MappingInstructions(metapastaConfiguration: MetapastaConfiguration) extend
             Success(emptyResults)
           } else {
             logger.benchExecute("running " + mappingTool.name) {
-              mappingTool.launch(logger, database, inputFile, outputFile)
+              mappingTool.launch(logger, workingDirectory, database, inputFile, outputFile)
             }.flatMap { hits =>
               //todo add configs for it
               logger.uploadFile(outputFile, env.workingDirectory)

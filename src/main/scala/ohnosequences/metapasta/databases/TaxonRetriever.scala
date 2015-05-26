@@ -8,7 +8,14 @@ import ohnosequences.metapasta.{Taxon, Factory}
 
 import scala.util.Try
 
-trait ReferenceId
+trait ReferenceId {
+  val id: String
+
+  def toRaw = RawRefId(id)
+}
+
+//for results
+case class RawRefId(id: String) extends ReferenceId
 
 trait TaxonRetriever[R <: ReferenceId] {
   def getTaxon(referenceId: R): Option[Taxon]

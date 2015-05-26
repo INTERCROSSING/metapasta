@@ -1,26 +1,27 @@
 package ohnosequences.metapasta
 
+import ohnosequences.logging.Logger
+
 import scala.collection.mutable
-import ohnosequences.metapasta.databases.{TaxonRetriever, ReferenceId, GIMapper, Database16S}
+import ohnosequences.metapasta.databases.{RawRefId, TaxonRetriever, ReferenceId, Database16S}
 import ohnosequences.formats.{RawHeader, FASTQ}
-import ohnosequences.nisperon.{AWS, MapMonoid}
-import ohnosequences.nisperon.logging.{Logger, S3Logger}
+
 
 
 case class ReadId(readId: String)
-case class RefId(refId: String)
-case class Hit(readId: ReadId, refId: RefId, score: Double)
+
+case class Hit[R <: ReferenceId](readId: ReadId, refId: R, score: Double)
 
 
-trait AssignerAlgorithm {
+trait AssignerAlgorithm[R <: ReferenceId] {
 
 
-  def assignAll(taxonomyTree: Tree[Taxon], hits: List[Hit], reads: List[FASTQ[RawHeader]], getTaxIds: (List[Hit], Logger) =>  (List[(Hit, Taxon)], Set[RefId]), logger: Logger): (mutable.HashMap[ReadId, Assignment], mutable.HashSet[RefId]) = {
-    val result = new mutable.HashMap[ReadId, Assignment]()
+  def assignAll(taxonomyTree: Tree[Taxon], hits: List[Hit[R]], reads: List[FASTQ[RawHeader]], getTaxIds: (List[Hit[R]], Logger) =>  (List[(Hit[R], Taxon)], Set[R]), logger: Logger): (mutable.HashMap[ReadId, Assignment[R]], mutable.HashSet[R]) = {
+    val result = new mutable.HashMap[ReadId, Assignment[R]]()
 
-    val wrongRefIdsAll = new mutable.HashSet[RefId]()
+    val wrongRefIdsAll = new mutable.HashSet[R]()
 
-    val hitsPerReads: Map[ReadId, List[Hit]] = hits.groupBy(_.readId)
+    val hitsPerReads: Map[ReadId, List[Hit[R]]] = hits.groupBy(_.readId)
 
     for ( (readId, hits) <- hitsPerReads) {
       val (hitsTaxa, wrongRefIds) = getTaxIds(hits, logger)
@@ -36,11 +37,11 @@ trait AssignerAlgorithm {
 
   }
 
-  def assign(taxonomyTree: Tree[Taxon], hitsTaxa: List[(Hit, Taxon)], logger: Logger): Assignment
+  def assign(taxonomyTree: Tree[Taxon], hitsTaxa: List[(Hit[R], Taxon)], logger: Logger): Assignment[R]
 }
 
-class LCAAlgorithm(assignmentConfiguration: AssignmentConfiguration) extends AssignerAlgorithm {
-  override def assign(taxonomyTree: Tree[Taxon], hitsTaxa: List[(Hit, Taxon)], logger: Logger): Assignment = {
+class LCAAlgorithm[R <: ReferenceId](assignmentConfiguration: AssignmentConfiguration) extends AssignerAlgorithm[R] {
+  override def assign(taxonomyTree: Tree[Taxon], hitsTaxa: List[(Hit[R], Taxon)], logger: Logger): Assignment[R] = {
 
     val maxScore = hitsTaxa.map(_._1.score).max
 
@@ -70,8 +71,8 @@ class LCAAlgorithm(assignmentConfiguration: AssignmentConfiguration) extends Ass
   }
 }
 
-object BBHAlgorithm extends AssignerAlgorithm {
-  override def assign(taxonomyTree: Tree[Taxon], hitsTaxa: List[(Hit, Taxon)], logger: Logger): Assignment = {
+class BBHAlgorithm[R <: ReferenceId] extends AssignerAlgorithm[R] {
+  override def assign(taxonomyTree: Tree[Taxon], hitsTaxa: List[(Hit[R], Taxon)], logger: Logger): Assignment[R] = {
     val (hit, taxon) = hitsTaxa.max(new Ordering[(Hit, Taxon)] {
       override def compare(x: (Hit, Taxon), y: (Hit, Taxon)): Int = (y._1.score - x._1.score).signum
     })
@@ -79,48 +80,45 @@ object BBHAlgorithm extends AssignerAlgorithm {
   }
 }
 
-sealed trait Assignment {
+sealed trait Assignment[R <: ReferenceId] {
   type AssignmentCat <: AssignmentCategory
 }
 
-case class TaxIdAssignment(taxon: Taxon, refIds: Set[RefId], lca: Boolean = false, line: Boolean = false, bbh: Boolean = false) extends Assignment {
+case class TaxIdAssignment[R <: ReferenceId](taxon: Taxon, refIds: Set[R], lca: Boolean = false, line: Boolean = false, bbh: Boolean = false) extends Assignment[R] {
   type AssignmentCat = Assigned.type
 }
 
-case class NoTaxIdAssignment(refIds: Set[RefId]) extends Assignment {
+case class NoTaxIdAssignment[R <: ReferenceId](refIds: Set[R]) extends Assignment[R] {
   type AssignmentCat = NoTaxId.type
 }
 
-case class NotAssigned(reason: String, refIds: Set[RefId], taxIds: Set[Taxon]) extends Assignment {
+case class NotAssigned[R <: ReferenceId](reason: String, refIds: Set[R], taxIds: Set[Taxon]) extends Assignment[R] {
   type AssignmentCat = NotAssignedCat.type
 }
 
 
 
 object AssignerAlgorithms {
-
-
-
  // def groupHits(hits: List[Hit], )
 }
 
 class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
-               blastDatabase: Database16S[R],
-               giMapper: TaxonRetriever[R],
+               database: Database16S[R],
+               taxonRetriever: TaxonRetriever[R],
+               extractReadId: String => ReadId,
                assignmentConfiguration: AssignmentConfiguration,
-               extractReadHeader: String => String,
                fastasWriter: Option[FastasWriter]) {
 
  // val tree: Tree[Taxon] = new Bio4JTaxonomyTree(nodeRetriever)
 
 
-  def assign(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit]):
+  def assign(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit[R]]):
     (AssignTable, Map[(String, AssignmentType), ReadsStats]) = {
 
 
 
     val (lcaAssignments, lcaWrongRefIds) = logger.benchExecute("LCA assignment") {
-      new LCAAlgorithm(assignmentConfiguration).assignAll(taxonomyTree, hits, reads, getTaxIds, logger)
+      new LCAAlgorithm[R](assignmentConfiguration).assignAll(taxonomyTree, hits, reads, getTaxIds, logger)
     }
 
     val lcaRes = logger.benchExecute("preparing results") {
@@ -129,7 +127,7 @@ class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
 
 
     val (bbhAssignments, bbhWrongRefIds) = logger.benchExecute("BBH assignment") {
-      BBHAlgorithm.assignAll(taxonomyTree, hits, reads, getTaxIds, logger)
+      new BBHAlgorithm[R].assignAll(taxonomyTree, hits, reads, getTaxIds, logger)
     }
 
     val bbhRes = logger.benchExecute("preparing results") {
@@ -140,27 +138,28 @@ class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
 
   }
 
-  def getTaxIdFromRefId(refId: RefId, logger: Logger): Option[Taxon] = {
-    database.parseGI(refId.refId) match {
-      case Some(gi) => giMapper.getTaxIdByGi(gi) match {
-        case None => /*logger.error("database error: can't parse taxId from gi: " + refId);*/ None
-        case Some(taxon) => Some(taxon)
-      }
-      case None => {
-        //logger.error("database error: can't parse gi from ref id: " + refId)
-        None
-      }
-    }
-  }
+//  def getTaxIdFromRefId(refId: RefId, logger: Logger): Option[Taxon] = {
+//
+//    database.parseGI(refId.refId) match {
+//      case Some(gi) => giMapper.getTaxIdByGi(gi) match {
+//        case None => /*logger.error("database error: can't parse taxId from gi: " + refId);*/ None
+//        case Some(taxon) => Some(taxon)
+//      }
+//      case None => {
+//        //logger.error("database error: can't parse gi from ref id: " + refId)
+//        None
+//      }
+//    }
+//  }
 
   //
-  def getTaxIds(hits: List[Hit], logger: Logger): (List[(Hit, Taxon)], Set[RefId]) = {
-    val wrongRefs = new mutable.HashSet[RefId]()
+  def getTaxIds(hits: List[Hit[R]], logger: Logger): (List[(Hit[R], Taxon)], Set[R]) = {
+    val wrongRefs = new mutable.HashSet[R]()
     val taxons = hits.flatMap { hit =>
-      getTaxIdFromRefId(hit.refId, logger) match {
+      taxonRetriever.getTaxon(hit.refId) match {
         case Some(taxon) if taxonomyTree.isNode(taxon) => Some((hit, taxon))
         case None => {
-          logger.warn("couldn't find taxon for ref id: " + hit.refId.refId)
+          logger.warn("couldn't find taxon for ref id: " + hit.refId.id)
           wrongRefs += hit.refId
           None
         }
@@ -178,14 +177,14 @@ class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
   def prepareAssignedResults(logger: Logger, chunk: ChunkId,
                              assignmentType: AssignmentType,
                              reads: List[FASTQ[RawHeader]],
-                             assignments: mutable.HashMap[ReadId, Assignment],
-                             wrongRefId: mutable.HashSet[RefId]): (AssignTable, ReadsStats) = {
+                             assignments: mutable.HashMap[ReadId, Assignment[R]],
+                             wrongRefId: mutable.HashSet[R]): (AssignTable, ReadsStats) = {
 
-    val readsStatsBuilder = new ReadStatsBuilder(wrongRefId)
+    val readsStatsBuilder = new ReadStatsBuilder(wrongRefId.map(_.id))
 
     reads.foreach {
       fastq =>
-        val readId = ReadId(extractReadHeader(fastq.header.getRaw))
+        val readId = extractReadId(fastq.header.getRaw)
         assignments.get(readId) match {
           case None => {
             //nohit

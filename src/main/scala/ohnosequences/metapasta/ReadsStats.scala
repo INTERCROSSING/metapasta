@@ -1,6 +1,8 @@
 package ohnosequences.metapasta
 
 import ohnosequences.compota.monoid.{Monoid, MapMonoid}
+import ohnosequences.compota.serialization.{JsonSerializer, Serializer}
+import ohnosequences.metapasta.databases.{ReferenceId, RawRefId}
 import ohnosequences.nisperon.{JsonSerializer, Serializer, Monoid}
 import scala.collection.mutable
 
@@ -26,7 +28,7 @@ case object NotAssignedCat extends AssignmentCategory {
 }
 
 
-class ReadStatsBuilder(var wrongRefIds: mutable.HashSet[RefId] = new mutable.HashSet[RefId]()) {
+class ReadStatsBuilder(var wrongRefIds: mutable.HashSet[String] = new mutable.HashSet[String]()) {
 
   var total = 0L
   var merged = 0L
@@ -41,7 +43,7 @@ class ReadStatsBuilder(var wrongRefIds: mutable.HashSet[RefId] = new mutable.Has
   var lcaAssigned = 0L
   var lineAssigned = 0L
 
-  def incrementByAssignment(assignment:  Assignment) { assignment match {
+  def incrementByAssignment[R <: ReferenceId](assignment:  Assignment[R]) { assignment match {
     case TaxIdAssignment(_, _, lca, line, bbh) => {
       if (lca) lcaAssigned +=1
       if (line) lineAssigned +=1
@@ -72,7 +74,7 @@ class ReadStatsBuilder(var wrongRefIds: mutable.HashSet[RefId] = new mutable.Has
   }
 
 
-  def addWrongRefId(id: RefId) = {wrongRefIds += id}
+  def addWrongRefId(id: ReferenceId) = {wrongRefIds += id.id}
 
   def build = ReadsStats(
       total = total,
@@ -82,7 +84,7 @@ class ReadStatsBuilder(var wrongRefIds: mutable.HashSet[RefId] = new mutable.Has
       noTaxId = noTaxId,
       notAssigned = notAssigned,
       assigned = assigned,
-      wrongRefIds = wrongRefIds.map(_.refId).toSet,
+      wrongRefIds = wrongRefIds.toSet,
       lcaAssigned = lcaAssigned,
       lineAssigned = lineAssigned,
       bbhAssigned = bbhAssigned

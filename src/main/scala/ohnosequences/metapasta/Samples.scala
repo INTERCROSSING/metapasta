@@ -1,14 +1,15 @@
 package ohnosequences.metapasta
 
+import com.amazonaws.services.s3.AmazonS3
 import ohnosequences.awstools.s3.{S3, ObjectAddress}
 
 case class PairedSample(name: String, fastq1: ObjectAddress, fastq2: ObjectAddress)
 
 
-class S3Splitter(s3: S3, address: ObjectAddress, chunksSize: Long) {
+class S3Splitter(s3: AmazonS3, address: ObjectAddress, chunksSize: Long) {
 
   def objectSize(): Long = {
-    s3.s3.getObjectMetadata(address.bucket, address.key).getContentLength
+    s3.getObjectMetadata(address.bucket, address.key).getContentLength
   }
 
   def chunks(): List[(Long, Long)] = {

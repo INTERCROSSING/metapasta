@@ -1,7 +1,9 @@
 package ohnosequences.metapasta
 
-import ohnosequences.nisperon.{JsonSerializer, Serializer, MapMonoid, Monoid}
-import scala.collection.mutable
+import ohnosequences.compota.monoid.{MapMonoid, Monoid}
+import ohnosequences.compota.serialization.{JsonSerializer, Serializer}
+
+import scala.util.Try
 
 
 //todo rank, name ...
@@ -14,10 +16,6 @@ object taxInfoMonoid extends Monoid[TaxInfo] {
   def unit: TaxInfo = _unit
   def mult(x: TaxInfo, y: TaxInfo): TaxInfo = TaxInfo(x.count + y.count, x.acc + y.acc)
 }
-
-
-
-//(sample, AssignmentType -> (tax -> taxinfo)
 
 case class AssignTable(table: Map[(String, AssignmentType), Map[Taxon, TaxInfo]])
 
@@ -33,11 +31,13 @@ object assignTableMonoid extends Monoid[AssignTable] {
 object assignMapSerializer extends Serializer[Map[Taxon, TaxInfo]] {
   val rawMapSerializer = new JsonSerializer[Map[String, TaxInfo]]()
 
-  override def fromString(s: String): Map[Taxon, TaxInfo] = {
-    rawMapSerializer.fromString(s).map { case (taxon, taxInfo) => (Taxon(taxon), taxInfo)}
+  override def fromString(s: String): Try[Map[Taxon, TaxInfo]] = {
+    rawMapSerializer.fromString(s).map { rawMap =>
+      rawMap.map { case (taxon, taxInfo) => (Taxon(taxon), taxInfo) }
+    }
   }
 
-  override def toString(t: Map[Taxon, TaxInfo]): String = {
+  override def toString(t: Map[Taxon, TaxInfo]): Try[String] = {
     rawMapSerializer.toString(t.map { case (taxon, taxInfo) => (taxon.taxId, taxInfo)})
   }
 }
@@ -46,18 +46,22 @@ object assignTableSerializer extends Serializer[AssignTable] {
 
   val rawTableSerializer = new JsonSerializer[Map[String, String]]()
 
-  override def toString(t: AssignTable): String = {
-    val raw: Map[String,  String] = t.table.map { case (sampleAssignmentType, map)  =>
-      (sampleAssignmentType._1 + "###" + sampleAssignmentType._2.toString, assignMapSerializer.toString(map))
+  override def toString(t: AssignTable): Try[String] = {
+    Try {
+      t.table.map { case (sampleAssignmentType, map) =>
+        (sampleAssignmentType._1 + "###" + sampleAssignmentType._2.toString, assignMapSerializer.toString(map).get)
+      }
+    }.flatMap { raw =>
+      rawTableSerializer.toString(raw)
     }
-    rawTableSerializer.toString(raw)
   }
 
-  override def fromString(s: String): AssignTable = {
-    val raw : Map[String, String] = rawTableSerializer.fromString(s)
-    AssignTable(raw.map { case (sampleAssignmentType, stats)  =>
-      val parts = sampleAssignmentType.split("###")
-      ((parts(0), AssignmentType.fromString(parts(1))), assignMapSerializer.fromString(stats))
-    })
+  override def fromString(s: String): Try[AssignTable] = {
+    rawTableSerializer.fromString(s).map { raw =>
+      AssignTable(raw.map { case (sampleAssignmentType, stats) =>
+        val parts = sampleAssignmentType.split("###")
+        ((parts(0), AssignmentType.fromString(parts(1))), assignMapSerializer.fromString(stats).get)
+      })
+    }
   }
 }
