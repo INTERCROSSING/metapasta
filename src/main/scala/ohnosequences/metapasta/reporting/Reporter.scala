@@ -1,8 +1,10 @@
 package ohnosequences.metapasta.reporting
 
+import ohnosequences.awstools.AWSClients
+import ohnosequences.compota.monoid.MapMonoid
+import ohnosequences.compota.serialization.Serializer
+import ohnosequences.logging.Logger
 import ohnosequences.metapasta._
-import org.clapper.avsl.Logger
-import ohnosequences.nisperon._
 import ohnosequences.awstools.s3.{S3, ObjectAddress}
 import ohnosequences.metapasta.ReadsStats
 import ohnosequences.metapasta.AssignTable
@@ -10,6 +12,8 @@ import scala.collection.mutable
 import ohnosequences.metapasta.reporting.spreadsheeet.CSVExecutor
 import scala.collection.mutable.ListBuffer
 import java.io.{PrintWriter, File}
+
+import scala.util.{Failure, Success, Try}
 
 
 case class PerSampleData(direct: Long, cumulative: Long)
@@ -20,11 +24,12 @@ case class SampleId(id: String)
 
 case class SampleTag(tag: String)
 
-class Reporter(aws: AWS,
+class Reporter(aws: AWSClients,
+               logger: Logger,
                tablesAddresses: List[ObjectAddress],
                statsAddresses: List[ObjectAddress],
                tags: Map[SampleId, List[SampleTag]],
-               nodeRetriever: NodeRetriever,
+               nodeRetriever: Bio4j,
                destination: ObjectAddress,
                projectName: String
                ) {
@@ -32,11 +37,9 @@ class Reporter(aws: AWS,
   val statsMonoid = new MapMonoid[(String, AssignmentType), ReadsStats](readsStatsMonoid)
   val statsSerializer = readsStatsSerializer
 
-  def read[T](address: ObjectAddress, serializer: Serializer[T]): T = {
+  def read[T](address: ObjectAddress, serializer: Serializer[T]): Try[T] = {
      serializer.fromString(aws.s3.readWholeObject(address))
   }
-
-  val logger = Logger(this.getClass)
 
   def generate() {
     logger.info("reading assignment tables")
@@ -44,8 +47,10 @@ class Reporter(aws: AWS,
     var table: AssignTable = assignTableMonoid.unit
     for (obj <- tablesAddresses) {
       logger.info("reading from " + obj)
-      val t = read[AssignTable](obj, assignmentTableSerializer)
-      table = assignTableMonoid.mult(table, t)
+      read[AssignTable](obj, assignmentTableSerializer) match {
+        case Success(t) => table = assignTableMonoid.mult(table, t)
+        case Failure(e) => logger.warn(e)
+      }
     }
 
     var stats: Map[(String, AssignmentType), ReadsStats] = statsMonoid.unit
@@ -161,13 +166,11 @@ class Reporter(aws: AWS,
   }
 
 
-  def getTaxInfo(taxon: Taxon) = {
-    try {
+  def getTaxInfo(taxon: Taxon): TaxonInfo = {
+    Try {
       val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
       TaxonInfo(node.getScientificName(), node.getRank())
-    } catch {
-      case t: Throwable => t.printStackTrace(); TaxonInfo("", "")
-    }
+    }.getOrElse(TaxonInfo("", ""))
   }
 
 

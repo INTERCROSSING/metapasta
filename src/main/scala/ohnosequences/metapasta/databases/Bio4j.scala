@@ -2,39 +2,24 @@ package ohnosequences.metapasta
 
 import java.io.File
 
+import com.ohnosequences.bio4j.titan.model.util.{NodeRetrieverTitan, Bio4jManager}
 import ohnosequences.awstools.s3.{LoadingManager, S3, ObjectAddress}
 import ohnosequences.logging.Logger
-import ohnosequences.metapasta.databases.DatabaseFactory
 
 import scala.util.Try
 
-trait Bio4j {
-  val nodeRetriever: com.ohnosequences.bio4j.titan.model.util.NodeRetrieverTitan
-}
+class Bio4j(val nodeRetriever: com.ohnosequences.bio4j.titan.model.util.NodeRetrieverTitan) {}
 
-class Bio4jFactory(bio4jLocation: ObjectAddress, dbDirectory: File) extends DatabaseFactory[Bio4j] {
+object Bio4j {
 
 
-  class BundleNodeRetriever extends Bio4j {
-    var nodeRetriever = ohnosequences.bio4j.bundles.NCBITaxonomyDistribution.nodeRetriever
-  }
-
-  override def build(logger: Logger, loadingManager: LoadingManager): Try[Bio4j] = {
+  def fromS3(logger: Logger, workingDirectory: File, loadingManager: LoadingManager, bio4jLocation: ObjectAddress): Try[Bio4j] = {
     Try {
       logger.info("installing bio4j from location " + bio4jLocation)
-
-      if (!dbDirectory.exists) {
-        dbDirectory.mkdirs
-      }
-
-      loadingManager.downloadDirectory(bio4jLocation, dbDirectory)
-
-      val bio4jManager = new Bio4jManager(dbDirectory.getAbsolutePath)
-
-      new Bio4j {
-        override val nodeRetriever = new NodeRetrieverTitan(bio4jManager)
-      }
-
+      val bio4jDirectory = new File(workingDirectory, "bio4j")
+      loadingManager.downloadDirectory(bio4jLocation, bio4jDirectory)
+      val bio4jManager = new Bio4jManager(bio4jDirectory.getAbsolutePath)
+      new Bio4j (new NodeRetrieverTitan(bio4jManager))
     }
   }
 }

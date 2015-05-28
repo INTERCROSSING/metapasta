@@ -4,6 +4,7 @@ import java.io.File
 
 
 import ohnosequences.awstools.s3.{S3, ObjectAddress, LoadingManager}
+import ohnosequences.compota.AnyCompotaConfiguration
 import ohnosequences.compota.aws.{AwsCompotaConfiguration, GroupConfiguration}
 import ohnosequences.formats.{RawHeader, FASTQ}
 import ohnosequences.logging.Logger
@@ -16,32 +17,15 @@ import scala.util.Try
 
 case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
 
+case class QueueThroughput(read: Long, write: Long)
 
-trait MetapastaConfiguration extends AwsCompotaConfiguration {
 
-  def mappingWorkers: GroupConfiguration
-
-  def samples: List[PairedSample]
-
-  def tagging: Map[PairedSample, List[SampleTag]]
-
-  def chunksSize: Long
-
-  def chunksThreshold: Option[Int]
-
-  def mergeQueueThroughput: MergeQueueThroughput
-
-  def generateDot: Boolean
-
-  def assignmentConfiguration: AssignmentConfiguration
-
-  def loadingManager(logger: Logger): Try[LoadingManager]
-
+trait MetapastaConfiguration extends AnyCompotaConfiguration {
   type DatabaseReferenceId
 
   type Database <: Database16S[DatabaseReferenceId]
 
-  def mappingTool(logger: Logger, workingDirectory: File, loadingManager: LoadingManager,  database: Database): Try[MappingTool[DatabaseReferenceId, Database]]
+  def mappingTool(logger: Logger, workingDirectory: File, loadingManager: LoadingManager, database: Database): Try[MappingTool[DatabaseReferenceId, Database]]
 
   def mappingDatabase(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[Database]
 
@@ -66,6 +50,37 @@ trait MetapastaConfiguration extends AwsCompotaConfiguration {
   def mergedReadsDestination(sample: PairedSample): ObjectAddress
 
   def fastaWriter(laodingManager: LoadingManager, bio4j: Bio4j): Option[FastasWriter] = Some(new FastasWriter(laodingManager, readDirectory, bio4j))
+
+}
+
+trait AwsMetapastaConfiguration extends MetapastaConfiguration with AwsCompotaConfiguration {
+
+  def mappingWorkers: GroupConfiguration
+
+  def samples: List[PairedSample]
+
+  def tagging: Map[PairedSample, List[SampleTag]]
+
+  def chunksSize: Long
+
+  def chunksThreshold: Option[Int]
+
+  def mergeQueueThroughput: MergeQueueThroughput
+
+  def generateDot: Boolean
+
+  def assignmentConfiguration: AssignmentConfiguration
+
+  def loadingManager(logger: Logger): Try[LoadingManager]
+
+  def mergedSampleQueueThroughput: QueueThroughput
+
+  def pairedSampleQueueThroughput: QueueThroughput
+
+  def readStatsQueueThroughput: QueueThroughput
+
+  def assignTableQueueThroughput: QueueThroughput
+
 
 
 }

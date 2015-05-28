@@ -73,8 +73,8 @@ class LCAAlgorithm[R <: ReferenceId](assignmentConfiguration: AssignmentConfigur
 
 class BBHAlgorithm[R <: ReferenceId] extends AssignerAlgorithm[R] {
   override def assign(taxonomyTree: Tree[Taxon], hitsTaxa: List[(Hit[R], Taxon)], logger: Logger): Assignment[R] = {
-    val (hit, taxon) = hitsTaxa.max(new Ordering[(Hit, Taxon)] {
-      override def compare(x: (Hit, Taxon), y: (Hit, Taxon)): Int = (y._1.score - x._1.score).signum
+    val (hit, taxon) = hitsTaxa.max(new Ordering[(Hit[R], Taxon)] {
+      override def compare(x: (Hit[R], Taxon), y: (Hit[R], Taxon)): Int = (y._1.score - x._1.score).signum
     })
     TaxIdAssignment(taxon, Set(hit.refId), bbh = true)
   }

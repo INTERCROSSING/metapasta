@@ -3,10 +3,8 @@ package ohnosequences.metapasta
 import ohnosequences.compota.monoid.{Monoid, MapMonoid}
 import ohnosequences.compota.serialization.{JsonSerializer, Serializer}
 import ohnosequences.metapasta.databases.{ReferenceId, RawRefId}
-import ohnosequences.nisperon.{JsonSerializer, Serializer, Monoid}
 import scala.collection.mutable
-
-
+import scala.util.Try
 
 sealed  trait AssignmentCategory {
   def taxon: Taxon
@@ -137,18 +135,21 @@ object readStatMapMonoid extends MapMonoid[(String, AssignmentType), ReadsStats]
 object readsStatsSerializer extends Serializer[Map[(String, AssignmentType), ReadsStats]] {
 
   val rawStatsSerializer = new JsonSerializer[Map[String, ReadsStats]]()
-  override def toString(t: Map[(String, AssignmentType), ReadsStats]): String = {
+
+  override def toString(t: Map[(String, AssignmentType), ReadsStats]): Try[String] = {
     val raw: Map[String, ReadsStats] = t.map { case (sampleAssignmentType, stats)  =>
       (sampleAssignmentType._1 + "###" + sampleAssignmentType._2.toString, stats)
     }
     rawStatsSerializer.toString(raw)
   }
 
-  override def fromString(s: String): Map[(String, AssignmentType), ReadsStats] = {
-    val raw : Map[String, ReadsStats]= rawStatsSerializer.fromString(s)
-    raw.map { case (sampleAssignmentType, stats)  =>
-      val parts = sampleAssignmentType.split("###")
-      ((parts(0), AssignmentType.fromString(parts(1))), stats)
+  override def fromString(s: String): Try[Map[(String, AssignmentType), ReadsStats]] = {
+    val raw : Try[Map[String, ReadsStats]] = rawStatsSerializer.fromString(s)
+    raw.map { rawMap =>
+      rawMap.map { case (sampleAssignmentType, stats) =>
+        val parts = sampleAssignmentType.split("###")
+        ((parts(0), AssignmentType.fromString(parts(1))), stats)
+      }
     }
   }
 }

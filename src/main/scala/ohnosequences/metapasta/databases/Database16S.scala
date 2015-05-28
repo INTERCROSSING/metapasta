@@ -1,11 +1,9 @@
 package ohnosequences.metapasta.databases
 
 
-
-
 trait Database16S[R <: ReferenceId] {
-  val name: String
-  def parseRawId(refId: String): Option[R]
+  def name: String
+  def parseRawId(rawReferenceId: String): Option[R]
 }
 
 trait LastDatabase16S[R <: ReferenceId] extends Database16S[R] {}

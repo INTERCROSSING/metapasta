@@ -1,6 +1,7 @@
 package ohnosequences.metapasta.instructions
 
 import java.io.File
+import java.net.URL
 
 import ohnosequences.awstools.s3.{ObjectAddress, LoadingManager}
 import ohnosequences.logging.Logger
@@ -98,7 +99,61 @@ class Blast[R <: ReferenceId, D <: Database16S[R]](blastBin: File, blastTemplate
 }
 
 object Blast {
-  def linux(logger: Logger, loadingManager: LoadingManager, workingDirectory: File, blastTemplate: List[String], blastDatabase: BlastDatabase16S[GI]): Try[Blast[GI, BlastDatabase16S[GI]]] = {
+
+  def download(name: String, logger: Logger, url: URL, file: File): Try[File] = {
+    import sys.process._
+    logger.info("downloading " + name + " from " + url)
+    if (!file.exists()) {
+      (url #> file).! match {
+        case 0 => {
+          logger.info("downloaded")
+          Success(file)
+        }
+        case _ => {
+          val e = new Error("couldn't download " + url.toString)
+          logger.error(e)
+          Failure(e)
+        }
+      }
+    } else {
+      logger.info(file.getName + " already downloaded")
+      Success(file)
+    }
+  }
+
+  def extract(logger: Logger, gzippedFile: File, workingDirectory: File, destination: File): Try[File] = {
+    logger.info("extracting " + gzippedFile.getAbsolutePath)
+
+    val tarCommand = Seq("tar", "-xvf", gzippedFile.getAbsolutePath, "-C", destination.getAbsolutePath)
+    logger.info("running tar: " + tarCommand)
+    sys.process.Process(tarCommand, workingDirectory).! match {
+      case 0 => {
+        Success(destination)
+      }
+      case _ => {
+        val e = new Error("can't extract " + gzippedFile.getAbsolutePath)
+        logger.error(e)
+        Failure(e)
+      }
+    }
+  }
+
+  def windows[R <: ReferenceId](logger: Logger, loadingManager: LoadingManager, workingDirectory: File, blastTemplate: List[String], blastDatabase: BlastDatabase16S[R]): Try[Blast[R, BlastDatabase16S[R]]] = {
+    val latestURL = new URL("""ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ncbi-blast-2.2.30+-ia32-win32.tar.gz""")
+    val blastArchive = new File(workingDirectory, "ncbi-blast-2.2.30+-ia32-win32.tar.gz")
+
+    download("blast", logger, latestURL, blastArchive).flatMap { archive =>
+      extract(logger, archive, workingDirectory, new File(workingDirectory, "blast")).map { dst =>
+        logger.info("installing BLAST")
+        val blastBin = new File(dst, "bin")
+        val blastn = new File(blastBin, "blastn")
+        blastn.setExecutable(true)
+        new Blast(blastBin, blastTemplate, blastDatabase)
+      }
+    }
+  }
+
+  def linux[R <: ReferenceId](logger: Logger, loadingManager: LoadingManager, workingDirectory: File, blastTemplate: List[String], blastDatabase: BlastDatabase16S[R]): Try[Blast[R, BlastDatabase16S[R]]] = {
 
     Try {
       logger.info("downloading BLAST")

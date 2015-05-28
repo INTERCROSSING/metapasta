@@ -1,63 +1,105 @@
 package ohnosequences.metapasta
 
-import ohnosequences.nisperon._
-import ohnosequences.nisperon.queues.{QueueMerger, ProductQueue}
+import ohnosequences.benchmark.Bench
+import ohnosequences.compota.aws.queues.{DynamoDBContext, DynamoDBQueue}
+import ohnosequences.compota.aws.{AwsEnvironment, AnyAwsCompota, AwsNispero, AwsCompota}
+import ohnosequences.compota.environment.AnyEnvironment
+import ohnosequences.compota.monoid.ListMonoid
+import ohnosequences.compota.queues.{Queue, AnyQueueReducer}
+import ohnosequences.compota.serialization.JsonSerializer
+import ohnosequences.metapasta.instructions.{MergingInstructions, MappingInstructions}
+
 import scala.collection.mutable
 import ohnosequences.awstools.s3.ObjectAddress
-import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions, FlashInstructions}
 import ohnosequences.metapasta.reporting._
 import java.io.File
 
-abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
+
+trait AnyMetapasta {
+
+  val metapastaConfiguration: MetapastaConfiguration
+
+  type MetapastaEnvironment <: AnyEnvironment[MetapastaEnvironment]
+  type QueueContext
+
+  type PairedSamplesQueue <: Queue[List[PairedSample], QueueContext]
+  val pairedSamplesQueue: PairedSamplesQueue
+
+  type MergedSamplesQueue <: Queue[List[MergedSampleChunk], QueueContext]
+  val mergedSampleChunksQueue: MergedSamplesQueue
+
+  type ReadsStatsQueue <: Queue[Map[(String, AssignmentType), ReadsStats], QueueContext]
+  val readsStatsQueue: ReadsStatsQueue
+
+  type AssignTableQueue <: Queue[AssignTable, QueueContext]
+  val assignTableQueue: AssignTableQueue
+
+  object mergingInstructions extends MergingInstructions(metapastaConfiguration)
+
+  object mappingInstructions extends MappingInstructions(metapastaConfiguration)
+
+}
 
 
-  override val aws = new AWS(new File(System.getProperty("user.home"), "metapasta.credentials"))
 
-  val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
-    managerGroupConfiguration = configuration.managerGroupConfiguration,
-    metamanagerGroupConfiguration = configuration.metamanagerGroupConfiguration,
-    defaultInstanceSpecs = configuration.defaultInstanceSpecs,
-    metadataBuilder = configuration.metadataBuilder,
-    email = configuration.email,
-    autoTermination = true,
-    timeout = configuration.timeout,
-    password = configuration.password,
-    removeAllQueues = configuration.removeAllQueues
-  )
 
-  object pairedSamples extends DynamoDBQueue (
+
+abstract class AwsMetapasta(val configuration: AwsMetapastaConfiguration) extends AnyMetapasta with AnyAwsCompota {
+
+  //override val aws = new AWS(new File(System.getProperty("user.home"), "metapasta.credentials"))
+
+  type QueueContext = DynamoDBContext
+
+  object pairedSamplesQueue extends DynamoDBQueue (
     name = "pairedSamples",
-    monoid = new ListMonoid[PairedSample],
     serializer = new JsonSerializer[List[PairedSample]],
-    throughputs = (1, 1)
+    bench = None,
+    readThroughput = configuration.pairedSampleQueueThroughput.read,
+    writeThroughput = configuration.pairedSampleQueueThroughput.write
   )
 
-  val writeThroughput = configuration.mergeQueueThroughput match {
-    case Fixed(m) => m
-    case SampleBased(ratio, max) => math.max(ratio * configuration.samples.size, max).toInt
-  }
+//  val writeThroughput = configuration.mergeQueueThroughput match {
+//    case Fixed(m) => m
+//    case SampleBased(ratio, max) => math.max(ratio * configuration.samples.size, max).toInt
+//  }
 
   object mergedSampleChunks extends DynamoDBQueue(
     name = "mergedSampleChunks",
-    monoid = new ListMonoid[MergedSampleChunk](),
     serializer = new JsonSerializer[List[MergedSampleChunk]](),
-    throughputs = (writeThroughput, 1)
+    bench = None,
+    readThroughput = configuration.mergedSampleQueueThroughput.read,
+    writeThroughput = configuration.mergedSampleQueueThroughput.write
   )
 
-  object readsStats extends S3Queue(
+  object readsStats extends DynamoDBQueue(
     name = "readsStats",
-    monoid = new MapMonoid[(String, AssignmentType), ReadsStats](readsStatsMonoid),
-    serializer = readsStatsSerializer
+    serializer = readsStatsSerializer,
+    bench = None,
+    readThroughput = configuration.readStatsQueueThroughput.read,
+    writeThroughput = configuration.readStatsQueueThroughput.write
   )
 
 
-  object assignTable extends S3Queue(
-    name = "table",
-    monoid = assignTableMonoid,
-    serializer = assignTableSerializer
+  object assignTable extends DynamoDBQueue(
+    name = "assignTable",
+    serializer = assignTableSerializer,
+    bench = None,
+    readThroughput = configuration.assignTableQueueThroughput.read,
+    writeThroughput = configuration.assignTableQueueThroughput.write
   )
 
-  override val mergingQueues = List(assignTable, readsStats)
+
+  override val reducers = List[AnyQueueReducer.of[CompotaEnvironment]]()
+
+
+  object mappingNispero extends AwsNispero(
+    inputQueue = mergedSampleChunks, {t: AwsEnvironment => t.createDynamoDBContext()},
+    outputQueue = mergedSampleChunks, {t: AwsEnvironment => t.createDynamoDBContext()},
+
+    instructions = mappingInstructions,
+
+
+  )
 
   val flashNispero = nispero(
     inputQueue = pairedSamples,
@@ -73,39 +115,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
   //val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws), bio4j, configuration.lastTemplate)
 
 
-  val mappingInstructions: MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, AssignmentType), ReadsStats])] =
-    configuration match {
-      case b: BlastConfiguration => new BlastInstructions(
-        aws = aws,
-        metadataBuilder = configuration.metadataBuilder,
-        assignmentConfiguration = b.assignmentConfiguration,
-        blastCommandTemplate = b.blastTemplate,
-        databaseFactory = b.databaseFactory,
-        useXML = b.xmlOutput,
-        logging = configuration.logging,
-        resultDirectory = ObjectAddress(nisperonConfiguration.bucket, "results"),
-        readsDirectory = ObjectAddress(nisperonConfiguration.bucket, "reads")
-      )
-      case l: LastConfiguration => new LastInstructions(
-        aws = aws,
-        metadataBuilder = configuration.metadataBuilder,
-        assignmentConfiguration = l.assignmentConfiguration,
-        lastCommandTemplate = l.lastTemplate,
-        databaseFactory = l.databaseFactory,
-        fastaInput = l.useFasta,
-        logging = configuration.logging,
-        resultDirectory = ObjectAddress(nisperonConfiguration.bucket, "results"),
-        readsDirectory = ObjectAddress(nisperonConfiguration.bucket, "reads")
-      )
-    }
 
-
-  val mapNispero = nispero(
-    inputQueue = mergedSampleChunks,
-    outputQueue = ProductQueue(assignTable, readsStats),
-    instructions = mappingInstructions,
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "map", workerGroup = configuration.mappingWorkers)
-  )
 
 //  configuration.uploadWorkers match {
 //    case Some(workers) =>
