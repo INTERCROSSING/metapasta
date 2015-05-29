@@ -5,7 +5,7 @@ import java.net.URL
 
 import ohnosequences.awstools.s3.{ObjectAddress, LoadingManager}
 import ohnosequences.logging.Logger
-import ohnosequences.metapasta.{RefId, ReadId, Utils, Hit}
+import ohnosequences.metapasta.{ReadId, Utils, Hit}
 import ohnosequences.metapasta.databases.{GI, BlastDatabase16S, Database16S, ReferenceId}
 import org.apache.commons.io.FileUtils
 

@@ -15,7 +15,7 @@ import ohnosequences.awstools.s3.{LoadingManager}
 
 import scala.util.{Success, Try}
 
-class MappingInstructions(metapastaConfiguration: MetapastaConfiguration) extends
+class MappingInstructions(val metapastaConfiguration: MetapastaConfiguration) extends
    MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, AssignmentType), ReadsStats])] {
 
   case class MappingContext(
@@ -40,7 +40,6 @@ class MappingInstructions(metapastaConfiguration: MetapastaConfiguration) extend
           metapastaConfiguration.taxonRetriever(logger, workingDirectory, loadingManager).flatMap { taxonRetriever =>
             metapastaConfiguration.taxonomyTree(logger, workingDirectory, loadingManager, bio4j).flatMap { tree =>
               metapastaConfiguration.mappingTool(logger, workingDirectory, loadingManager, database).map { mappingTool =>
-                mappingTool
                 val assigner = new Assigner(
                   tree,
                   database,

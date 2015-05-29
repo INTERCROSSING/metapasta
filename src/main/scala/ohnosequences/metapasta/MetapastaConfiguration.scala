@@ -21,9 +21,12 @@ case class QueueThroughput(read: Long, write: Long)
 
 
 trait MetapastaConfiguration extends AnyCompotaConfiguration {
-  type DatabaseReferenceId
+  type DatabaseReferenceId <: ReferenceId
 
   type Database <: Database16S[DatabaseReferenceId]
+
+  def loadingManager(logger: Logger): Try[LoadingManager]
+
 
   def mappingTool(logger: Logger, workingDirectory: File, loadingManager: LoadingManager, database: Database): Try[MappingTool[DatabaseReferenceId, Database]]
 
@@ -51,11 +54,7 @@ trait MetapastaConfiguration extends AnyCompotaConfiguration {
 
   def fastaWriter(laodingManager: LoadingManager, bio4j: Bio4j): Option[FastasWriter] = Some(new FastasWriter(laodingManager, readDirectory, bio4j))
 
-}
-
-trait AwsMetapastaConfiguration extends MetapastaConfiguration with AwsCompotaConfiguration {
-
-  def mappingWorkers: GroupConfiguration
+  def assignmentConfiguration: AssignmentConfiguration
 
   def samples: List[PairedSample]
 
@@ -69,9 +68,15 @@ trait AwsMetapastaConfiguration extends MetapastaConfiguration with AwsCompotaCo
 
   def generateDot: Boolean
 
-  def assignmentConfiguration: AssignmentConfiguration
+}
 
-  def loadingManager(logger: Logger): Try[LoadingManager]
+trait AwsMetapastaConfiguration extends MetapastaConfiguration with AwsCompotaConfiguration {
+
+  def mappingWorkers: GroupConfiguration
+
+
+
+
 
   def mergedSampleQueueThroughput: QueueThroughput
 

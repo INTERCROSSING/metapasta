@@ -37,7 +37,7 @@ object TaxonRetriever {
       val mappingFile = new File(workingDirectory, "gi.map")
       loadingManager.download(s3location, mappingFile)
       val giP = """(\d+)\s+(\d+).*""".r
-      for (line <- io.Source.fromFile(mappingFile).getLines()) {
+      for (line <- scala.io.Source.fromFile(mappingFile).getLines()) {
         line match {
           case giP(gi, tax) => mapping.put(gi, Taxon(tax))
           case l => logger.error("can't parse " + l)

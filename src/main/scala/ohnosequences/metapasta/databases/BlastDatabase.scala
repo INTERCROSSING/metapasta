@@ -1,7 +1,6 @@
 package ohnosequences.metapasta.databases
 
 import ohnosequences.logging.Logger
-import ohnosequences.metapasta.Factory
 import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
 import java.io.File
 

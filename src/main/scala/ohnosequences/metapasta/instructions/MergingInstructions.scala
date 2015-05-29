@@ -15,7 +15,7 @@ import scala.util.{Failure, Success, Try}
 
 
 class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
-  extends Instructions[List[PairedSample], (Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] {
+  extends Instructions[List[PairedSample], (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])] {
 
   case class MergingContext(loadingManager: LoadingManager, mergingTool: MergingTool)
 
@@ -36,7 +36,7 @@ class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
   def countReads(file: File): Try[Long] = {
     var count = 0L
     Try {
-      io.Source.fromFile(file).getLines().foreach {
+      scala.io.Source.fromFile(file).getLines().foreach {
         str => count += 1
       }
       count / 4
@@ -82,7 +82,7 @@ class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
     }
   }
 
-  def solve(env: Env, context: Context, input: List[PairedSample]): Try[List[(Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])]] = {
+  def solve(env: Env, context: Context, input: List[PairedSample]): Try[List[( List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])]] = {
 
     val logger = env.logger
     val loadingManager = context.loadingManager
@@ -131,12 +131,12 @@ class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
           rawChunks.take(n)
         }
       }
-      val res: List[(Map[(String, AssignmentType), ReadsStats], List[MergedSampleChunk])] = chunks.zipWithIndex.map {
+      val res: List[(List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])] = chunks.zipWithIndex.map {
         case (chunk, 0) => {
-          (Map((sample.name, BBH) -> stats, (sample.name, LCA) -> stats), List(MergedSampleChunk(mergedReadsObject, sample.name, chunk)))
+          (List(MergedSampleChunk(mergedReadsObject, sample.name, chunk)), Map((sample.name, BBH) -> stats, (sample.name, LCA) -> stats))
         }
         case (chunk, _) => {
-          (readStatMapMonoid.unit, List(MergedSampleChunk(mergedReadsObject, sample.name, chunk)))
+          (List(MergedSampleChunk(mergedReadsObject, sample.name, chunk)), readStatMapMonoid.unit)
         }
       }
       res

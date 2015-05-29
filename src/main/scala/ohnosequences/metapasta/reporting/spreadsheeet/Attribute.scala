@@ -1,6 +1,6 @@
 package ohnosequences.metapasta.reporting.spreadsheeet
 
-import ohnosequences.nisperon.{longMonoid, doubleMonoid, intMonoid, Monoid}
+import ohnosequences.compota.monoid.{longMonoid, doubleMonoid, intMonoid, Monoid}
 import scala.collection.mutable
 
 
@@ -38,7 +38,7 @@ class ListContext(val attributes: List[AnyAttribute]) extends Context {
 case class StringConstantMonoid(c: String) extends Monoid[String] {
   override def mult(x: String, y: String): String = c
 
-  override def unit: String = c
+  override val unit: String = c
 }
 
 trait AnyAttribute {

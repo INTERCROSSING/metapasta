@@ -2,7 +2,7 @@ package ohnosequences.metapasta.reporting
 
 import ohnosequences.metapasta._
 import scala.collection.mutable
-import ohnosequences.nisperon.{maxLongMonoid, AWS, intMonoid, longMonoid}
+import ohnosequences.compota.monoid.{maxLongMonoid, intMonoid, longMonoid}
 import ohnosequences.metapasta.reporting.spreadsheeet._
 import ohnosequences.awstools.s3.ObjectAddress
 

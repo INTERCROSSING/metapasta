@@ -125,8 +125,7 @@ object readsStatsMonoid extends Monoid[ReadsStats] {
     )
   }
 
-  val _unit = ReadsStats(0, 0, 0, 0, 0, 0, 0, Set[String](), 0, 0, 0)
-  override def unit: ReadsStats = _unit
+  override val unit: ReadsStats = ReadsStats(0, 0, 0, 0, 0, 0, 0, Set[String](), 0, 0, 0)
 }
 
 

@@ -59,7 +59,8 @@ class Reporter(aws: AWSClients,
     for (obj <- statsAddresses) {
       logger.info("reading from " + obj)
       val t = read[Map[(String, AssignmentType), ReadsStats]](obj, statsSerializer)
-      stats = statsMonoid.mult(stats, t)
+      t.foreach { v => stats = statsMonoid.mult(stats, v)}
+
     }
 
     val samplesS: Set[String] = stats.keySet.map(_._1)

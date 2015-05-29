@@ -4,7 +4,7 @@ import java.io.File
 
 import ohnosequences.awstools.s3.{ObjectAddress, LoadingManager}
 import ohnosequences.logging.Logger
-import ohnosequences.metapasta.{ReadsStats, S3Paths, ReadStatsBuilder}
+import ohnosequences.metapasta.{ReadsStats, ReadStatsBuilder}
 
 import scala.util.Try
 
