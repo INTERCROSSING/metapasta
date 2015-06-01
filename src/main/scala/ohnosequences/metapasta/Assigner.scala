@@ -103,7 +103,6 @@ object AssignerAlgorithms {
 }
 
 class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
-               database: Database16S[R],
                taxonRetriever: TaxonRetriever[R],
                extractReadId: String => ReadId,
                assignmentConfiguration: AssignmentConfiguration,
@@ -164,7 +163,7 @@ class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
           None
         }
         case Some(taxon) => {
-          logger.warn("taxon with id: " + taxon.taxId + " is not presented in " + database.name)
+          logger.warn("taxon with id: " + taxon.taxId + " is not presented in the database")
           wrongRefs += hit.refId
           None
         }

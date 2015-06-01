@@ -1,9 +1,7 @@
 package ohnosequences.metapasta.automatic
 
-import ohnosequences.metapasta.automatic.Assigner._
-import ohnosequences.metapasta.automatic.Generators._
+import ohnosequences.compota.monoid.{maxDoubleMonoid, longMonoid}
 import ohnosequences.metapasta.reporting.spreadsheeet._
-import ohnosequences.nisperon.{maxDoubleMonoid, doubleMonoid, longMonoid}
 import org.scalacheck.Prop._
 import org.scalacheck.{Gen, Properties}
 

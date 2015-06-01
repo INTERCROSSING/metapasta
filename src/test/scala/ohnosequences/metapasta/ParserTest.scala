@@ -1,5 +1,6 @@
 package ohnosequences.metapasta.tests
 
+import ohnosequences.metapasta.TestReads
 import org.junit.Test
 import org.junit.Assert._
 import ohnosequences.awstools.s3._

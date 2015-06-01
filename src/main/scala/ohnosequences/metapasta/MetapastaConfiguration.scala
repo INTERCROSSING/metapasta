@@ -45,7 +45,7 @@ trait MetapastaConfiguration extends AnyCompotaConfiguration {
   def flashTemplate: List[String] = List("flash", "$file1$", "$file2")
 
   def mergingTool(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[MergingTool] = {
-    FLAShMergingTool.install(logger, workingDirectory, loadingManager, flashTemplate)
+    FLAShMergingTool.linux(logger, workingDirectory, loadingManager, flashTemplate)
   }
 
   def notMerged(sample: PairedSample): (ObjectAddress, ObjectAddress)

@@ -15,6 +15,6 @@ object Serializers extends Properties("Serializers") {
 
     val assignTable = AssignTable(Map( ("sample1" -> LCA) -> assignTableRaw.toMap))
 
-    assignTableSerializer.fromString(assignTableSerializer.toString(assignTable)).equals(assignTable)
+    assignTableSerializer.fromString(assignTableSerializer.toString(assignTable).get).get.equals(assignTable)
   }
 }

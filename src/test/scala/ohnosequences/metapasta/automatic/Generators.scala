@@ -2,6 +2,7 @@ package ohnosequences.metapasta.automatic
 
 import ohnosequences.formats.{RawHeader, FASTQ}
 import ohnosequences.metapasta._
+import ohnosequences.metapasta.databases.GI
 import org.scalacheck.{Arbitrary, Gen}
 
 import scala.annotation.tailrec
@@ -150,19 +151,19 @@ object Generators {
     Gen.choose(1, size).flatMap { n => Gen.listOfN(n, Gen.choose(1, size).map(labeling))}.map { list => (tree, list)}
   }
 
-  def hitsPerReadId(readId: Int, treeSize: Int, labeling: Int => String): Gen[List[Hit]] = {
+  def hitsPerReadId(readId: Int, treeSize: Int, labeling: Int => String): Gen[List[Hit[GI]]] = {
     Gen.listOf(Gen.choose(1, treeSize).map(labeling).flatMap(hit(readId, _)))
   }
 
-  def hit(readId: Int, node: String): Gen[Hit] = {
+  def hit(readId: Int, node: String): Gen[Hit[GI]] = {
     for {
       quality <- Gen.chooseNum(300, 400)
     } yield Hit(ReadId(readId.toString), refId(Taxon(node)), quality)
   }
 
-  def refId(taxon: Taxon) = RefId("gi|" + taxon.taxId + "|gb|000|")
+  def refId(taxon: Taxon): GI = GI(taxon.taxId)
 
-  def groupedHits(readsAmount: Int, treeSize: Int, labeling: Int => String): Gen[Map[Int, List[Hit]]] = {
+  def groupedHits(readsAmount: Int, treeSize: Int, labeling: Int => String): Gen[Map[Int, List[Hit[GI]]]] = {
     genMap((1 to readsAmount).toList, { id => hitsPerReadId(id, treeSize, labeling)})
   }
 

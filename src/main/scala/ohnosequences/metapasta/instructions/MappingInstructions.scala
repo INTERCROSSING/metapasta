@@ -42,7 +42,6 @@ class MappingInstructions(val metapastaConfiguration: MetapastaConfiguration) ex
               metapastaConfiguration.mappingTool(logger, workingDirectory, loadingManager, database).map { mappingTool =>
                 val assigner = new Assigner(
                   tree,
-                  database,
                   taxonRetriever,
                   mappingTool.extractReadId,
                   metapastaConfiguration.assignmentConfiguration,

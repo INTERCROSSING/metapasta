@@ -169,8 +169,6 @@ abstract class AwsMetapasta(val configuration: AwsMetapastaConfiguration) extend
 
   override type MergingNispero = mergingNispero2.type
   override val mergingNispero: MergingNispero = mergingNispero2
-
-
   object mergingNispero2 extends AwsNispero[
     List[PairedSample],
     (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats]),

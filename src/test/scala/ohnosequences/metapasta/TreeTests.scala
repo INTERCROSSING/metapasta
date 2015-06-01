@@ -1,8 +1,7 @@
-package ohnosequences.metapasta.tests
+package ohnosequences.metapasta
 
 import org.junit.Test
 import org.junit.Assert._
-import ohnosequences.metapasta.{TreeUtils, MapTree}
 
 class TreeTests {
   @Test

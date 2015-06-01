@@ -8,7 +8,12 @@ organization := "ohnosequences"
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.0" % "test"
 
-testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-maxSize", "40", "-minSuccessfulTests", "10", "-workers", "1", "-verbosity", "1")
+testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck,
+  "-maxSize", "40",
+  "-minSuccessfulTests", "1",
+  "-workers", "1",
+  "-verbosity", "1"
+)
 
 libraryDependencies ++= Seq(
   "ohnosequences" %% "compota" % "0.10.0-SNAPSHOT",

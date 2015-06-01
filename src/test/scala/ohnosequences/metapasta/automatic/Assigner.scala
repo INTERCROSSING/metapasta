@@ -1,8 +1,8 @@
 package ohnosequences.metapasta.automatic
 
-import ohnosequences.metapasta.databases.{GIMapper, Blast16SFactory}
+import ohnosequences.logging.ConsoleLogger
+import ohnosequences.metapasta.databases.{GI, TaxonRetriever}
 import ohnosequences.metapasta.reporting.SampleId
-import ohnosequences.nisperon.logging.ConsoleLogger
 import org.scalacheck.{Gen, Properties}
 import scala.util.Random
 
@@ -13,7 +13,7 @@ import ohnosequences.formats.{RawHeader, FASTQ}
 
 
 
-object Assigner  extends Properties("Assigner") {
+class AssignerTest  extends Properties("Assigner") {
 
   import Generators._
 
@@ -38,9 +38,9 @@ object Assigner  extends Properties("Assigner") {
   }
 
 
-  val blast16s = new Blast16SFactory.BlastDatabase()
 
-  def extractHeader(header: String) = header
+  def extractHeader(header: String): ReadId = ReadId(header)
+
 
 
   property("assign check stats") = forAll (boundedTree(stringLabeling, 1000).flatMap { case (tree, treeSize) =>
@@ -52,31 +52,34 @@ object Assigner  extends Properties("Assigner") {
 
     //println("tree_size: " + treeSize + " parent(Taxon(10)):" + randomTaxonomyTree.getParent(Taxon("10")))
 
-    val idGIMapper = new GIMapper {
-      override def getTaxIdByGi(gi: String): Option[Taxon] = {
+
+    val idGIMapper = new TaxonRetriever[GI] {
+
+      override def getTaxon(referenceId: GI): Option[Taxon] = {
+        val gi = referenceId.id
         if (randomTaxonomyTree.isNode(Taxon(gi))) {
           Some(Taxon(gi))
         } else {
           None
         }
       }
+
     }
 
     val assignmentConfiguration  = AssignmentConfiguration(100, 0.8)
 
     val assigner = new Assigner(
       taxonomyTree = randomTaxonomyTree,
-      database = blast16s,
-      giMapper = idGIMapper,
+      idGIMapper,
+      extractHeader,
       assignmentConfiguration = assignmentConfiguration,
-      extractReadHeader = extractHeader,
       None
     )
 
     val reads  = randomGroupedHits.keys.toList.map(read(_))
-    val hits: List[Hit] = randomGroupedHits.values.toList.flatMap {list => list}
+    val hits: List[Hit[GI]] = randomGroupedHits.values.toList.flatMap {list => list}
 
-    val logger = new ConsoleLogger("assign one", verbose = false)
+    val logger = new ConsoleLogger("assign one")
     val testSample = "test"
     val chunkId = ChunkId(SampleId(testSample), 1, 1000)
 
@@ -114,36 +117,38 @@ object Assigner  extends Properties("Assigner") {
 
     //println("tree_size: " + treeSize + " parent(Taxon(10)):" + randomTaxonomyTree.getParent(Taxon("10")))
 
-    val idGIMapper = new GIMapper {
-      override def getTaxIdByGi(gi: String): Option[Taxon] = {
+    val idGIMapper = new TaxonRetriever[GI] {
+
+      override def getTaxon(referenceId: GI): Option[Taxon] = {
+        val gi = referenceId.id
         if (randomTaxonomyTree.isNode(Taxon(gi))) {
           Some(Taxon(gi))
         } else {
           None
         }
       }
+
     }
 
     val assignmentConfiguration  = AssignmentConfiguration(100, 0.8)
 
     val assigner = new Assigner(
       taxonomyTree = randomTaxonomyTree,
-      database = blast16s,
-      giMapper = idGIMapper,
+      taxonRetriever = idGIMapper,
+      extractHeader,
       assignmentConfiguration = assignmentConfiguration,
-      extractReadHeader = extractHeader,
       None
     )
 
     val reads  = gropedHits.keys.toList.map(read(_))
-    val hits: List[Hit] = gropedHits.values.toList.flatMap {list => list}
+    val hits: List[Hit[GI]] = gropedHits.values.toList.flatMap {list => list}
 
-    val logger = new ConsoleLogger("assign deep tests", verbose = false)
+    val logger = new ConsoleLogger("assign deep tests")
     val testSample = "test"
     val chunkId = ChunkId(SampleId(testSample), 1, 1000)
 
 
-    val (assignments, wrongRefId) = new LCAAlgorithm(assignmentConfiguration).assignAll(randomTaxonomyTree, hits, reads, assigner.getTaxIds, logger)
+    val (assignments, wrongRefId) = new LCAAlgorithm[GI](assignmentConfiguration).assignAll(randomTaxonomyTree, hits, reads, assigner.getTaxIds, logger)
 
     val (table, stats) = assigner.prepareAssignedResults(
       logger = logger,
@@ -155,12 +160,12 @@ object Assigner  extends Properties("Assigner") {
     )
 
     val oneLineAssignments = assignments.flatMap {
-      case (readId, assignment: TaxIdAssignment) if assignment.line => Some((readId, assignment))
+      case (readId, assignment: TaxIdAssignment[GI]) if assignment.line => Some((readId, assignment))
       case _ => None
     }
 
     val lcaAssignments = assignments.flatMap {
-      case (readId, assignment: TaxIdAssignment) if assignment.lca => Some((readId, assignment))
+      case (readId, assignment: TaxIdAssignment[GI]) if assignment.lca => Some((readId, assignment))
       case _ => None
     }
 
@@ -169,7 +174,7 @@ object Assigner  extends Properties("Assigner") {
     (oneLineAssignments.size == stats.lineAssigned) :| "one line amount check" &&
     (lcaAssignments.size == stats.lcaAssigned) :| "one line amount check" &&
     oneLineAssignments.forall { case (read, assignment) =>
-      val readHits: List[Hit]  = hits.filter(_.readId.equals(read))
+      val readHits: List[Hit[GI]]  = hits.filter(_.readId.equals(read))
       val maxScore = readHits.map(_.score).max
       val filteredHits = readHits.filter { hit =>
         hit.score >= assignmentConfiguration.bitscoreThreshold &&
@@ -181,7 +186,7 @@ object Assigner  extends Properties("Assigner") {
       TreeUtils.getLineage(randomTaxonomyTree, assignment.taxon).takeRight(taxaSet.size).toSet.equals(taxaSet)
     }  :| "check one line assignments" &&
     lcaAssignments.forall { case (read, assignment) =>
-      val readHits: List[Hit]  = hits.filter(_.readId.equals(read))
+      val readHits: List[Hit[GI]]  = hits.filter(_.readId.equals(read))
       val maxScore = readHits.map(_.score).max
       val filteredHits = readHits.filter { hit =>
         hit.score >= assignmentConfiguration.bitscoreThreshold &&

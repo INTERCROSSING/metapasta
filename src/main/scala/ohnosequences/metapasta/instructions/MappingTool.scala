@@ -80,7 +80,7 @@ class Blast[R <: ReferenceId, D <: Database16S[R]](blastBin: File, blastTemplate
             val readId = extractReadId(header)
             database.parseRawId(refIdRaw) match {
               case None => {
-                logger.warn("coun't parse reference id from BLAST output " + refIdRaw)
+                logger.warn("couldn't parse reference id from BLAST output " + refIdRaw)
               }
               case Some(refId) => {
                 val score = Utils.parseDouble(_score)
