@@ -12,7 +12,10 @@ import ohnosequences.metapasta.databases._
 import ohnosequences.metapasta.instructions.{Blast, FLAShMergingTool, MergingTool, MappingTool}
 import ohnosequences.metapasta.reporting.{SampleTag}
 
-import scala.util.Try
+import scala.util.{Success, Try}
+
+
+
 
 
 case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
@@ -20,23 +23,23 @@ case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
 case class QueueThroughput(read: Long, write: Long)
 
 
-trait MetapastaConfiguration extends AnyCompotaConfiguration {
+trait MetapastaConfiguration extends AnyCompotaConfiguration { metapastaConfiguration =>
+
   type DatabaseReferenceId <: ReferenceId
 
   type Database <: Database16S[DatabaseReferenceId]
 
   def loadingManager(logger: Logger): Try[LoadingManager]
 
+  def mappingTool: Installable[MappingTool[DatabaseReferenceId, Database]]
 
-  def mappingTool(logger: Logger, workingDirectory: File, loadingManager: LoadingManager, database: Database): Try[MappingTool[DatabaseReferenceId, Database]]
+  def mappingDatabase: Installable[Database]
 
-  def mappingDatabase(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[Database]
+  def taxonRetriever: Installable[TaxonRetriever[DatabaseReferenceId]]
 
-  def taxonRetriever(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[TaxonRetriever[DatabaseReferenceId]]
+  def taxonomyTree: Installable[Tree[Taxon]]
 
-  def bio4j(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[Bio4j]
-
-  def taxonomyTree(logger: Logger, workingDirectory: File, loadingManager: LoadingManager, bio4j: Bio4j): Try[Tree[Taxon]]
+  def fastaWriter: Installable[Option[FastasWriter]]
 
   def readDirectory: ObjectAddress
 
@@ -48,11 +51,10 @@ trait MetapastaConfiguration extends AnyCompotaConfiguration {
     FLAShMergingTool.linux(logger, workingDirectory, loadingManager, flashTemplate)
   }
 
-  def notMerged(sample: PairedSample): (ObjectAddress, ObjectAddress)
+  def notMergedReadsDestination(sample: PairedSample): (ObjectAddress, ObjectAddress)
 
   def mergedReadsDestination(sample: PairedSample): ObjectAddress
 
-  def fastaWriter(laodingManager: LoadingManager, bio4j: Bio4j): Option[FastasWriter] = Some(new FastasWriter(laodingManager, readDirectory, bio4j))
 
   def assignmentConfiguration: AssignmentConfiguration
 
@@ -68,15 +70,98 @@ trait MetapastaConfiguration extends AnyCompotaConfiguration {
 
   def generateDot: Boolean
 
+  def mergingInstructionsConfiguration: MergingInstructionsConfiguration = MergingInstructionsConfiguration(
+    loadingManager = loadingManager,
+    mergingTool = mergingTool,
+    mergedReadsDestination = mergedReadsDestination,
+    notMergedReadsDestination = notMergedReadsDestination,
+    chunksThreshold = chunksThreshold,
+    chunksSize = chunksSize
+  )
+
+  def mappingInstructionsConfiguration: MappingInstructionsConfiguration[DatabaseReferenceId, Database] = {
+    MappingInstructionsConfiguration(
+      loadingManager = loadingManager,
+      taxonomyTree = taxonomyTree,
+      taxonRetriever = taxonRetriever,
+      fastaWriter = fastaWriter,
+      database = mappingDatabase,
+      mappingTool = mappingTool,
+      assignmentConfiguration = assignmentConfiguration
+    )
+  }
+
+
 }
+
+trait Bio4jConfiguration extends MetapastaConfiguration {
+
+  def bio4j: Installable[Bio4j]
+
+  override val taxonomyTree: Installable[Tree[Taxon]] = new Installable[Tree[Taxon]] {
+    override def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[Tree[Taxon]] = {
+      bio4j.get(logger, workingDirectory, loadingManager).map { bio4j =>
+        new Bio4JTaxonomyTree(bio4j)
+      }
+    }
+  }
+}
+
+
+case class MergingInstructionsConfiguration( loadingManager: Logger => Try[LoadingManager],
+                                           mergingTool: (Logger, File, LoadingManager) => Try[MergingTool],
+                                           mergedReadsDestination: PairedSample => ObjectAddress,
+                                           notMergedReadsDestination: PairedSample => (ObjectAddress, ObjectAddress),
+                                           chunksThreshold: Option[Int],
+                                           chunksSize: Long
+                                           )
+
+
+
+trait AnyMappingInstructionsConfiguration {
+
+  type DatabaseReferenceId <: ReferenceId
+
+  type Database <: Database16S[DatabaseReferenceId]
+
+  val loadingManager: Logger => Try[LoadingManager]
+
+  val mappingTool: Installable[MappingTool[DatabaseReferenceId, Database]]
+
+  val taxonomyTree: Installable[Tree[Taxon]]
+
+  val taxonRetriever: Installable[TaxonRetriever[DatabaseReferenceId]]
+
+  val fastaWriter: Installable[Option[FastasWriter]]
+
+  val database: Installable[Database]
+
+  val assignmentConfiguration: AssignmentConfiguration
+
+}
+
+
+
+
+
+case class MappingInstructionsConfiguration[R <: ReferenceId, D <: Database16S[R]](
+                                                                               loadingManager: Logger => Try[LoadingManager],
+                                                                               mappingTool: Installable[MappingTool[R, D]],
+                                                                               taxonomyTree: Installable[Tree[Taxon]],
+                                                                               taxonRetriever: Installable[TaxonRetriever[R]],
+                                                                               fastaWriter: Installable[Option[FastasWriter]],
+                                                                               database: Installable[D],
+                                                                               assignmentConfiguration: AssignmentConfiguration
+                                                                               ) extends AnyMappingInstructionsConfiguration{
+    override type DatabaseReferenceId = R
+    override type Database = D
+}
+
+
 
 trait AwsMetapastaConfiguration extends MetapastaConfiguration with AwsCompotaConfiguration {
 
   def mappingWorkers: GroupConfiguration
-
-
-
-
 
   def mergedSampleQueueThroughput: QueueThroughput
 
@@ -85,8 +170,6 @@ trait AwsMetapastaConfiguration extends MetapastaConfiguration with AwsCompotaCo
   def readStatsQueueThroughput: QueueThroughput
 
   def assignTableQueueThroughput: QueueThroughput
-
-
 
 }
 
@@ -97,17 +180,21 @@ case class Fixed(n: Int) extends MergeQueueThroughput
 
 case class SampleBased(ration: Double, max: Int = 100) extends MergeQueueThroughput
 
-trait BlastConfiguration extends MetapastaConfiguration {
+
+trait BlastConfiguration extends MetapastaConfiguration { metapastaConfiguration =>
 
   override type DatabaseReferenceId = GI
 
-  override type Database = BlastDatabase16S[DatabaseReferenceId]
+  override type Database = BlastDatabase16S[GI]
 
   def blastTemplate: List[String]
 
-  def mappingTool(logger: Logger, loadingManager: LoadingManager, workingDirectory: File, database: Database): Try[MappingTool[DatabaseReferenceId, Database]] = {
-    Blast.linux(logger, loadingManager, workingDirectory, blastTemplate, database)
-  }
+  override val taxonRetriever: Installable[TaxonRetriever[DatabaseReferenceId]] = TaxonRetriever.inMemory
+
+  override val mappingDatabase: Installable[Database] = BlastDatabase.march2014database
+
+  override val mappingTool: Installable[MappingTool[DatabaseReferenceId, Database]] = Blast.linux[GI](Blast.defaultBlastnTemplate)
+
 
 }
 

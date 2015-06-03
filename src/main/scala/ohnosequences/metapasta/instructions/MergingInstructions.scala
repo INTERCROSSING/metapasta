@@ -14,7 +14,7 @@ import ohnosequences.metapasta.ReadsStats
 import scala.util.{Failure, Success, Try}
 
 
-class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
+class MergingInstructions(configuration: MergingInstructionsConfiguration)
   extends Instructions[List[PairedSample], (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])] {
 
   case class MergingContext(loadingManager: LoadingManager, mergingTool: MergingTool)
@@ -24,8 +24,8 @@ class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
   override def prepare(env: Env): Try[Context] =  {
     import env._
 
-    metapastaConfiguration.loadingManager(logger).flatMap { loadingManager =>
-      metapastaConfiguration.mergingTool(logger, workingDirectory, loadingManager).map { mergingTool =>
+    configuration.loadingManager(logger).flatMap { loadingManager =>
+      configuration.mergingTool(logger, workingDirectory, loadingManager).map { mergingTool =>
         MergingContext(loadingManager, mergingTool)
       }
     }
@@ -52,6 +52,7 @@ class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
   ): Try[File] = {
 
     Success(()).flatMap { u =>
+      logger.info("downloadUnpackUpload file:" + file)
       val readsFile = new File(workingDirectory, file)
 
       if (source.key.endsWith(".gz")) {
@@ -59,7 +60,7 @@ class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
         logger.info("downloading " + source + " to " + archiveFile.getAbsolutePath)
         loadingManager.download(source, archiveFile)
         logger.info("extracting " + archiveFile.getAbsolutePath)
-        val gzipCommand = Seq("gunzip", archiveFile.getAbsolutePath)
+        val gzipCommand = Seq("gunzip", "-f", archiveFile.getAbsolutePath)
         sys.process.Process(gzipCommand, workingDirectory).! match {
           case 0 => {
             Success(readsFile)
@@ -90,7 +91,7 @@ class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
 
     val sample = input.head
 
-    val mergedReadsObject = metapastaConfiguration.mergedReadsDestination(sample)
+    val mergedReadsObject = configuration.mergedReadsDestination(sample)
 
     (if (sample.fastq1.equals(sample.fastq2)) {
       logger.info("paired-end sample")
@@ -107,12 +108,12 @@ class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
         downloadUnpackUpload(logger, loadingManager, sample.fastq2, workingDirectory, "2.fastq", None).flatMap { readsFile2 =>
           logger.info(context.mergingTool.name + ": merging " + readsFile1.getAbsolutePath + " and " + readsFile2.getAbsolutePath)
           context.mergingTool.merge(logger, workingDirectory, readsFile1, readsFile2).map { mergeResults =>
-            val notMergedDst = metapastaConfiguration.notMerged(sample)
-            mergeResults.notMerged1.foreach { notMerged1 =>
-              loadingManager.upload(notMergedDst._1, notMerged1)
+            val notMergedDst = configuration.notMergedReadsDestination(sample)
+            mergeResults.notMerged1.foreach { file =>
+              loadingManager.upload(notMergedDst._1, file)
             }
-            mergeResults.notMerged2.foreach { notMerged1 =>
-              loadingManager.upload(notMergedDst._2, notMerged1)
+            mergeResults.notMerged2.foreach { file =>
+              loadingManager.upload(notMergedDst._2, file)
             }
             loadingManager.upload(mergedReadsObject, mergeResults.merged)
             mergeResults.stats
@@ -121,8 +122,8 @@ class MergingInstructions(metapastaConfiguration: MetapastaConfiguration)
       }
     }).map { stats =>
       logger.info("splitting " + mergedReadsObject)
-      val rawChunks = new S3Splitter(loadingManager.transferManager.getAmazonS3Client, mergedReadsObject, metapastaConfiguration.chunksSize).chunks()
-      val chunks = metapastaConfiguration.chunksThreshold match {
+      val rawChunks = new S3Splitter(loadingManager.transferManager.getAmazonS3Client, mergedReadsObject, configuration.chunksSize).chunks()
+      val chunks = configuration.chunksThreshold match {
         case None => {
           rawChunks
         }

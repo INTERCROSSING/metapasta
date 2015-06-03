@@ -30,22 +30,26 @@ class InMemoryGIMapper(map: mutable.HashMap[String, Taxon]) extends TaxonRetriev
 
 object TaxonRetriever {
 
-//ObjectAddress("metapasta", "gi.map")
-  def inMemory(logger: Logger, loadingManager: LoadingManager, workingDirectory: File, s3location: ObjectAddress): Try[TaxonRetriever[GI]] = {
-    Try {
-      val mapping = new mutable.HashMap[String, Taxon]()
-      val mappingFile = new File(workingDirectory, "gi.map")
-      loadingManager.download(s3location, mappingFile)
-      val giP = """(\d+)\s+(\d+).*""".r
-      for (line <- scala.io.Source.fromFile(mappingFile).getLines()) {
-        line match {
-          case giP(gi, tax) => mapping.put(gi, Taxon(tax))
-          case l => logger.error("can't parse " + l)
-        }
-      }
+  object inMemory extends Installable[TaxonRetriever[GI]] {
+    val s3location = ObjectAddress("metapasta", "gi.map")
 
-      new InMemoryGIMapper(mapping)
+    override def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[TaxonRetriever[GI]] = {
+      Try {
+        val mapping = new mutable.HashMap[String, Taxon]()
+        val mappingFile = new File(workingDirectory, "gi.map")
+        loadingManager.download(s3location, mappingFile)
+        val giP = """(\d+)\s+(\d+).*""".r
+        for (line <- scala.io.Source.fromFile(mappingFile).getLines()) {
+          line match {
+            case giP(gi, tax) => mapping.put(gi, Taxon(tax))
+            case l => logger.error("can't parse " + l)
+          }
+        }
+        new InMemoryGIMapper(mapping)
+      }
     }
   }
+
+
 
 }

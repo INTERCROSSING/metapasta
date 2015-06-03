@@ -66,9 +66,11 @@ trait AnyMetapasta extends AnyCompota {
     readsStatsQueue.type
     ](mergedSampleChunksQueue, readsStatsQueue, mergedSamplesMonoid, readsStatsMonoid2)
 
-  object mergingInstructions extends MergingInstructions(configuration)
+  object mergingInstructions extends MergingInstructions(
+    configuration.mergingInstructionsConfiguration
+  )
 
-  object mappingInstructions extends MappingInstructions(configuration)
+  object mappingInstructions extends MappingInstructions(configuration.mappingInstructionsConfiguration)
 
   type MergingNispero <: AnyNispero.of3[MetapastaEnvironment,
     List[PairedSample],

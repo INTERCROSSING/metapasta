@@ -15,15 +15,15 @@ import ohnosequences.awstools.s3.{LoadingManager}
 
 import scala.util.{Success, Try}
 
-class MappingInstructions(val metapastaConfiguration: MetapastaConfiguration) extends
+class MappingInstructions(val mappingInstructionsConfiguration: AnyMappingInstructionsConfiguration) extends
    MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, AssignmentType), ReadsStats])] {
 
   case class MappingContext(
                              loadingManager: LoadingManager,
-                             bio4j: Bio4j,
-                             database: metapastaConfiguration.Database,
-                             mappingTool: MappingTool[metapastaConfiguration.DatabaseReferenceId, metapastaConfiguration.Database],
-                             assigner: Assigner[metapastaConfiguration.DatabaseReferenceId]
+                             fastasWriter: Option[FastasWriter],
+                             database: mappingInstructionsConfiguration.Database,
+                             mappingTool: MappingTool[mappingInstructionsConfiguration.DatabaseReferenceId, mappingInstructionsConfiguration.Database],
+                             assigner: Assigner[mappingInstructionsConfiguration.DatabaseReferenceId]
                              )
 
   override type Context = MappingContext
@@ -34,20 +34,20 @@ class MappingInstructions(val metapastaConfiguration: MetapastaConfiguration) ex
     val logger = env.logger
     val workingDirectory = env.workingDirectory
 
-    metapastaConfiguration.loadingManager(logger).flatMap { loadingManager =>
-      metapastaConfiguration.bio4j(logger, workingDirectory, loadingManager).flatMap { bio4j =>
-        metapastaConfiguration.mappingDatabase(logger, workingDirectory, loadingManager).flatMap { database =>
-          metapastaConfiguration.taxonRetriever(logger, workingDirectory, loadingManager).flatMap { taxonRetriever =>
-            metapastaConfiguration.taxonomyTree(logger, workingDirectory, loadingManager, bio4j).flatMap { tree =>
-              metapastaConfiguration.mappingTool(logger, workingDirectory, loadingManager, database).map { mappingTool =>
+    mappingInstructionsConfiguration.loadingManager(logger).flatMap { loadingManager =>
+      mappingInstructionsConfiguration.database.get(logger, workingDirectory, loadingManager).flatMap { database =>
+        mappingInstructionsConfiguration.taxonRetriever.get(logger, workingDirectory, loadingManager).flatMap { taxonRetriever =>
+          mappingInstructionsConfiguration.taxonomyTree.get(logger, workingDirectory, loadingManager).flatMap { tree =>
+            mappingInstructionsConfiguration.mappingTool.get(logger, workingDirectory, loadingManager).flatMap { mappingTool =>
+              mappingInstructionsConfiguration.fastaWriter.get(logger, workingDirectory, loadingManager).map { fastasWriter =>
                 val assigner = new Assigner(
                   tree,
                   taxonRetriever,
                   mappingTool.extractReadId,
-                  metapastaConfiguration.assignmentConfiguration,
-                  metapastaConfiguration.fastaWriter(loadingManager,  bio4j)
+                  mappingInstructionsConfiguration.assignmentConfiguration,
+                  fastasWriter
                 )
-                MappingContext(loadingManager, bio4j, database, mappingTool, assigner)
+                MappingContext(loadingManager, fastasWriter, database, mappingTool, assigner)
               }
             }
           }

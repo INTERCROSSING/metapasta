@@ -2,10 +2,12 @@ package ohnosequences.metapasta
 
 import java.io.File
 
+import ohnosequences.awstools.AWSClients
 import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
 import ohnosequences.compota.aws.{MetapastaTestCredentials}
+import ohnosequences.compota.environment.Env
 import ohnosequences.logging.{Logger, ConsoleLogger}
-import ohnosequences.metapasta.instructions.FLAShMergingTool
+import ohnosequences.metapasta.instructions.{MergingInstructions, FLAShMergingTool}
 import org.junit.Assert._
 import org.junit.Test
 
@@ -16,14 +18,15 @@ import scala.util.{Success, Try, Failure}
  */
 
 trait MetapastaTest {
+
   val s3location: ObjectAddress = ObjectAddress("metapasta", "test")
 
-  def launch[T](name: String, debug: Boolean = false)(action: (Logger, LoadingManager) => Try[T]): Unit = {
+  def launch[T](name: String, debug: Boolean = false)(action: (Logger, AWSClients, LoadingManager) => Try[T]): Unit = {
     val logger = new ConsoleLogger(name, debug)
-    MetapastaTestCredentials.loadingManager match {
-      case None => logger.warn("aws credentials should be defined for this test")
-      case Some(loadingManager) => {
-        action(logger, loadingManager) match {
+    (MetapastaTestCredentials.aws, MetapastaTestCredentials.loadingManager) match {
+
+      case (Some(aws), Some(loadingManager)) => {
+        action(logger, aws, loadingManager) match {
           case Failure(t) => {
             logger.error(t)
             fail(t.toString)
@@ -31,15 +34,20 @@ trait MetapastaTest {
           case Success(r) => () //logger.info(r.toString)
         }
       }
+      case _ => logger.warn("aws credentials should be defined for this test")
     }
   }
+
+
+
+  def isWindows: Boolean = System.getProperty("os.name").startsWith("Windows")
 }
 
 class MergeInstructionsTests extends MetapastaTest {
 
-  @Test
+ // @Test
   def flashTool(): Unit = {
-    launch("flashTool", false) { case (logger, loadingManager) =>
+    launch("flashTool", false) { case (logger, aws, loadingManager) =>
 
       val testsWorkingDirectory = new File("test")
       testsWorkingDirectory.mkdir()
@@ -69,6 +77,61 @@ class MergeInstructionsTests extends MetapastaTest {
           assertEquals("counts", 1000, mergeResult.stats.total)
         }
       }
+    }
+  }
+
+  //@Test
+  def mergingInstructions(): Unit = {
+
+    val testsWorkingDirectory = new File("test")
+    testsWorkingDirectory.mkdir()
+
+    val mergeInstructionsTest = new File(testsWorkingDirectory, "merge")
+    mergeInstructionsTest.mkdir()
+
+    launch("mergingInstructions", false) { case (logger2, aws, loadingManager) =>
+      val env = new Env {
+
+        override val logger: Logger = logger2
+
+        override def isStopped: Boolean = false
+
+        override val workingDirectory: File = mergeInstructionsTest
+      }
+
+      val mergingConfiguration = MergingInstructionsConfiguration(
+        loadingManager = {l => Success(loadingManager)},
+        mergingTool = { case (logger, workingDirectory, loadingManager) =>
+          if (isWindows) {
+            FLAShMergingTool.windows(logger, workingDirectory, loadingManager, FLAShMergingTool.defaultTemplate)
+          } else {
+            FLAShMergingTool.linux(logger, workingDirectory, loadingManager, FLAShMergingTool.defaultTemplate)
+          }
+        },
+        mergedReadsDestination = {s => s3location / "merged.fasta"},
+        notMergedReadsDestination = {s => (s3location / "notMerged1.fasta", s3location / "notMerged2.fasta")},
+        Some(10),
+        10000
+      )
+      val mergingInstructions = new MergingInstructions(mergingConfiguration)
+      mergingInstructions.prepare(env).flatMap { context =>
+        val sample = PairedSample("testSample", s3location / "test1s.fastq", s3location / "test2s.fastq.gz")
+        val input = List(sample)
+        mergingInstructions.solve(env, context, input).map { res =>
+          assertEquals("results not empty", false, res.isEmpty)
+
+          val stats1 = res.head._2((sample.name, BBH))
+          val stats2 = res.head._2((sample.name, LCA))
+          assertEquals("BBH and LCA stats are the same", true, stats1.equals(stats2))
+
+
+          assertEquals("merged object exists", true, aws.s3.objectExists(res.head._1.head.fastq).get)
+          assertEquals("counts", 905, stats1.merged)
+          assertEquals("counts", 95, stats1.notMerged)
+          assertEquals("counts", 1000, stats1.total)
+        }
+      }
+
     }
   }
 

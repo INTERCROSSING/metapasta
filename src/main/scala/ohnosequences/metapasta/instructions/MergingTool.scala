@@ -72,18 +72,22 @@ object FLAShMergingTool {
   val defaultTemplate: List[String] = List("$file1$", "$file2$")
 
   def linux(logger: Logger, workingDirectory: File, loadingManager: LoadingManager, flashTemplate: List[String]): Try[FLAShMergingTool] = {
+    val flashAddress = ObjectAddress("metapasta", "flash-1.2.11")
+
     Try {
       val flash = "flash"
       val flashDst = new File(workingDirectory, flash)
-      loadingManager.download(ObjectAddress("metapasta", flash), flashDst)
+      loadingManager.download(flashAddress, flashDst)
       flashDst.setExecutable(true)
       new FLAShMergingTool(flashDst, flashTemplate)
+    }.recoverWith { case t =>
+      Failure(new Error("couldn't install FLASh from " + flashAddress, t))
     }
   }
 
   def windows(logger: Logger, workingDirectory: File, loadingManager: LoadingManager, flashTemplate: List[String]): Try[FLAShMergingTool] = {
     val flash = "flash.exe"
-    val flashAddress = ObjectAddress("metapasta", flash)
+    val flashAddress = ObjectAddress("metapasta", "flash-1.2.11.exe")
     Try {
 
       val flashDst = new File(workingDirectory, flash)

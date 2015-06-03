@@ -17,6 +17,7 @@ testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck,
 
 libraryDependencies ++= Seq(
   "ohnosequences" %% "compota" % "0.10.0-SNAPSHOT",
+  "org.apache.commons" % "commons-compress" % "1.9",
   "ohnosequences" % "bio4j-titandb" % "0.3.1" exclude("com.amazonaws", "aws-java-sdk"),
   "com.novocode" % "junit-interface" % "0.10" % "test"
 )
@@ -32,6 +33,8 @@ dependencyOverrides += "commons-logging" % "commons-logging" % "1.1.3"
 dependencyOverrides += "commons-codec" % "commons-codec" % "1.6"
 
 dependencyOverrides += "commons-io" % "commons-io" % "2.4"
+
+
 
 dependencyOverrides += "com.fasterxml.jackson.core" % "jackson-core" % "2.1.2"
 
