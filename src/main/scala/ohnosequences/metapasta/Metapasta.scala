@@ -1,7 +1,9 @@
 package ohnosequences.metapasta
 
 import ohnosequences.benchmark.Bench
-import ohnosequences.compota.{AnyNispero, AnyCompota}
+import ohnosequences.compota.local._
+import ohnosequences.compota.queues.AnyQueueReducer.of
+import ohnosequences.compota.{InMemoryQueueReducer, AnyNispero, AnyCompota}
 import ohnosequences.compota.aws.queues.{DynamoDBContext, DynamoDBQueue}
 import ohnosequences.compota.aws._
 import ohnosequences.compota.environment.AnyEnvironment
@@ -9,83 +11,189 @@ import ohnosequences.compota.monoid.{Monoid, ListMonoid}
 import ohnosequences.compota.queues.{AnyQueue, ProductQueue, Queue, AnyQueueReducer}
 import ohnosequences.compota.serialization.JsonSerializer
 import ohnosequences.metapasta.instructions.{MergingInstructions, MappingInstructions}
+import org.jboss.netty.channel.SucceededChannelFuture
 
 import scala.collection.mutable
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.metapasta.reporting._
 import java.io.File
 
+import scala.util.{Success, Try}
+
 
 trait AnyMetapasta extends AnyCompota {
-
- // val metapastaConfiguration: MetapastaConfiguration
-
 
   override type CompotaConfiguration <: MetapastaConfiguration
 
   type MetapastaEnvironment <: AnyEnvironment[MetapastaEnvironment]
   type QueueContext
 
-  //E, Ctx, M <: AnyQueueMessage.of[E], R <: AnyQueueReader.of[E, M], W <: AnyQueueWriter.of[E], O <: AnyQueueOp.of[E, M, R, W]
- // type M1 <:
+
   type PairedSamplesQueue <: AnyQueue.of2[List[PairedSample], QueueContext]
-  val pairedSamplesQueue: PairedSamplesQueue
-  val pairedSampleMonoid = new ListMonoid[PairedSample]()
+  def pairedSamplesQueue: PairedSamplesQueue
+  def pairedSampleMonoid = new ListMonoid[PairedSample]()
 
   type MergedSamplesQueue <: Queue[List[MergedSampleChunk], QueueContext]
-  val mergedSampleChunksQueue: MergedSamplesQueue
-  val mergedSamplesMonoid = new ListMonoid[MergedSampleChunk]
+  def mergedSampleChunksQueue: MergedSamplesQueue
+  def mergedSamplesMonoid = new ListMonoid[MergedSampleChunk]
 
-  type ReadsStatsQueue <: Queue[Map[(String, AssignmentType), ReadsStats], QueueContext]
-  val readsStatsQueue: ReadsStatsQueue
-  val readsStatsMonoid2: Monoid[Map[(String, AssignmentType), ReadsStats]] = readStatMapMonoid
+  def readsStatsMonoid2: Monoid[Map[(String, AssignmentType), ReadsStats]] = readStatMapMonoid
 
-  type AssignTableQueue <: Queue[AssignTable, QueueContext]
-  val assignTableQueue: AssignTableQueue
 
-  //class ProductQueue[Ctx, X, Y,
-//XM <: AnyQueueMessage.of[X], XR <: AnyQueueReader.of[X, XM], XW <: AnyQueueWriter.of[X], XO <: AnyQueueOp.of[X, XM, XR, XW], XQ <: AnyQueue.of3[X, Ctx, XM, XR, XW, XO],
-//YM <: AnyQueueMessage.of[Y], YR <: AnyQueueReader.of[Y, YM], YW <: AnyQueueWriter.of[Y], YO <: AnyQueueOp.of[Y, YM, YR, YW], YQ <: AnyQueue.of3[Y, Ctx, YM, YR, YW, YO]
-//]
-  //
+  type MergingQueueOutput = AnyQueue.of2[(List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats]), QueueContext]
+  def mergingOutputQueue: MergingQueueOutput
 
-  type MerginQueueOutput = AnyQueue.of2[(List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats]), QueueContext]
-
-  val mergingOutputQueue: MerginQueueOutput = new ProductQueue[QueueContext,
-    List[MergedSampleChunk],
-    Map[(String, AssignmentType), ReadsStats],
-    mergedSampleChunksQueue.QueueQueueMessage,
-    mergedSampleChunksQueue.QueueQueueReader,
-    mergedSampleChunksQueue.QueueQueueWriter,
-    mergedSampleChunksQueue.QueueQueueOp,
-    mergedSampleChunksQueue.type ,
-    readsStatsQueue.QueueQueueMessage,
-    readsStatsQueue.QueueQueueReader,
-    readsStatsQueue.QueueQueueWriter,
-    readsStatsQueue.QueueQueueOp,
-    readsStatsQueue.type
-    ](mergedSampleChunksQueue, readsStatsQueue, mergedSamplesMonoid, readsStatsMonoid2)
+  type MappingQueueOutput = AnyQueue.of2[(AssignTable, Map[(String, AssignmentType), ReadsStats]), QueueContext]
+  def mappingOutputQueue: MappingQueueOutput
 
   object mergingInstructions extends MergingInstructions(
     configuration.mergingInstructionsConfiguration
   )
-
   object mappingInstructions extends MappingInstructions(configuration.mappingInstructionsConfiguration)
 
-  type MergingNispero <: AnyNispero.of3[MetapastaEnvironment,
-    List[PairedSample],
-    (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats]),
+  def mergingNispero: CompotaNispero with AnyNispero.of3[
+      MetapastaEnvironment,
+      List[PairedSample],
+      (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats]),
+      QueueContext,
+      PairedSamplesQueue,
+      MergingQueueOutput
+  ]
+
+  def mappingNispero: CompotaNispero with AnyNispero.of3[MetapastaEnvironment,
+    List[MergedSampleChunk],
+    (AssignTable, Map[(String, AssignmentType), ReadsStats]),
     QueueContext,
-    PairedSamplesQueue,
-    MerginQueueOutput
+    MergedSamplesQueue,
+    MappingQueueOutput
     ]
 
-  val mergingNispero: MergingNispero
+  override val nisperos: List[CompotaNispero] = List(mergingNispero, mappingNispero)
+
+
+  def assignTableReducer: AnyQueueReducer.of[CompotaEnvironment]
+
+  def readsStatReducer: AnyQueueReducer.of[CompotaEnvironment]
 
 }
 
 
+abstract class LocalMetapasta(val configuration: LocalMetapastaConfiguration) extends AnyMetapasta with AnyLocalCompota {
 
+
+
+  override type CompotaUnDeployActionContext = Option[Bio4j]
+
+  override def prepareUnDeployActions(env: CompotaEnvironment): Try[CompotaUnDeployActionContext] = {
+    Success(None)
+  }
+
+  override def unDeployActions(force: Boolean, env: CompotaEnvironment, context: CompotaUnDeployActionContext): Try[String] = {
+    Success("finished")
+  }
+
+//  override def addTasks(environment: CompotaEnvironment): Try[Unit] = {
+//    environment.logger.info("adding tasks")
+//    Success(())
+//  }
+
+
+
+  override type CompotaConfiguration = LocalMetapastaConfiguration
+
+  override type CompotaNispero = AnyLocalNispero
+
+  override type QueueContext = LocalContext
+
+  override type MetapastaEnvironment = LocalEnvironment
+
+  type PairedSamplesQueue = pairedSamplesQueue2.type
+  override val pairedSamplesQueue = pairedSamplesQueue2
+  object pairedSamplesQueue2 extends LocalQueue[List[PairedSample]] (
+    name = "pairedSamples"
+  )
+
+  override type MergedSamplesQueue = mergedSampleChunksQueue2.type
+  override val mergedSampleChunksQueue: MergedSamplesQueue = mergedSampleChunksQueue2
+  object mergedSampleChunksQueue2 extends LocalQueue[List[MergedSampleChunk]] (
+    name = "mergedSampleChunks"
+  )
+
+  object readsStatsQueue extends LocalQueue[Map[(String, AssignmentType), ReadsStats]](
+    name = "readsStats"
+  )
+
+  object assignTableQueue extends LocalQueue[AssignTable](
+    name = "assignTable"
+  )
+
+  override val mergingOutputQueue: MergingQueueOutput = new ProductQueue[QueueContext,
+      List[MergedSampleChunk],
+      Map[(String, AssignmentType), ReadsStats],
+      mergedSampleChunksQueue.QueueQueueMessage,
+      mergedSampleChunksQueue.QueueQueueReader,
+      mergedSampleChunksQueue.QueueQueueWriter,
+      mergedSampleChunksQueue.QueueQueueOp,
+      mergedSampleChunksQueue.type ,
+      readsStatsQueue.QueueQueueMessage,
+      readsStatsQueue.QueueQueueReader,
+      readsStatsQueue.QueueQueueWriter,
+      readsStatsQueue.QueueQueueOp,
+      readsStatsQueue.type
+      ](mergedSampleChunksQueue, readsStatsQueue, mergedSamplesMonoid, readsStatsMonoid2)
+
+
+  override val mappingOutputQueue: MappingQueueOutput = new ProductQueue[QueueContext,
+      AssignTable,
+      Map[(String, AssignmentType), ReadsStats],
+      assignTableQueue.QueueQueueMessage,
+      assignTableQueue.QueueQueueReader,
+      assignTableQueue.QueueQueueWriter,
+      assignTableQueue.QueueQueueOp,
+      assignTableQueue.type ,
+      readsStatsQueue.QueueQueueMessage,
+      readsStatsQueue.QueueQueueReader,
+      readsStatsQueue.QueueQueueWriter,
+      readsStatsQueue.QueueQueueOp,
+      readsStatsQueue.type
+      ](assignTableQueue, readsStatsQueue, assignTableMonoid, readsStatsMonoid2)
+
+  override val mergingNispero = new LocalNispero[
+    List[PairedSample],
+    (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats]),
+    LocalContext,
+    LocalContext,
+    PairedSamplesQueue,
+    MergingQueueOutput
+    ](
+  inputQueue = pairedSamplesQueue, {t: LocalEnvironment => t.localContext},
+  outputQueue = mergingOutputQueue, {t: LocalEnvironment => t.localContext},
+  instructions = mergingInstructions,
+  LocalNisperoConfiguration(configuration, "merge", configuration.mergers)
+  )
+
+
+  override val mappingNispero = new LocalNispero[
+    List[MergedSampleChunk],
+    (AssignTable, Map[(String, AssignmentType), ReadsStats]),
+    LocalContext,
+    LocalContext,
+    MergedSamplesQueue,
+    MappingQueueOutput
+    ](
+  inputQueue = mergedSampleChunksQueue, {t: LocalEnvironment => t.localContext},
+  outputQueue = mappingOutputQueue, {t: LocalEnvironment => t.localContext},
+  instructions = mappingInstructions,
+  LocalNisperoConfiguration(configuration, "map", configuration.mappers)
+  )
+
+  override def readsStatReducer: of[CompotaEnvironment] = InMemoryQueueReducer.apply(readsStatsQueue, readsStatsMonoid2)
+
+  override def assignTableReducer: of[CompotaEnvironment] = InMemoryQueueReducer.apply(assignTableQueue, assignTableMonoid)
+
+  override val reducers: List[of[CompotaEnvironment]] = List(assignTableReducer, readsStatReducer)
+
+}
 
 
 abstract class AwsMetapasta(val configuration: AwsMetapastaConfiguration) extends AnyMetapasta with AnyAwsCompota {
@@ -95,8 +203,9 @@ abstract class AwsMetapasta(val configuration: AwsMetapastaConfiguration) extend
 
   override type CompotaConfiguration = AwsMetapastaConfiguration
 
-  type QueueContext = DynamoDBContext
+  override type CompotaNispero = AnyAwsNispero
 
+  type QueueContext = DynamoDBContext
 
 
   override type MetapastaEnvironment = AwsEnvironment
@@ -111,8 +220,6 @@ abstract class AwsMetapasta(val configuration: AwsMetapastaConfiguration) extend
     readThroughput = configuration.pairedSampleQueueThroughput.read,
     writeThroughput = configuration.pairedSampleQueueThroughput.write
   )
-
-
 
 
   //  val writeThroughput = configuration.mergeQueueThroughput match {
@@ -133,10 +240,10 @@ abstract class AwsMetapasta(val configuration: AwsMetapastaConfiguration) extend
     writeThroughput = configuration.mergedSampleQueueThroughput.write
   )
 
-  override type ReadsStatsQueue = readsStatsQueue2.type
+  type ReadsStatsQueue = readsStatsQueue2.type
 
 
-  override val readsStatsQueue: ReadsStatsQueue = readsStatsQueue2
+  val readsStatsQueue: ReadsStatsQueue = readsStatsQueue2
 
   object readsStatsQueue2 extends DynamoDBQueue(
     name = "readsStats",
@@ -147,10 +254,10 @@ abstract class AwsMetapasta(val configuration: AwsMetapastaConfiguration) extend
   )
 
 
-  override type AssignTableQueue = assignTableQueue2.type
+  type AssignTableQueue = assignTableQueue2.type
 
 
-  override val assignTableQueue: AssignTableQueue = assignTableQueue2
+  val assignTableQueue: AssignTableQueue = assignTableQueue2
 
   object assignTableQueue2 extends DynamoDBQueue(
     name = "assignTable",
@@ -169,15 +276,14 @@ abstract class AwsMetapasta(val configuration: AwsMetapastaConfiguration) extend
 
 
 
-  override type MergingNispero = mergingNispero2.type
-  override val mergingNispero: MergingNispero = mergingNispero2
-  object mergingNispero2 extends AwsNispero[
+//  override val mergingNispero: MergingNispero = mergingNispero2
+  override object mergingNispero extends AwsNispero[
     List[PairedSample],
     (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats]),
     QueueContext,
     QueueContext,
     PairedSamplesQueue,
-    MerginQueueOutput
+    MergingQueueOutput
     ](
     inputQueue = pairedSamplesQueue, {t: AwsEnvironment => t.createDynamoDBContext()},
     outputQueue = mergingOutputQueue, {t: AwsEnvironment => t.createDynamoDBContext()},
@@ -188,6 +294,9 @@ abstract class AwsMetapasta(val configuration: AwsMetapastaConfiguration) extend
 
 
 }
+
+
+
 //
 //
 //  override val reducers = List[AnyQueueReducer.of[CompotaEnvironment]]()

@@ -1,21 +1,17 @@
 package ohnosequences.metapasta
 
-import java.io.File
-
 
 import ohnosequences.awstools.s3.{S3, ObjectAddress, LoadingManager}
 import ohnosequences.compota.AnyCompotaConfiguration
 import ohnosequences.compota.aws.{AwsCompotaConfiguration, GroupConfiguration}
+import ohnosequences.compota.local.{AnyLocalCompotaConfiguration}
 import ohnosequences.formats.{RawHeader, FASTQ}
 import ohnosequences.logging.Logger
 import ohnosequences.metapasta.databases._
 import ohnosequences.metapasta.instructions.{Blast, FLAShMergingTool, MergingTool, MappingTool}
 import ohnosequences.metapasta.reporting.{SampleTag}
-
-import scala.util.{Success, Try}
-
-
-
+import scala.util.{Try}
+import java.io.File
 
 
 case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
@@ -24,12 +20,15 @@ case class QueueThroughput(read: Long, write: Long)
 
 
 trait MetapastaConfiguration extends AnyCompotaConfiguration { metapastaConfiguration =>
-
   type DatabaseReferenceId <: ReferenceId
 
   type Database <: Database16S[DatabaseReferenceId]
 
   def loadingManager(logger: Logger): Try[LoadingManager]
+
+  def mergers: Int
+
+  def mappers: Int
 
   def mappingTool: Installable[MappingTool[DatabaseReferenceId, Database]]
 
@@ -54,7 +53,6 @@ trait MetapastaConfiguration extends AnyCompotaConfiguration { metapastaConfigur
   def notMergedReadsDestination(sample: PairedSample): (ObjectAddress, ObjectAddress)
 
   def mergedReadsDestination(sample: PairedSample): ObjectAddress
-
 
   def assignmentConfiguration: AssignmentConfiguration
 
@@ -158,6 +156,10 @@ case class MappingInstructionsConfiguration[R <: ReferenceId, D <: Database16S[R
 }
 
 
+trait LocalMetapastaConfiguration extends MetapastaConfiguration with AnyLocalCompotaConfiguration {
+
+}
+
 
 trait AwsMetapastaConfiguration extends MetapastaConfiguration with AwsCompotaConfiguration {
 
@@ -187,7 +189,7 @@ trait BlastConfiguration extends MetapastaConfiguration { metapastaConfiguration
 
   override type Database = BlastDatabase16S[GI]
 
-  def blastTemplate: List[String]
+  def blastTemplate: List[String] = Blast.defaultBlastnTemplate
 
   override val taxonRetriever: Installable[TaxonRetriever[DatabaseReferenceId]] = TaxonRetriever.inMemory
 
