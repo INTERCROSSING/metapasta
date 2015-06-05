@@ -15,10 +15,11 @@ object DynamoValue {
   val Num = "n"
 
   def long(n: Long): DynamoValue = new DynamoValue(n.toString, Num)
+
   def string(s: String): DynamoValue = new DynamoValue(s, Str)
 
   def fromAttributeValue(v: AttributeValue): DynamoValue = {
-    if(v.getN != null) {
+    if (v.getN != null) {
       DynamoValue(v.getN, Num)
     } else if (v.getS != null) {
       DynamoValue(v.getS, Str)

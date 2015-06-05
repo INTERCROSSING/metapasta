@@ -1,11 +1,10 @@
 package ohnosequences.metapasta
 
+import ohnosequences.formats.{FASTQ, RawHeader}
 import ohnosequences.logging.Logger
+import ohnosequences.metapasta.databases.{ReferenceId, TaxonRetriever}
 
 import scala.collection.mutable
-import ohnosequences.metapasta.databases.{RawRefId, TaxonRetriever, ReferenceId, Database16S}
-import ohnosequences.formats.{RawHeader, FASTQ}
-
 
 
 case class ReadId(readId: String)
@@ -16,14 +15,14 @@ case class Hit[R <: ReferenceId](readId: ReadId, refId: R, score: Double)
 trait AssignerAlgorithm[R <: ReferenceId] {
 
 
-  def assignAll(taxonomyTree: Tree[Taxon], hits: List[Hit[R]], reads: List[FASTQ[RawHeader]], getTaxIds: (List[Hit[R]], Logger) =>  (List[(Hit[R], Taxon)], Set[R]), logger: Logger): (mutable.HashMap[ReadId, Assignment[R]], mutable.HashSet[R]) = {
+  def assignAll(taxonomyTree: Tree[Taxon], hits: List[Hit[R]], reads: List[FASTQ[RawHeader]], getTaxIds: (List[Hit[R]], Logger) => (List[(Hit[R], Taxon)], Set[R]), logger: Logger): (mutable.HashMap[ReadId, Assignment[R]], mutable.HashSet[R]) = {
     val result = new mutable.HashMap[ReadId, Assignment[R]]()
 
     val wrongRefIdsAll = new mutable.HashSet[R]()
 
     val hitsPerReads: Map[ReadId, List[Hit[R]]] = hits.groupBy(_.readId)
 
-    for ( (readId, hits) <- hitsPerReads) {
+    for ((readId, hits) <- hitsPerReads) {
       val (hitsTaxa, wrongRefIds) = getTaxIds(hits, logger)
       wrongRefIdsAll ++= wrongRefIds
       if (hitsTaxa.isEmpty) {
@@ -47,7 +46,7 @@ class LCAAlgorithm[R <: ReferenceId](assignmentConfiguration: AssignmentConfigur
 
     hitsTaxa.filter { case (hit, taxon) =>
       hit.score >= assignmentConfiguration.bitscoreThreshold &&
-      hit.score >= assignmentConfiguration.p * maxScore
+        hit.score >= assignmentConfiguration.p * maxScore
     } match {
       case Nil => NotAssigned("threshold", hitsTaxa.map(_._1.refId).toSet, hitsTaxa.map(_._2).toSet)
       case filteredHitsTaxa => {
@@ -97,23 +96,21 @@ case class NotAssigned[R <: ReferenceId](reason: String, refIds: Set[R], taxIds:
 }
 
 
-
 object AssignerAlgorithms {
- // def groupHits(hits: List[Hit], )
+  // def groupHits(hits: List[Hit], )
 }
 
 class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
-               taxonRetriever: TaxonRetriever[R],
-               extractReadId: String => ReadId,
-               assignmentConfiguration: AssignmentConfiguration,
-               fastasWriter: Option[FastasWriter]) {
+                                 taxonRetriever: TaxonRetriever[R],
+                                 extractReadId: String => ReadId,
+                                 assignmentConfiguration: AssignmentConfiguration,
+                                 fastasWriter: Option[FastasWriter]) {
 
- // val tree: Tree[Taxon] = new Bio4JTaxonomyTree(nodeRetriever)
+  // val tree: Tree[Taxon] = new Bio4JTaxonomyTree(nodeRetriever)
 
 
   def assign(logger: Logger, chunk: ChunkId, reads: List[FASTQ[RawHeader]], hits: List[Hit[R]]):
-    (AssignTable, Map[(String, AssignmentType), ReadsStats]) = {
-
+  (AssignTable, Map[(String, AssignmentType), ReadsStats]) = {
 
 
     val (lcaAssignments, lcaWrongRefIds) = logger.benchExecute("LCA assignment") {
@@ -137,19 +134,19 @@ class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
 
   }
 
-//  def getTaxIdFromRefId(refId: RefId, logger: Logger): Option[Taxon] = {
-//
-//    database.parseGI(refId.refId) match {
-//      case Some(gi) => giMapper.getTaxIdByGi(gi) match {
-//        case None => /*logger.error("database error: can't parse taxId from gi: " + refId);*/ None
-//        case Some(taxon) => Some(taxon)
-//      }
-//      case None => {
-//        //logger.error("database error: can't parse gi from ref id: " + refId)
-//        None
-//      }
-//    }
-//  }
+  //  def getTaxIdFromRefId(refId: RefId, logger: Logger): Option[Taxon] = {
+  //
+  //    database.parseGI(refId.refId) match {
+  //      case Some(gi) => giMapper.getTaxIdByGi(gi) match {
+  //        case None => /*logger.error("database error: can't parse taxId from gi: " + refId);*/ None
+  //        case Some(taxon) => Some(taxon)
+  //      }
+  //      case None => {
+  //        //logger.error("database error: can't parse gi from ref id: " + refId)
+  //        None
+  //      }
+  //    }
+  //  }
 
   //
   def getTaxIds(hits: List[Hit[R]], logger: Logger): (List[(Hit[R], Taxon)], Set[R]) = {
@@ -210,11 +207,11 @@ class Assigner[R <: ReferenceId](taxonomyTree: Tree[Taxon],
           case None => assignTable.put(taxon, TaxInfo(1, 1))
           case Some(TaxInfo(count, acc)) => assignTable.put(taxon, TaxInfo(count + 1, acc + 1))
         }
-        TreeUtils.getLineageExclusive(taxonomyTree, taxon).foreach { p  =>
-            assignTable.get(p) match {
-              case None => assignTable.put(p, TaxInfo(0, 1))
-              case Some(TaxInfo(count, acc)) => assignTable.put(p, TaxInfo(count, acc + 1))
-            }
+        TreeUtils.getLineageExclusive(taxonomyTree, taxon).foreach { p =>
+          assignTable.get(p) match {
+            case None => assignTable.put(p, TaxInfo(0, 1))
+            case Some(TaxInfo(count, acc)) => assignTable.put(p, TaxInfo(count, acc + 1))
+          }
         }
       case _ => ()
     }

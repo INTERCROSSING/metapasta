@@ -1,6 +1,6 @@
 package ohnosequences.metapasta.automatic
 
-import ohnosequences.formats.{RawHeader, FASTQ}
+import ohnosequences.formats.{FASTQ, RawHeader}
 import ohnosequences.metapasta._
 import ohnosequences.metapasta.databases.GI
 import org.scalacheck.{Arbitrary, Gen}
@@ -11,6 +11,8 @@ import scala.util.Random
 
 
 object Generators {
+
+  val random = new Random()
 
   @tailrec
   def repeat[T](gen: Gen[T], attempt: Int = 10): Option[T] = {
@@ -40,7 +42,6 @@ object Generators {
 
   def genList[U, T](list: List[U], gen: U => Gen[T]): Gen[List[T]] = genListAux(list, Gen.const(List[T]()), gen)
 
-
   @tailrec
   def genMapAux[U, T](list: List[U], res: Gen[Map[U, T]], gen: U => Gen[T]): Gen[Map[U, T]] = list match {
     case Nil => res
@@ -48,27 +49,13 @@ object Generators {
       val newRes = for {
         headN <- gen(head)
         resR <- res
-      } yield  resR + (head -> headN)
+      } yield resR + (head -> headN)
 
       genMapAux(tail, newRes, gen)
     }
   }
 
   def genMap[U, T](list: List[U], gen: U => Gen[T]): Gen[Map[U, T]] = genMapAux[U, T](list, Gen.const(Map[U, T]()), gen)
-
-  def genPair[T, S](gen1: Gen[T], gen2: Gen[S]): Gen[(T, S)] = for {
-    v1 <- gen1
-    v2 <- gen2
-  } yield (v1, v2)
-
-  def genTriple[T, S, U](gen1: Gen[T], gen2: Gen[S], gen3: Gen[U]): Gen[(T, S, U)] = for {
-    v1 <- gen1
-    v2 <- gen2
-    v3 <- gen3
-  } yield (v1, v2, v3)
-
-
-  val random = new Random()
 
   @tailrec
   def treeRawAux[T](size: Int, map: mutable.HashMap[T, T], labeling: Int => T): Gen[MapTree[T]] = {
@@ -79,7 +66,6 @@ object Generators {
       treeRawAux[T](size - 1, map, labeling)
     }
   }
-
 
   def sizedTree[T](labeling: Int => T, size: Int): Gen[Tree[T]] = {
 
@@ -92,12 +78,9 @@ object Generators {
 
   def stringLabeling(i: Int) = i.toString
 
-
   def boundedTree[T](labeling: Int => T, bound: Int): Gen[(Tree[T], Int)] = {
-    Gen.choose(1, bound).flatMap { size => sizedTree(labeling, size).map { tree => (tree, size)}}
+    Gen.choose(1, bound).flatMap { size => sizedTree(labeling, size).map { tree => (tree, size) } }
   }
-
-
 
   def partitions(size: Int): Gen[List[Int]] = {
 
@@ -123,32 +106,43 @@ object Generators {
     }
   }
 
-  def randomNode[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T)] = sizedTree.flatMap{ case (tree, size) =>
-    Gen.choose(1, size).map { num => (tree, labeling(num))}
+  def randomNode[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T)] = sizedTree.flatMap { case (tree, size) =>
+    Gen.choose(1, size).map { num => (tree, labeling(num)) }
   }
 
-  def randomNodePair[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T, T)] = sizedTree.flatMap{ case (tree, size) =>
-    genPair(Gen.choose(1, size), Gen.choose(1, size)).map { case (num1, num2) => (tree, labeling(num1), labeling(num2))}
+  def randomNodePair[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T, T)] = sizedTree.flatMap { case (tree, size) =>
+    genPair(Gen.choose(1, size), Gen.choose(1, size)).map { case (num1, num2) => (tree, labeling(num1), labeling(num2)) }
   }
 
-  def randomNodeTriple[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T, T, T)] = sizedTree.flatMap{ case (tree, size) =>
-    genTriple(Gen.choose(1, size), Gen.choose(1, size), Gen.choose(1, size)).map { case (num1, num2, num3) => (tree, labeling(num1), labeling(num2), labeling(num3))}
+  def genPair[T, S](gen1: Gen[T], gen2: Gen[S]): Gen[(T, S)] = for {
+    v1 <- gen1
+    v2 <- gen2
+  } yield (v1, v2)
+
+  def randomNodeTriple[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], T, T, T)] = sizedTree.flatMap { case (tree, size) =>
+    genTriple(Gen.choose(1, size), Gen.choose(1, size), Gen.choose(1, size)).map { case (num1, num2, num3) => (tree, labeling(num1), labeling(num2), labeling(num3)) }
+  }
+
+  def genTriple[T, S, U](gen1: Gen[T], gen2: Gen[S], gen3: Gen[U]): Gen[(T, S, U)] = for {
+    v1 <- gen1
+    v2 <- gen2
+    v3 <- gen3
+  } yield (v1, v2, v3)
+
+  def randomNodeSet[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], Set[T])] = sizedTree.flatMap { case (tree, size) =>
+    randomNodeSetAux(tree, size, labeling).map { set => (tree, set) }
   }
 
   def randomNodeSetAux[T](tree: Tree[T], size: Int, labeling: Int => T): Gen[Set[T]] = {
-    Gen.choose(1, size).flatMap { n => Gen.listOfN(n, Gen.choose(1, size).map(labeling))}.map { list => list.toSet }
+    Gen.choose(1, size).flatMap { n => Gen.listOfN(n, Gen.choose(1, size).map(labeling)) }.map { list => list.toSet }
   }
 
-  def randomNodeSet[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], Set[T])] = sizedTree.flatMap{ case (tree, size) =>
-    randomNodeSetAux(tree, size, labeling).map { set => (tree, set)}
-  }
-
-  def randomNodeSets[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T, setsBount: Int): Gen[(Tree[T], List[Set[T]])] = sizedTree.flatMap{ case (tree, size) =>
-    Gen.choose(1, setsBount).flatMap{ n => Gen.listOfN(n, randomNodeSetAux(tree, size, labeling))}.map { sets => (tree, sets)}
+  def randomNodeSets[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T, setsBount: Int): Gen[(Tree[T], List[Set[T]])] = sizedTree.flatMap { case (tree, size) =>
+    Gen.choose(1, setsBount).flatMap { n => Gen.listOfN(n, randomNodeSetAux(tree, size, labeling)) }.map { sets => (tree, sets) }
   }
 
   def randomNodeList[T](sizedTree: Gen[(Tree[T], Int)], labeling: Int => T): Gen[(Tree[T], List[T])] = sizedTree.flatMap { case (tree, size) =>
-    Gen.choose(1, size).flatMap { n => Gen.listOfN(n, Gen.choose(1, size).map(labeling))}.map { list => (tree, list)}
+    Gen.choose(1, size).flatMap { n => Gen.listOfN(n, Gen.choose(1, size).map(labeling)) }.map { list => (tree, list) }
   }
 
   def hitsPerReadId(readId: Int, treeSize: Int, labeling: Int => String): Gen[List[Hit[GI]]] = {
@@ -164,7 +158,7 @@ object Generators {
   def refId(taxon: Taxon): GI = GI(taxon.taxId)
 
   def groupedHits(readsAmount: Int, treeSize: Int, labeling: Int => String): Gen[Map[Int, List[Hit[GI]]]] = {
-    genMap((1 to readsAmount).toList, { id => hitsPerReadId(id, treeSize, labeling)})
+    genMap((1 to readsAmount).toList, { id => hitsPerReadId(id, treeSize, labeling) })
   }
 
   def read(readId: Int) = FASTQ(RawHeader(readId.toString), "ATG", "+", "quality")

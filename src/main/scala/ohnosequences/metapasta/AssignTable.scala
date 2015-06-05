@@ -12,8 +12,9 @@ case class TaxInfo(count: Long, acc: Long) {
 }
 
 object taxInfoMonoid extends Monoid[TaxInfo] {
- // val _unit = TaxInfo(0L, 0L)
+  // val _unit = TaxInfo(0L, 0L)
   val unit: TaxInfo = TaxInfo(0L, 0L)
+
   def mult(x: TaxInfo, y: TaxInfo): TaxInfo = TaxInfo(x.count + y.count, x.acc + y.acc)
 }
 
@@ -38,7 +39,7 @@ object assignMapSerializer extends Serializer[Map[Taxon, TaxInfo]] {
   }
 
   override def toString(t: Map[Taxon, TaxInfo]): Try[String] = {
-    rawMapSerializer.toString(t.map { case (taxon, taxInfo) => (taxon.taxId, taxInfo)})
+    rawMapSerializer.toString(t.map { case (taxon, taxInfo) => (taxon.taxId, taxInfo) })
   }
 }
 

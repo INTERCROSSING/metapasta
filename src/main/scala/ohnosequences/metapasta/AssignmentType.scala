@@ -1,12 +1,15 @@
 //todo doesn't work with json4s
 package ohnosequences.metapasta
+
 //
 //
 sealed trait AssignmentType
+
 //
 object LCA extends AssignmentType {
   override def toString: String = "LCA"
 }
+
 //
 object BBH extends AssignmentType {
   override def toString: String = "BBH"

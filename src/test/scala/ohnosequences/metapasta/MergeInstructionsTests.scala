@@ -4,14 +4,14 @@ import java.io.File
 
 import ohnosequences.awstools.AWSClients
 import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
-import ohnosequences.compota.aws.{MetapastaTestCredentials}
+import ohnosequences.compota.aws.MetapastaTestCredentials
 import ohnosequences.compota.environment.Env
-import ohnosequences.logging.{Logger, ConsoleLogger}
-import ohnosequences.metapasta.instructions.{MergingInstructions, FLAShMergingTool}
+import ohnosequences.logging.{ConsoleLogger, Logger}
+import ohnosequences.metapasta.instructions.{FLAShMergingTool, MergingInstructions}
 import org.junit.Assert._
 import org.junit.Test
 
-import scala.util.{Success, Try, Failure}
+import scala.util.{Failure, Success, Try}
 
 /**
  * Created by Evdokim on 01.06.2015.
@@ -39,13 +39,12 @@ trait MetapastaTest {
   }
 
 
-
   def isWindows: Boolean = System.getProperty("os.name").startsWith("Windows")
 }
 
 class MergeInstructionsTests extends MetapastaTest {
 
- // @Test
+  @Test
   def flashTool(): Unit = {
     launch("flashTool", false) { case (logger, aws, loadingManager) =>
 
@@ -80,7 +79,7 @@ class MergeInstructionsTests extends MetapastaTest {
     }
   }
 
-  //@Test
+  @Test
   def mergingInstructions(): Unit = {
 
     val testsWorkingDirectory = new File("test")
@@ -100,16 +99,17 @@ class MergeInstructionsTests extends MetapastaTest {
       }
 
       val mergingConfiguration = MergingInstructionsConfiguration(
-        loadingManager = {l => Success(loadingManager)},
-        mergingTool = { case (logger, workingDirectory, loadingManager) =>
-          if (isWindows) {
-            FLAShMergingTool.windows(logger, workingDirectory, loadingManager, FLAShMergingTool.defaultTemplate)
-          } else {
-            FLAShMergingTool.linux(logger, workingDirectory, loadingManager, FLAShMergingTool.defaultTemplate)
-          }
+        loadingManager = { l => Success(loadingManager) },
+        mergingTool = {
+          case (logger, workingDirectory, loadingManager) =>
+            if (isWindows) {
+              FLAShMergingTool.windows(logger, workingDirectory, loadingManager, FLAShMergingTool.defaultTemplate)
+            } else {
+              FLAShMergingTool.linux(logger, workingDirectory, loadingManager, FLAShMergingTool.defaultTemplate)
+            }
         },
-        mergedReadsDestination = {s => s3location / "merged.fasta"},
-        notMergedReadsDestination = {s => (s3location / "notMerged1.fasta", s3location / "notMerged2.fasta")},
+        mergedReadsDestination = { s => s3location / "merged.fasta" },
+        notMergedReadsDestination = { s => (s3location / "notMerged1.fasta", s3location / "notMerged2.fasta") },
         Some(10),
         10000
       )

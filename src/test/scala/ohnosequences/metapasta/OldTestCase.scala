@@ -1,10 +1,8 @@
 package ohnosequences.metapasta
 
 
-import java.io.File
-
-import ohnosequences.awstools.s3.{ObjectAddress, S3}
-import ohnosequences.compota.aws.{MetapastaTestCredentials}
+import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.compota.aws.MetapastaTestCredentials
 import ohnosequences.logging.ConsoleLogger
 import org.junit.Assert._
 
@@ -30,8 +28,7 @@ import org.junit.Assert._
 class OldTestCase {
 
 
-
-//  @Test
+  //  @Test
   def oldTestCase() {
     val logger = new ConsoleLogger("oldTestCase")
     MetapastaTestCredentials.aws match {

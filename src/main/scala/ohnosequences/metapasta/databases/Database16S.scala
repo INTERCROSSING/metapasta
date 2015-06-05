@@ -5,6 +5,7 @@ import java.io.File
 
 trait Database16S[R <: ReferenceId] {
   def location: File
+
   def name: String
 
   def parseRawId(rawReferenceId: String): Option[R]

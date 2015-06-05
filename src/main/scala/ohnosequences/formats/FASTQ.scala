@@ -1,7 +1,5 @@
 package ohnosequences.formats
 
-import ohnosequences.awstools.s3.ObjectAddress
-
 
 trait Header {
   // things that we parse and want to write to the table:
@@ -11,6 +9,7 @@ trait Header {
   val format: String
 
   val raw: String
+
   override def toString = raw
 
   def getRaw = raw.replaceAll("^@", "")
@@ -24,25 +23,27 @@ trait Header {
 
 case class RawHeader(raw: String) extends Header {
   val format = "raw"
+
   def attributesMap = Map()
 }
 
 // <instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<index sequence>
 case class CasavaHeader(raw: String)(
-  instrument: String     // Instrument ID
-  , runNumber: Long        // Run number on instrument
-  , flowcellID: String     // ?
-  , lane: Long             // Lane number
-  , tile: Long             // Tile number
-  , xPos: Long             // X coordinate of cluster
-  , yPos: Long             // Y coordinate of cluster
-  , read: Long             // Read number. 1 can be single read or read 2 of paired-end
-  , isFiltered: String     // Y if the read is filtered, N otherwise
-  , controlNumber: Long    // 0 when none of the control bits are on, otherwise it is an even number
-  , indexSequence: String  // Index sequence
+  instrument: String // Instrument ID
+  , runNumber: Long // Run number on instrument
+  , flowcellID: String // ?
+  , lane: Long // Lane number
+  , tile: Long // Tile number
+  , xPos: Long // X coordinate of cluster
+  , yPos: Long // Y coordinate of cluster
+  , read: Long // Read number. 1 can be single read or read 2 of paired-end
+  , isFiltered: String // Y if the read is filtered, N otherwise
+  , controlNumber: Long // 0 when none of the control bits are on, otherwise it is an even number
+  , indexSequence: String // Index sequence
   ) extends Header {
 
   val format = "casava"
+
   def attributesMap = Map(
     "instrument" -> DynamoValue.string(instrument)
     , "runNumber" -> DynamoValue.long(runNumber)
@@ -80,9 +81,8 @@ case class FASTQ[H <: Header](header: H, sequence: String, optHeader: String, qu
   }
 
 
-
   def toFasta: String = {
-   // ">" + header.getRaw.replaceAll("\\s+", "_") + System.lineSeparator() + sequence
+    // ">" + header.getRaw.replaceAll("\\s+", "_") + System.lineSeparator() + sequence
     ">" + header.getRaw.split("\\s+")(0) + System.lineSeparator() + sequenceSplitter(sequence)
   }
 
@@ -92,7 +92,7 @@ case class FASTQ[H <: Header](header: H, sequence: String, optHeader: String, qu
   }
 
   def toFastq: String = {
-    "@" + header.getRaw.split("\\s+")(0)  + System.lineSeparator() + sequence + System.lineSeparator() + optHeader + System.lineSeparator() + quality
+    "@" + header.getRaw.split("\\s+")(0) + System.lineSeparator() + sequence + System.lineSeparator() + optHeader + System.lineSeparator() + quality
 
   }
 }

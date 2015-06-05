@@ -1,11 +1,6 @@
 package ohnosequences.metapasta.tests
 
 import ohnosequences.metapasta.TestReads
-import org.junit.Test
-import org.junit.Assert._
-import ohnosequences.awstools.s3._
-import ohnosequences.formats._
-import ohnosequences.parsers._
 
 class ParserTest {
 
@@ -20,8 +15,8 @@ class ParserTest {
         println(s"Of ${readsNumber} reads only ${distinctNumber} are distinct")
       readsNumber == distinctNumber
     }
-   // assert(noDuplicates(reads1000))
-   // assert(noDuplicates(reads10000))
+    // assert(noDuplicates(reads1000))
+    // assert(noDuplicates(reads10000))
     assert(noDuplicates(reads100000))
   }
 

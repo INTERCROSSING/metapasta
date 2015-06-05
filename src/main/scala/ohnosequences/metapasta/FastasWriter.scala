@@ -1,10 +1,11 @@
 package ohnosequences.metapasta
 
-import ohnosequences.formats.{RawHeader, FASTQ}
-import ohnosequences.metapasta.databases.{RawRefId, ReferenceId}
-import scala.collection.mutable
 import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
+import ohnosequences.formats.{FASTQ, RawHeader}
+import ohnosequences.metapasta.databases.{RawRefId, ReferenceId}
 import ohnosequences.metapasta.reporting.SampleId
+
+import scala.collection.mutable
 
 
 case class ChunkId(sample: SampleId, start: Long, end: Long)
@@ -41,7 +42,6 @@ class FastasWriter(loadingManager: LoadingManager, readsDirectory: ObjectAddress
   }
 
 
-
   def write[R <: ReferenceId](sample: SampleId, read: FASTQ[RawHeader], readId: ReadId, assignment: Assignment[R]) {
     assignment match {
       case TaxIdAssignment(taxon, refIds, _, _, _) => {
@@ -56,10 +56,10 @@ class FastasWriter(loadingManager: LoadingManager, readsDirectory: ObjectAddress
         notAssignedFasta.append(read.toFasta(fastaHeader(sample.id, Taxon(""), refIds.map(_.toRaw), Some("LCAfiltered"))))
         notAssignedFasta.append(System.lineSeparator())
       }
-//      case NoHitAss(reason, refIds, taxIds) => {
-//        noHitFasta.append(read.toFasta(fastaHeader(sample.id, Taxon(""), refIds, Some("NoHits"))))
-//        noHitFasta.append(System.lineSeparator())
-//      }
+      //      case NoHitAss(reason, refIds, taxIds) => {
+      //        noHitFasta.append(read.toFasta(fastaHeader(sample.id, Taxon(""), refIds, Some("NoHits"))))
+      //        noHitFasta.append(System.lineSeparator())
+      //      }
     }
   }
 
@@ -73,16 +73,21 @@ class FastasWriter(loadingManager: LoadingManager, readsDirectory: ObjectAddress
   def uploadFastas(chunk: ChunkId, assignmentType: AssignmentType) {
 
 
-
     //todo
-//    aws.s3.putWholeObject(S3Paths.noHitFasta(readsDirectory, chunk), noHitFasta.toString())
-//    aws.s3.putWholeObject(S3Paths.noTaxIdFasta(readsDirectory, chunk, assignmentType), noTaxIdFasta.toString())
-//    aws.s3.putWholeObject(S3Paths.notAssignedFasta(readsDirectory, chunk, assignmentType), notAssignedFasta.toString())
-//    aws.s3.putWholeObject(S3Paths.assignedFasta(readsDirectory, chunk, assignmentType), assignedFasta.toString())
+    //    aws.s3.putWholeObject(S3Paths.noHitFasta(readsDirectory, chunk), noHitFasta.toString())
+    //    aws.s3.putWholeObject(S3Paths.noTaxIdFasta(readsDirectory, chunk, assignmentType), noTaxIdFasta.toString())
+    //    aws.s3.putWholeObject(S3Paths.notAssignedFasta(readsDirectory, chunk, assignmentType), notAssignedFasta.toString())
+    //    aws.s3.putWholeObject(S3Paths.assignedFasta(readsDirectory, chunk, assignmentType), assignedFasta.toString())
     noHitFasta.clear()
     noTaxIdFasta.clear()
     notAssignedFasta.clear()
     assignedFasta.clear()
   }
 
+}
+
+object FastasWriter {
+  //  val empty = new Installable[FastasWriter] {
+  //    override def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[FastasWriter] = ???
+  //  }
 }

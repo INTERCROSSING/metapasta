@@ -1,16 +1,15 @@
 package ohnosequences.metapasta.databases
 
-import ohnosequences.logging.Logger
-import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
 import java.io.File
+
+import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
+import ohnosequences.logging.Logger
 
 import scala.util.Try
 
 
 class GIBlastDatabase(val location: File, val name: String) extends BlastDatabase16S[GI] {
   //val name: String = "nt.march.14.blast/nt.march.14.fasta"
-
-
 
 
   //gi|313494140|gb|GU939576.1|

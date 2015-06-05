@@ -1,6 +1,6 @@
 package ohnosequences.metapasta
 
-import java.io.{PrintWriter, File}
+import java.io.{File, PrintWriter}
 
 object Utils {
   def writeFile(s: String, file: File) {

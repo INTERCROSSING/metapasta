@@ -1,6 +1,6 @@
 package ohnosequences.metapasta
 
-import com.amazonaws.services.dynamodbv2.model.{ScalarAttributeType, AttributeDefinition, AttributeValue}
+import com.amazonaws.services.dynamodbv2.model.{AttributeDefinition, AttributeValue, ScalarAttributeType}
 
 case class ReadInfo(readId: String, gi: String, sequence: String, quality: String, sample: String, chunk: String, tax: String) {
 
@@ -15,13 +15,13 @@ case class ReadInfo(readId: String, gi: String, sequence: String, quality: Strin
     r.put(sequenceAttr, new AttributeValue().withS(sequence))
     r.put(qualityAttr, new AttributeValue().withS(quality))
     r.put(chunkAttr, new AttributeValue().withS(chunkId(c)))
-    if(!gi.isEmpty) {
+    if (!gi.isEmpty) {
       r.put(giAttr, new AttributeValue().withS(gi))
     } else {
       r.put(giAttr, new AttributeValue().withS(unassigned))
     }
 
-    if(!tax.isEmpty) {
+    if (!tax.isEmpty) {
       r.put(taxAttr, new AttributeValue().withS(tax))
     } else {
       r.put(taxAttr, new AttributeValue().withS(unassigned))

@@ -1,26 +1,32 @@
 package ohnosequences.metapasta
 
-import ohnosequences.compota.monoid.{Monoid, MapMonoid}
+import ohnosequences.compota.monoid.{MapMonoid, Monoid}
 import ohnosequences.compota.serialization.{JsonSerializer, Serializer}
-import ohnosequences.metapasta.databases.{ReferenceId, RawRefId}
+import ohnosequences.metapasta.databases.ReferenceId
+
 import scala.collection.mutable
 import scala.util.Try
 
-sealed  trait AssignmentCategory {
+sealed trait AssignmentCategory {
   def taxon: Taxon
 }
+
 case object Assigned extends AssignmentCategory {
   override def taxon = Taxon("assigned")
 }
+
 case object NoHit extends AssignmentCategory {
   override def taxon = Taxon("No hit")
 }
+
 case object NoTaxId extends AssignmentCategory {
   override def taxon = Taxon("Not assigned via GI")
 }
+
 case object NotMerged extends AssignmentCategory {
   override def taxon = Taxon("notmerged")
 }
+
 case object NotAssignedCat extends AssignmentCategory {
   override def taxon = Taxon("Not assigned due to threshold")
 }
@@ -30,36 +36,42 @@ class ReadStatsBuilder(var wrongRefIds: mutable.HashSet[String] = new mutable.Ha
 
   var total = 0L
   var merged = 0L
-  var notMerged = 0L //problems with flash
-  var noHit = 0L //no hit: too strong mapping parameters
+  var notMerged = 0L
+  //problems with flash
+  var noHit = 0L
+  //no hit: too strong mapping parameters
   var noTaxId = 0L
-  var notAssigned = 0L //thresholds are to strict, in some cases (best blast hit) it can be due to wrong refs
+  var notAssigned = 0L
+  //thresholds are to strict, in some cases (best blast hit) it can be due to wrong refs
   var assigned = 0L
-   //all wrong refs are ignored
+  //all wrong refs are ignored
 
   var bbhAssigned = 0L
   var lcaAssigned = 0L
   var lineAssigned = 0L
 
-  def incrementByAssignment[R <: ReferenceId](assignment:  Assignment[R]) { assignment match {
-    case TaxIdAssignment(_, _, lca, line, bbh) => {
-      if (lca) lcaAssigned +=1
-      if (line) lineAssigned +=1
-      if (bbh) bbhAssigned +=1
-      assigned += 1
+  def incrementByAssignment[R <: ReferenceId](assignment: Assignment[R]) {
+    assignment match {
+      case TaxIdAssignment(_, _, lca, line, bbh) => {
+        if (lca) lcaAssigned += 1
+        if (line) lineAssigned += 1
+        if (bbh) bbhAssigned += 1
+        assigned += 1
+      }
+      case NoTaxIdAssignment(_) => noTaxId += 1
+      case NotAssigned(_, _, _) => notAssigned += 1
     }
-    case NoTaxIdAssignment(_) => noTaxId += 1
-    case NotAssigned(_, _, _) => notAssigned += 1
-  }}
+  }
 
-  def incrementByCategory(cat: AssignmentCategory) { cat match {
-    case NoHit => noHit += 1
-    case NoTaxId => noTaxId += 1
-    case NotMerged => notMerged += 1
-    case Assigned => assigned += 1
-    case NotAssignedCat => notAssigned += 1
-  }}
-
+  def incrementByCategory(cat: AssignmentCategory) {
+    cat match {
+      case NoHit => noHit += 1
+      case NoTaxId => noTaxId += 1
+      case NotMerged => notMerged += 1
+      case Assigned => assigned += 1
+      case NotAssignedCat => notAssigned += 1
+    }
+  }
 
 
   //for checks
@@ -72,23 +84,24 @@ class ReadStatsBuilder(var wrongRefIds: mutable.HashSet[String] = new mutable.Ha
   }
 
 
-  def addWrongRefId(id: ReferenceId) = {wrongRefIds += id.id}
+  def addWrongRefId(id: ReferenceId) = {
+    wrongRefIds += id.id
+  }
 
   def build = ReadsStats(
-      total = total,
-      merged = merged,
-      notMerged = notMerged,
-      noHit = noHit,
-      noTaxId = noTaxId,
-      notAssigned = notAssigned,
-      assigned = assigned,
-      wrongRefIds = wrongRefIds.toSet,
-      lcaAssigned = lcaAssigned,
-      lineAssigned = lineAssigned,
-      bbhAssigned = bbhAssigned
-    )
+    total = total,
+    merged = merged,
+    notMerged = notMerged,
+    noHit = noHit,
+    noTaxId = noTaxId,
+    notAssigned = notAssigned,
+    assigned = assigned,
+    wrongRefIds = wrongRefIds.toSet,
+    lcaAssigned = lcaAssigned,
+    lineAssigned = lineAssigned,
+    bbhAssigned = bbhAssigned
+  )
 }
-
 
 
 case class ReadsStats(total: Long,
@@ -136,14 +149,14 @@ object readsStatsSerializer extends Serializer[Map[(String, AssignmentType), Rea
   val rawStatsSerializer = new JsonSerializer[Map[String, ReadsStats]]()
 
   override def toString(t: Map[(String, AssignmentType), ReadsStats]): Try[String] = {
-    val raw: Map[String, ReadsStats] = t.map { case (sampleAssignmentType, stats)  =>
+    val raw: Map[String, ReadsStats] = t.map { case (sampleAssignmentType, stats) =>
       (sampleAssignmentType._1 + "###" + sampleAssignmentType._2.toString, stats)
     }
     rawStatsSerializer.toString(raw)
   }
 
   override def fromString(s: String): Try[Map[(String, AssignmentType), ReadsStats]] = {
-    val raw : Try[Map[String, ReadsStats]] = rawStatsSerializer.fromString(s)
+    val raw: Try[Map[String, ReadsStats]] = rawStatsSerializer.fromString(s)
     raw.map { rawMap =>
       rawMap.map { case (sampleAssignmentType, stats) =>
         val parts = sampleAssignmentType.split("###")

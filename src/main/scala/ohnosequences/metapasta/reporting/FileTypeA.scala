@@ -1,10 +1,11 @@
 package ohnosequences.metapasta.reporting
 
-import ohnosequences.metapasta._
-import scala.collection.mutable
-import ohnosequences.compota.monoid.{maxLongMonoid, intMonoid, longMonoid}
-import ohnosequences.metapasta.reporting.spreadsheeet._
 import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.compota.monoid.{longMonoid, maxLongMonoid}
+import ohnosequences.metapasta._
+import ohnosequences.metapasta.reporting.spreadsheeet._
+
+import scala.collection.mutable
 
 object FileType {
   type Item = (Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))
@@ -15,6 +16,7 @@ object FileType {
 
 trait FileType {
   def attributes(stats: Map[(String, AssignmentType), ReadsStats]): List[AnyAttribute.For[FileType.Item]]
+
   def destination(dst: ObjectAddress): ObjectAddress
 }
 
@@ -72,9 +74,9 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
 
 
   case class SampleCumulative1(sampleId: SampleId, assignmentType: AssignmentType) extends LongAttribute[Item](sampleId.id + "." + assignmentType + ".cumulative.counts" + "_", longMonoid, hidden = true) {
-   override def execute(item: Item, index: Int, context: Context): Long = {
-     item._2._2.get(sampleId -> assignmentType).map(_.cumulative).getOrElse(0)
-   }
+    override def execute(item: Item, index: Int, context: Context): Long = {
+      item._2._2.get(sampleId -> assignmentType).map(_.cumulative).getOrElse(0)
+    }
 
     override def printTotal(total: Long): String = ""
   }
@@ -102,7 +104,7 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
 
 
     for (sample <- group.samples) {
-      val totalMerged = TotalMerged(sample, stats((sample.id,BBH)).merged)
+      val totalMerged = TotalMerged(sample, stats((sample.id, BBH)).merged)
       res += totalMerged
       for (assignmentType <- List(BBH, LCA)) {
 
@@ -130,9 +132,9 @@ case class FileTypeB(project: ProjectGroup) extends FileType {
     dst / (project.name + ".direct.absolute.freq.csv")
   }
 
-  import FileType.{Item}
+  import FileType.Item
 
-  object taxonomyName extends StringAttribute[Item]("TaxonomyName",  new StringConstantMonoid("total")) {
+  object taxonomyName extends StringAttribute[Item]("TaxonomyName", new StringConstantMonoid("total")) {
     override def execute(item: Item, index: Int, context: Context): String = {
       item._2._1.scientificName
     }
@@ -151,7 +153,8 @@ case class FileTypeB(project: ProjectGroup) extends FileType {
     for (sample <- project.samples) {
       for (assignmentType <- List(BBH, LCA)) {
         val sd = SampleDirect(sample, assignmentType)
-        sampleAttributes += sd      }
+        sampleAttributes += sd
+      }
     }
 
     val res = new mutable.ListBuffer[AnyAttribute.For[Item]]()
@@ -171,14 +174,14 @@ case class FileTypeC(project: ProjectGroup) extends FileType {
   import FileType.Item
 
   override def destination(dst: ObjectAddress): ObjectAddress = {
-    dst / (project.name +  ".direct.relative.freq.csv")
+    dst / (project.name + ".direct.relative.freq.csv")
   }
 
   case class TotalMerged(sampleId: SampleId, totalMerged: Long) extends LongAttribute[Item](sampleId.id + "." + "total.merged", maxLongMonoid, hidden = true) {
     override def execute(item: Item, index: Int, context: Context): Long = totalMerged
   }
 
-  object taxonomyName extends StringAttribute[Item]("TaxonomyName",  new StringConstantMonoid("total")) {
+  object taxonomyName extends StringAttribute[Item]("TaxonomyName", new StringConstantMonoid("total")) {
     override def execute(item: Item, index: Int, context: Context): String = {
       item._2._1.scientificName
     }
@@ -195,7 +198,7 @@ case class FileTypeC(project: ProjectGroup) extends FileType {
     res += taxonomyName
 
     for (sample <- project.samples) {
-      val totalMerged = new TotalMerged(sample, stats((sample.id,BBH)).merged)
+      val totalMerged = new TotalMerged(sample, stats((sample.id, BBH)).merged)
       res += totalMerged
       for (assignmentType <- List(BBH, LCA)) {
         val sd = SampleDirect(sample, assignmentType)
@@ -251,7 +254,7 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
     val relCumulative = new mutable.ListBuffer[(AssignmentType, DoubleAttribute[Item])]()
 
     for (sample <- group.samples) {
-      val totalMerged = TotalMerged(sample, stats((sample.id,BBH)).merged)
+      val totalMerged = TotalMerged(sample, stats((sample.id, BBH)).merged)
       res += totalMerged
       for (assignmentType <- List(BBH, LCA)) {
         val sd = SampleDirect(sample, assignmentType)

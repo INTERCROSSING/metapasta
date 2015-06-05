@@ -19,7 +19,9 @@ object Tree {
  */
 trait Tree[N] {
   def getParent(node: N): Option[N]
+
   val root: N
+
   def isNode(node: N): Boolean
 }
 
@@ -89,9 +91,8 @@ object TreeUtils {
   def getLineageExclusive[N](tree: Tree[N], node: N): List[N] = getLineageExclusiveAux(tree, node)
 
 
-
   /** Tests if the set of nodes form a line in the tree
-    *  @return ``Some(node)` if there they are, node is most specific node `None` otherwise.
+    * @return ``Some(node)` if there they are, node is most specific node `None` otherwise.
     */
   def isInLine[N](tree: Tree[N], nodes: Set[N]): Option[N] = {
     if (nodes.isEmpty) {
@@ -111,7 +112,7 @@ object TreeUtils {
       //first taxIds.size elements should be taxIds
       val maxLineageTail = maxLineage.takeRight(nodes.size)
       if (maxLineageTail.size.equals(nodes.size) && maxLineageTail.forall(nodes.contains)) {
-       // println("maxlin: " + maxLineageTail + "nodes: " + nodes)
+        // println("maxlin: " + maxLineageTail + "nodes: " + nodes)
         maxLineage.lastOption
       } else {
         None
@@ -119,20 +120,20 @@ object TreeUtils {
     }
   }
 
-//  todo: linear algorithm, with map and stacks
-//  def isInLine[N](tree: Tree[N], nodes: Seq[N]): Option[N] = {
-//    val distances = new mutable.HashMap[N, Int]()
-//
-//
-//    nodes.find { node =>
-//      var curent = node
-//      val visited = new mutable.Stack[N]()
-//
-//      whi
-//
-//      true
-//    }
-//  }
+  //  todo: linear algorithm, with map and stacks
+  //  def isInLine[N](tree: Tree[N], nodes: Seq[N]): Option[N] = {
+  //    val distances = new mutable.HashMap[N, Int]()
+  //
+  //
+  //    nodes.find { node =>
+  //      var curent = node
+  //      val visited = new mutable.Stack[N]()
+  //
+  //      whi
+  //
+  //      true
+  //    }
+  //  }
 
 
   def lca[N](tree: Tree[N], n1: N, n2: N): N = {
@@ -143,7 +144,7 @@ object TreeUtils {
       val lineage2 = getLineage(tree, n2)
 
       //should be not empty because both lineages contain root
-      val coincidePrefix = lineage1.zip(lineage2).takeWhile{
+      val coincidePrefix = lineage1.zip(lineage2).takeWhile {
         case (nn1, nn2) => nn1.equals(nn2)
       }
 

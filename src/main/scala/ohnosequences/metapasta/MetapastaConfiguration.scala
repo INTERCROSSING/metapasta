@@ -1,17 +1,18 @@
 package ohnosequences.metapasta
 
 
-import ohnosequences.awstools.s3.{S3, ObjectAddress, LoadingManager}
+import java.io.File
+
+import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
 import ohnosequences.compota.AnyCompotaConfiguration
 import ohnosequences.compota.aws.{AwsCompotaConfiguration, GroupConfiguration}
-import ohnosequences.compota.local.{AnyLocalCompotaConfiguration}
-import ohnosequences.formats.{RawHeader, FASTQ}
+import ohnosequences.compota.local.AnyLocalCompotaConfiguration
 import ohnosequences.logging.Logger
 import ohnosequences.metapasta.databases._
-import ohnosequences.metapasta.instructions.{Blast, FLAShMergingTool, MergingTool, MappingTool}
-import ohnosequences.metapasta.reporting.{SampleTag}
-import scala.util.{Try}
-import java.io.File
+import ohnosequences.metapasta.instructions.{Blast, FLAShMergingTool, MappingTool, MergingTool}
+import ohnosequences.metapasta.reporting.SampleTag
+
+import scala.util.Try
 
 
 case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
@@ -19,7 +20,8 @@ case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
 case class QueueThroughput(read: Long, write: Long)
 
 
-trait MetapastaConfiguration extends AnyCompotaConfiguration { metapastaConfiguration =>
+trait MetapastaConfiguration extends AnyCompotaConfiguration {
+  metapastaConfiguration =>
   type DatabaseReferenceId <: ReferenceId
 
   type Database <: Database16S[DatabaseReferenceId]
@@ -40,11 +42,7 @@ trait MetapastaConfiguration extends AnyCompotaConfiguration { metapastaConfigur
 
   def fastaWriter: Installable[Option[FastasWriter]]
 
-  def readDirectory: ObjectAddress
-
-  def chunksReader(s3: S3, chunk: MergedSampleChunk): List[FASTQ[RawHeader]]
-
-  def flashTemplate: List[String] = List("flash", "$file1$", "$file2")
+  def flashTemplate: List[String] = List("$file1$", "$file2$")
 
   def mergingTool(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[MergingTool] = {
     FLAShMergingTool.linux(logger, workingDirectory, loadingManager, flashTemplate)
@@ -63,8 +61,6 @@ trait MetapastaConfiguration extends AnyCompotaConfiguration { metapastaConfigur
   def chunksSize: Long
 
   def chunksThreshold: Option[Int]
-
-  def mergeQueueThroughput: MergeQueueThroughput
 
   def generateDot: Boolean
 
@@ -94,7 +90,7 @@ trait MetapastaConfiguration extends AnyCompotaConfiguration { metapastaConfigur
 
 trait Bio4jConfiguration extends MetapastaConfiguration {
 
-  def bio4j: Installable[Bio4j]
+  val bio4j: Installable[Bio4j] = Bio4j.bio4j201401
 
   override val taxonomyTree: Installable[Tree[Taxon]] = new Installable[Tree[Taxon]] {
     override def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[Tree[Taxon]] = {
@@ -106,14 +102,13 @@ trait Bio4jConfiguration extends MetapastaConfiguration {
 }
 
 
-case class MergingInstructionsConfiguration( loadingManager: Logger => Try[LoadingManager],
-                                           mergingTool: (Logger, File, LoadingManager) => Try[MergingTool],
-                                           mergedReadsDestination: PairedSample => ObjectAddress,
-                                           notMergedReadsDestination: PairedSample => (ObjectAddress, ObjectAddress),
-                                           chunksThreshold: Option[Int],
-                                           chunksSize: Long
-                                           )
-
+case class MergingInstructionsConfiguration(loadingManager: Logger => Try[LoadingManager],
+                                            mergingTool: (Logger, File, LoadingManager) => Try[MergingTool],
+                                            mergedReadsDestination: PairedSample => ObjectAddress,
+                                            notMergedReadsDestination: PairedSample => (ObjectAddress, ObjectAddress),
+                                            chunksThreshold: Option[Int],
+                                            chunksSize: Long
+                                             )
 
 
 trait AnyMappingInstructionsConfiguration {
@@ -139,20 +134,17 @@ trait AnyMappingInstructionsConfiguration {
 }
 
 
-
-
-
 case class MappingInstructionsConfiguration[R <: ReferenceId, D <: Database16S[R]](
-                                                                               loadingManager: Logger => Try[LoadingManager],
-                                                                               mappingTool: Installable[MappingTool[R, D]],
-                                                                               taxonomyTree: Installable[Tree[Taxon]],
-                                                                               taxonRetriever: Installable[TaxonRetriever[R]],
-                                                                               fastaWriter: Installable[Option[FastasWriter]],
-                                                                               database: Installable[D],
-                                                                               assignmentConfiguration: AssignmentConfiguration
-                                                                               ) extends AnyMappingInstructionsConfiguration{
-    override type DatabaseReferenceId = R
-    override type Database = D
+                                                                                    loadingManager: Logger => Try[LoadingManager],
+                                                                                    mappingTool: Installable[MappingTool[R, D]],
+                                                                                    taxonomyTree: Installable[Tree[Taxon]],
+                                                                                    taxonRetriever: Installable[TaxonRetriever[R]],
+                                                                                    fastaWriter: Installable[Option[FastasWriter]],
+                                                                                    database: Installable[D],
+                                                                                    assignmentConfiguration: AssignmentConfiguration
+                                                                                    ) extends AnyMappingInstructionsConfiguration {
+  override type DatabaseReferenceId = R
+  override type Database = D
 }
 
 
@@ -183,7 +175,8 @@ case class Fixed(n: Int) extends MergeQueueThroughput
 case class SampleBased(ration: Double, max: Int = 100) extends MergeQueueThroughput
 
 
-trait BlastConfiguration extends MetapastaConfiguration { metapastaConfiguration =>
+trait BlastConfiguration extends MetapastaConfiguration with Bio4jConfiguration {
+  metapastaConfiguration =>
 
   override type DatabaseReferenceId = GI
 
@@ -197,7 +190,7 @@ trait BlastConfiguration extends MetapastaConfiguration { metapastaConfiguration
 
   override val mappingTool: Installable[MappingTool[DatabaseReferenceId, Database]] = Blast.linux[GI](Blast.defaultBlastnTemplate)
 
-
+  override def chunksSize: Long = 200000
 }
 
 //case class BlastConfiguration(

@@ -1,7 +1,7 @@
 package ohnosequences.metapasta
 
 import com.amazonaws.services.s3.AmazonS3
-import ohnosequences.awstools.s3.{S3, ObjectAddress}
+import ohnosequences.awstools.s3.ObjectAddress
 
 case class PairedSample(name: String, fastq1: ObjectAddress, fastq2: ObjectAddress)
 

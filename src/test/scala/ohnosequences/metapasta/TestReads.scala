@@ -1,11 +1,9 @@
 package ohnosequences.metapasta
 
-import java.io._
-import ohnosequences.compota.aws.{MetapastaTestCredentials}
-import ohnosequences.logging.ConsoleLogger
-import ohnosequences.metapasta._
 import ohnosequences.awstools.s3._
+import ohnosequences.compota.aws.MetapastaTestCredentials
 import ohnosequences.formats._
+import ohnosequences.logging.ConsoleLogger
 import ohnosequences.parsers._
 
 
@@ -13,14 +11,12 @@ class TestReads
 
 case object TestReads {
 
-  val file = ObjectAddress("metapasta-test", "microtest2.fastq")
-
   type Header = RawHeader
   type Read = FASTQ[Header]
-
   lazy val reads1000 = getReads(1000)
   lazy val reads10000 = getReads(10000)
   lazy val reads100000 = getReads(100000)
+  val file = ObjectAddress("metapasta-test", "microtest2.fastq")
 
   def getReads(chunkSize: Long): List[String] = {
     val logger = new ConsoleLogger("testReads")

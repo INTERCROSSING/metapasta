@@ -1,12 +1,15 @@
 package ohnosequences.metapasta.reporting.spreadsheeet
 
-import ohnosequences.compota.monoid.{longMonoid, doubleMonoid, intMonoid, Monoid}
+import ohnosequences.compota.monoid.{Monoid, doubleMonoid, longMonoid}
+
 import scala.collection.mutable
 
 
 trait Context {
   def get[A <: AnyAttribute](attribute: A, index: Int): attribute.Type
+
   def getTotal[A <: AnyAttribute](attribute: A): attribute.Type
+
   def set[A <: AnyAttribute](attribute: A, index: Int)(value: attribute.Type)
 }
 
@@ -49,6 +52,7 @@ trait AnyAttribute {
   type Item
 
   val hidden: Boolean
+
   def execute(item: Item, index: Int, context: Context): Type
 
   def printTotal(total: Type): String = total.toString
@@ -56,7 +60,7 @@ trait AnyAttribute {
 }
 
 object AnyAttribute {
-  type For[T] = AnyAttribute { type Item = T }
+  type For[T] = AnyAttribute {type Item = T}
 
 }
 
@@ -76,11 +80,10 @@ abstract class StringAttribute[I](val name: String, val monoid: Monoid[String], 
 }
 
 
-
 case class Freq[I](a: LongAttribute[I]) extends DoubleAttribute[I](a.name + ".freq", doubleMonoid) {
   override def execute(item: Item, index: Int, context: Context) = {
 
-    if(context.getTotal(a) == 0 ) {
+    if (context.getTotal(a) == 0) {
       if (context.get(a, index) == 0) {
         0D
       } else {
@@ -93,13 +96,13 @@ case class Freq[I](a: LongAttribute[I]) extends DoubleAttribute[I](a.name + ".fr
   }
 }
 
-case class  Normalize[I](a: LongAttribute[I], d: LongAttribute[I], oname: String, percentage: Boolean, override val hidden: Boolean = false) extends DoubleAttribute[I](oname, doubleMonoid, hidden) {
+case class Normalize[I](a: LongAttribute[I], d: LongAttribute[I], oname: String, percentage: Boolean, override val hidden: Boolean = false) extends DoubleAttribute[I](oname, doubleMonoid, hidden) {
   override def execute(item: Item, index: Int, context: Context) = {
-    if(context.getTotal(d) == 0 ) {
+    if (context.getTotal(d) == 0) {
       if (context.get(a, index) == 0) {
         0D
       } else {
-        println("error " + d.name +".total == 0")
+        println("error " + d.name + ".total == 0")
         0D
       }
     } else {
@@ -109,15 +112,22 @@ case class  Normalize[I](a: LongAttribute[I], d: LongAttribute[I], oname: String
   }
 }
 
-case class Sum[I](a: List[LongAttribute[I]], override val hidden: Boolean = false) extends LongAttribute[I](a.map(_.name).reduce { _ + "+" + _}, longMonoid, hidden) {
+case class Sum[I](a: List[LongAttribute[I]], override val hidden: Boolean = false) extends LongAttribute[I](a.map(_.name).reduce {
+  _ + "+" + _
+}, longMonoid, hidden) {
   override def execute(item: Item, index: Int, context: Context) = {
-    a.map {context.get(_, index)}.reduce{_ + _}
+    a.map {
+      context.get(_, index)
+    }.reduce {
+      _ + _
+    }
   }
 }
 
 
-
-case class Average[I](a: List[DoubleAttribute[I]], override val hidden: Boolean = false, override val monoid: Monoid[Double] = doubleMonoid) extends DoubleAttribute[I]("mean(" + a.map(_.name).reduce { _ + "," + _} + ")", monoid, hidden) {
+case class Average[I](a: List[DoubleAttribute[I]], override val hidden: Boolean = false, override val monoid: Monoid[Double] = doubleMonoid) extends DoubleAttribute[I]("mean(" + a.map(_.name).reduce {
+  _ + "," + _
+} + ")", monoid, hidden) {
   override def execute(item: Item, index: Int, context: Context) = {
     (a.map {
       context.get(_, index)
@@ -126,8 +136,6 @@ case class Average[I](a: List[DoubleAttribute[I]], override val hidden: Boolean 
     } + 0.0) / a.size
   }
 }
-
-
 
 
 class Executor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[Item]) {
@@ -148,28 +156,28 @@ class Executor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[I
 }
 
 class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[Item], val separator: String = ",", val headers: Boolean = true) {
- def quote(s: String): String = {
-   if(s.contains(" ") || s.contains("\t")) {
-     '"' + s + '"'
-   } else {
-     s
-   }
- }
+  def quote(s: String): String = {
+    if (s.contains(" ") || s.contains("\t")) {
+      '"' + s + '"'
+    } else {
+      s
+    }
+  }
 
-  def execute(): String  = {
+  def execute(): String = {
     val context = new ListContext(attributes)
 
 
-   // println("executing")
+    // println("executing")
     for (attribute <- attributes) {
       var index = 0
       for (item <- items) {
         val res = attribute.execute(item, index, context)
         context.set(attribute, index)(res)
-       // println(attribute.name + "[" + index + "] = " + res)
+        // println(attribute.name + "[" + index + "] = " + res)
         index += 1
       }
-     // println(attribute.name + "[*] = " + context.getTotal(attribute))
+      // println(attribute.name + "[*] = " + context.getTotal(attribute))
     }
 
     val lines = new mutable.StringBuilder()
@@ -178,7 +186,7 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
 
     val line = new mutable.StringBuilder()
 
-    if(headers) {
+    if (headers) {
 
 
       for (attribute <- attributes if !attribute.hidden) {
@@ -194,7 +202,7 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
     for (item <- items) {
 
       for (attribute <- attributes if !attribute.hidden) {
-        if(!line.isEmpty) {
+        if (!line.isEmpty) {
           line.append(separator)
         }
         line.append(quote(context.get(attribute, index).toString))
@@ -205,7 +213,7 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
       index += 1
     }
     for (attribute <- attributes if !attribute.hidden) {
-      if(!line.isEmpty) {
+      if (!line.isEmpty) {
         line.append(separator)
       }
       val total = attribute.printTotal(context.getTotal(attribute))

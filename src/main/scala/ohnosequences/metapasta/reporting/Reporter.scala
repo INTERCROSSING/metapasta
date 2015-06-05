@@ -1,18 +1,15 @@
 package ohnosequences.metapasta.reporting
 
 import ohnosequences.awstools.AWSClients
+import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.compota.monoid.MapMonoid
 import ohnosequences.compota.serialization.Serializer
 import ohnosequences.logging.Logger
-import ohnosequences.metapasta._
-import ohnosequences.awstools.s3.{S3, ObjectAddress}
-import ohnosequences.metapasta.ReadsStats
-import ohnosequences.metapasta.AssignTable
-import scala.collection.mutable
+import ohnosequences.metapasta.{AssignTable, ReadsStats, _}
 import ohnosequences.metapasta.reporting.spreadsheeet.CSVExecutor
-import scala.collection.mutable.ListBuffer
-import java.io.{PrintWriter, File}
 
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
 
@@ -32,13 +29,13 @@ class Reporter(aws: AWSClients,
                nodeRetriever: Bio4j,
                destination: ObjectAddress,
                projectName: String
-               ) {
+                ) {
   val assignmentTableSerializer = ohnosequences.metapasta.assignTableSerializer
   val statsMonoid = new MapMonoid[(String, AssignmentType), ReadsStats](readsStatsMonoid)
   val statsSerializer = readsStatsSerializer
 
   def read[T](address: ObjectAddress, serializer: Serializer[T]): Try[T] = {
-     serializer.fromString(aws.s3.readWholeObject(address))
+    serializer.fromString(aws.s3.readWholeObject(address))
   }
 
   def generate() {
@@ -59,7 +56,7 @@ class Reporter(aws: AWSClients,
     for (obj <- statsAddresses) {
       logger.info("reading from " + obj)
       val t = read[Map[(String, AssignmentType), ReadsStats]](obj, statsSerializer)
-      t.foreach { v => stats = statsMonoid.mult(stats, v)}
+      t.foreach { v => stats = statsMonoid.mult(stats, v) }
 
     }
 
@@ -102,7 +99,6 @@ class Reporter(aws: AWSClients,
   }
 
 
-
   //stats should contain only stats for group.samples
   def projectSpecific(table: AssignTable, stats: Map[(String, AssignmentType), ReadsStats], group: AnyGroup) {
 
@@ -131,9 +127,9 @@ class Reporter(aws: AWSClients,
       val fileTypes = r match {
         case None => {
           group match {
-            case pg @ ProjectGroup(name, s) => List(FileTypeA(pg, r), FileTypeB(pg), FileTypeC(pg))
-            case g @ SamplesGroup(name, s) => List(FileTypeA(g, r), FileTypeD(g))
-            case osg @ OneSampleGroup(s) => List(FileTypeA(osg, r))
+            case pg@ProjectGroup(name, s) => List(FileTypeA(pg, r), FileTypeB(pg), FileTypeC(pg))
+            case g@SamplesGroup(name, s) => List(FileTypeA(g, r), FileTypeD(g))
+            case osg@OneSampleGroup(s) => List(FileTypeA(osg, r))
           }
         }
         case Some(rr) => {
@@ -175,12 +171,11 @@ class Reporter(aws: AWSClients,
   }
 
 
-
   def prepareMapping(table: AssignTable, rank: Option[TaxonomyRank]): mutable.HashMap[Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData])] = {
 
     val result = new mutable.HashMap[Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData])]()
 
-    for ((sampleAssignmentType, taxonsInfos) <-  table.table) {
+    for ((sampleAssignmentType, taxonsInfos) <- table.table) {
 
       val sampleId = SampleId(sampleAssignmentType._1)
       val assignmentType = sampleAssignmentType._2
@@ -199,7 +194,7 @@ class Reporter(aws: AWSClients,
           case _ => true
         }
 
-        if(!filter) {
+        if (!filter) {
           result.get(taxon) match {
             case None => {
               val map = new mutable.HashMap[(SampleId, AssignmentType), PerSampleData]()

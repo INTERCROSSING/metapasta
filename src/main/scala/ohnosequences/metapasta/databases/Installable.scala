@@ -36,7 +36,7 @@ trait Installable[T] {
     }
   }
 
-  def extractTarGz(logger: Logger, gzippedFile: File, workingDirectory: File, destination: File): Try[File] = {
+  def extractTarGz(logger: Logger, gzippedFile: File, destination: File): Try[File] = {
 
     Try {
       if (destination.exists()) {
@@ -50,18 +50,6 @@ trait Installable[T] {
         val bufferedStream = new BufferedInputStream(fileStream)
         val gzippedStream = new GzipCompressorInputStream(bufferedStream)
         val tarStream = new TarArchiveInputStream(gzippedStream)
-
-        @tailrec
-        def copy(inputStream: InputStream, outputStream: OutputStream, bufferSize: Int = 4000): Unit = {
-          val buffer = new Array[Byte](bufferSize)
-          inputStream.read(buffer) match {
-            case -1 => ()
-            case len => {
-              outputStream.write(buffer, 0, len)
-              copy(inputStream, outputStream, bufferSize)
-            }
-          }
-        }
 
 
         @tailrec
@@ -80,7 +68,7 @@ trait Installable[T] {
               val dst = new File(destination, entry.getName)
               logger.info("extracting " + dst.getAbsolutePath)
               val outputStream = new BufferedOutputStream(new FileOutputStream(dst))
-              copy(tarStream, outputStream)
+              Installable.copy(tarStream, outputStream)
               outputStream.close()
               processTarEntries(Option(tarStream.getNextTarEntry))
             }
@@ -92,6 +80,8 @@ trait Installable[T] {
       }
     }
   }
+
+
 
   val cachedResults = new AtomicReference[Try[T]](Failure(new Error("initialization error")))
 
@@ -108,4 +98,42 @@ trait Installable[T] {
 
   def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[T]
 
+}
+
+object Installable {
+  def extractGZ(logger: Logger, gzFile: File, destination: File): Try[File] = {
+    Try {
+      val inputFileStream = new FileInputStream(gzFile)
+      val bufferedStream = new BufferedInputStream(inputFileStream)
+      val gzippedStream = new GzipCompressorInputStream(bufferedStream)
+
+      val outputFileStream = new FileOutputStream(destination)
+      copy(gzippedStream, outputFileStream)
+      inputFileStream.close()
+      outputFileStream.close()
+      destination
+    }.recoverWith { case t =>
+      Failure(new Error("can't gunzip the archive " + gzFile.getAbsolutePath))
+    }
+
+  }
+
+  def copy(inputStream: InputStream, outputStream: OutputStream, bufferSize: Int = 4000): Unit = {
+
+    val buffer = new Array[Byte](bufferSize)
+
+
+    @tailrec
+    def copy(inputStream: InputStream): Unit = {
+      inputStream.read(buffer) match {
+        case -1 => ()
+        case len => {
+          outputStream.write(buffer, 0, len)
+          copy(inputStream)
+        }
+      }
+    }
+
+    copy(inputStream)
+  }
 }

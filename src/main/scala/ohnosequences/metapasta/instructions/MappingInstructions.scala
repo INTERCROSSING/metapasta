@@ -1,22 +1,19 @@
 package ohnosequences.metapasta.instructions
 
 import java.io.{File, PrintWriter}
+
+import ohnosequences.awstools.s3.LoadingManager
 import ohnosequences.compota.MapInstructions
 import ohnosequences.compota.environment.Env
+import ohnosequences.formats.{FASTQ, RawHeader}
 import ohnosequences.logging.Logger
-
-import ohnosequences.metapasta._
-import ohnosequences.metapasta.MergedSampleChunk
+import ohnosequences.metapasta.{AssignTable, MergedSampleChunk, _}
 import ohnosequences.parsers.S3ChunksReader
-import ohnosequences.formats.RawHeader
-import ohnosequences.formats.FASTQ
-import ohnosequences.metapasta.AssignTable
-import ohnosequences.awstools.s3.{LoadingManager}
 
 import scala.util.{Success, Try}
 
 class MappingInstructions(val mappingInstructionsConfiguration: AnyMappingInstructionsConfiguration) extends
-   MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, AssignmentType), ReadsStats])] {
+MapInstructions[List[MergedSampleChunk], (AssignTable, Map[(String, AssignmentType), ReadsStats])] {
 
   case class MappingContext(
                              loadingManager: LoadingManager,
@@ -27,7 +24,6 @@ class MappingInstructions(val mappingInstructionsConfiguration: AnyMappingInstru
                              )
 
   override type Context = MappingContext
-
 
 
   override def prepare(env: Env): Try[MappingContext] = {

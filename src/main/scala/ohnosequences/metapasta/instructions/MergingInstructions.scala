@@ -1,15 +1,13 @@
 package ohnosequences.metapasta.instructions
 
-import ohnosequences.awstools.s3.{LoadingManager, S3, ObjectAddress}
 import java.io.File
+
+import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
 import ohnosequences.compota.Instructions
 import ohnosequences.compota.environment.Env
-import ohnosequences.formats.FASTQ
 import ohnosequences.logging.Logger
-import ohnosequences.metapasta._
-import ohnosequences.metapasta.MergedSampleChunk
-import ohnosequences.metapasta.PairedSample
-import ohnosequences.metapasta.ReadsStats
+import ohnosequences.metapasta.databases.Installable
+import ohnosequences.metapasta.{MergedSampleChunk, PairedSample, ReadsStats, _}
 
 import scala.util.{Failure, Success, Try}
 
@@ -21,7 +19,7 @@ class MergingInstructions(configuration: MergingInstructionsConfiguration)
 
   override type Context = MergingContext
 
-  override def prepare(env: Env): Try[Context] =  {
+  override def prepare(env: Env): Try[Context] = {
     import env._
 
     configuration.loadingManager(logger).flatMap { loadingManager =>
@@ -49,7 +47,7 @@ class MergingInstructions(configuration: MergingInstructionsConfiguration)
                            workingDirectory: File,
                            file: String,
                            destination: Option[ObjectAddress]
-  ): Try[File] = {
+                            ): Try[File] = {
 
     Success(()).flatMap { u =>
       logger.info("downloadUnpackUpload file:" + file)
@@ -60,15 +58,7 @@ class MergingInstructions(configuration: MergingInstructionsConfiguration)
         logger.info("downloading " + source + " to " + archiveFile.getAbsolutePath)
         loadingManager.download(source, archiveFile)
         logger.info("extracting " + archiveFile.getAbsolutePath)
-        val gzipCommand = Seq("gunzip", "-f", archiveFile.getAbsolutePath)
-        sys.process.Process(gzipCommand, workingDirectory).! match {
-          case 0 => {
-            Success(readsFile)
-          }
-          case _ => {
-            Failure(new Error("can't gunzip the archive " + archiveFile.getAbsolutePath))
-          }
-        }
+        Installable.extractGZ(logger, archiveFile, readsFile)
       } else {
         logger.info("downloading " + source + " to " + readsFile.getAbsolutePath)
         loadingManager.download(source, readsFile)
@@ -83,7 +73,7 @@ class MergingInstructions(configuration: MergingInstructionsConfiguration)
     }
   }
 
-  def solve(env: Env, context: Context, input: List[PairedSample]): Try[List[( List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])]] = {
+  def solve(env: Env, context: Context, input: List[PairedSample]): Try[List[(List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])]] = {
 
     val logger = env.logger
     val loadingManager = context.loadingManager
