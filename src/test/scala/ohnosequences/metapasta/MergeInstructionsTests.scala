@@ -13,38 +13,11 @@ import org.junit.Test
 
 import scala.util.{Failure, Success, Try}
 
-/**
- * Created by Evdokim on 01.06.2015.
- */
 
-trait MetapastaTest {
-
-  val s3location: ObjectAddress = ObjectAddress("metapasta", "test")
-
-  def launch[T](name: String, debug: Boolean = false)(action: (Logger, AWSClients, LoadingManager) => Try[T]): Unit = {
-    val logger = new ConsoleLogger(name, debug)
-    (MetapastaTestCredentials.aws, MetapastaTestCredentials.loadingManager) match {
-
-      case (Some(aws), Some(loadingManager)) => {
-        action(logger, aws, loadingManager) match {
-          case Failure(t) => {
-            logger.error(t)
-            fail(t.toString)
-          }
-          case Success(r) => () //logger.info(r.toString)
-        }
-      }
-      case _ => logger.warn("aws credentials should be defined for this test")
-    }
-  }
-
-
-  def isWindows: Boolean = System.getProperty("os.name").startsWith("Windows")
-}
 
 class MergeInstructionsTests extends MetapastaTest {
 
-  @Test
+ // @Test
   def flashTool(): Unit = {
     launch("flashTool", false) { case (logger, aws, loadingManager) =>
 
@@ -79,7 +52,7 @@ class MergeInstructionsTests extends MetapastaTest {
     }
   }
 
-  @Test
+//  @Test
   def mergingInstructions(): Unit = {
 
     val testsWorkingDirectory = new File("test")

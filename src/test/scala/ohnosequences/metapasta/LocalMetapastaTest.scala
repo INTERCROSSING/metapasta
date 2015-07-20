@@ -4,13 +4,14 @@ import java.io.File
 
 import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
 import ohnosequences.logging.Logger
-import ohnosequences.metapasta.databases.{TaxonRetriever, GI, BlastDatabase, Installable}
-import ohnosequences.metapasta.instructions.{Blast, MappingTool, FLAShMergingTool, MergingTool}
+import ohnosequences.metapasta.databases.{BlastDatabase, GI, Installable, TaxonRetriever}
+import ohnosequences.metapasta.instructions.{Blast, FLAShMergingTool, MappingTool, MergingTool}
 import ohnosequences.metapasta.reporting.SampleTag
-import org.junit.{Assert, Test}
+import org.junit.Assert._
+import org.junit.Test
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 class LocalMetapastaTest extends MetapastaTest {
 
@@ -86,7 +87,7 @@ class LocalMetapastaTest extends MetapastaTest {
 
         override def fastaWriter: Installable[Option[FastasWriter]] = new Installable[Option[FastasWriter]] {
           override def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[Option[FastasWriter]] = Success(None)
-        }   
+        }
 
         override def tagging: Map[PairedSample, List[SampleTag]] = Map()
 
@@ -102,13 +103,49 @@ class LocalMetapastaTest extends MetapastaTest {
       }
 
       object LocalMetapastaTest extends LocalMetapasta(LocalMetapastaConfiguration)
-      LocalMetapastaTest.launch().map { u =>
-        LocalMetapastaTest.waitForFinished()
+
+      val graph = LocalMetapastaTest.nisperoGraph
+      logger2.info("not leaf queues: " + graph.notLeafsQueues)
+      logger2.info("edges:" + graph.graph.edges)
+      logger2.info("sorted queues: " + graph.sortedQueues)
+      assertEquals("nispero graph size check", 4, graph.graph.edges.size)
+      graph.graph.edges.foreach {
+        case edge if edge.label.equals("merge_0_0") => {
+          assertEquals("nispero merge edge check", LocalMetapastaTest.pairedSamplesQueue.name, edge.source.label)
+          assertEquals("nispero merge edge check", LocalMetapastaTest.mergedSampleChunksQueue.name, edge.target.label)
+        }
+        case edge if edge.label.equals("merge_0_1") => {
+          assertEquals("nispero merge edge check", LocalMetapastaTest.pairedSamplesQueue.name, edge.source.label)
+          assertEquals("nispero merge edge check", LocalMetapastaTest.readsStatsQueue.name, edge.target.label)
+        }
+        case edge if edge.label.equals("map_0_0") => {
+          assertEquals("nispero map edge check", LocalMetapastaTest.mergedSampleChunksQueue.name, edge.source.label)
+          assertEquals("nispero map edge check", LocalMetapastaTest.assignTableQueue.name, edge.target.label)
+        }
+        case edge if edge.label.equals("map_0_1") => {
+          assertEquals("nispero map edge check", LocalMetapastaTest.mergedSampleChunksQueue.name, edge.source.label)
+          assertEquals("nispero map edge check", LocalMetapastaTest.readsStatsQueue.name, edge.target.label)
+        }
+        case edge => fail("nispero map edge check: unexpected edge " + edge)
       }
+      assertEquals("queue order check", List(
+        LocalMetapastaTest.pairedSamplesQueue.name,
+        LocalMetapastaTest.mergedSampleChunksQueue.name,
+        LocalMetapastaTest.readsStatsQueue.name,
+        LocalMetapastaTest.assignTableQueue.name), graph.sortedQueues.map(_.label)
+      )
+      assertEquals("not leaf queues check",
+        List(LocalMetapastaTest.pairedSamplesQueue.name,
+          LocalMetapastaTest.mergedSampleChunksQueue.name),
+        graph.notLeafsQueues
+      )
 
+            LocalMetapastaTest.launch().map { env =>
+              LocalMetapastaTest.waitForFinished()
+            }
+     // Success(())
+      //graph.
+      //  LocalMetapastaTest.waitForFinished()
     }
-
   }
-
-
 }
