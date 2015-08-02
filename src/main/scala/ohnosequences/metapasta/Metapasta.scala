@@ -11,6 +11,7 @@ import java.io.File
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
 
 
+
   override val aws = new AWS(new File(System.getProperty("user.home"), "metapasta.credentials"))
 
   val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
@@ -107,17 +108,6 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "map", workerGroup = configuration.mappingWorkers)
   )
 
-//  configuration.uploadWorkers match {
-//    case Some(workers) =>
-//      val uploaderNispero = nispero(
-//        inputQueue = readsInfo,
-//        outputQueue = unitQueue,
-//        instructions = new DynamoDBUploader(aws, nisperonConfiguration.id + "_reads", nisperonConfiguration.id + "_chunks"),
-//        nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "upload", workerGroup = Group(size = workers, max = 15, instanceType = InstanceType.T1Micro))
-//      )
-//    case None => ()
-//  }
-
 
   //todo test failed actions ...
   override def undeployActions(force: Boolean): Option[String] = {
@@ -145,7 +135,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     reporter.generate()
 
 
-    logger.info("merge fastas")
+    logger.info("merge FASTA files")
 
     val reads = ObjectAddress(nisperonConfiguration.bucket, "reads")
     val results = ObjectAddress(nisperonConfiguration.bucket, "results")
@@ -167,58 +157,10 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
         aws.s3.putObject(S3Paths.treePdf(results, sample, assignmentType), pdfFile)
       }
     }
-
-
     None
   }
 
-  def checks() {
-//    val sample = "test"
-//    import scala.collection.JavaConversions._
-//
-//
-//    val chunks: List[String] = aws.ddb.query(new QueryRequest()
-//      .withTableName(nisperonConfiguration.id + "_chunks")
-//      .withKeyConditions(Map("sample" ->
-//      new Condition()
-//        .withAttributeValueList(new AttributeValue().withS(sample))
-//        .withComparisonOperator(ComparisonOperator.EQ)
-//    ))
-//    ).getItems.map(_.get("chunk").getS).toList
-//
-//    var a = 0
-//    var b = 0
-//    for (chunk <- chunks) {
-//      var stopped = false
-//      while (!stopped) {
-//        try {
-//          val reads = aws.ddb.query(new QueryRequest()
-//            .withTableName(nisperonConfiguration.id + "_reads")
-//            .withAttributesToGet("header", "gi")
-//            .withKeyConditions(Map("chunk" ->
-//            new Condition()
-//              .withAttributeValueList(new AttributeValue().withS(chunk))
-//              .withComparisonOperator(ComparisonOperator.EQ)
-//          ))
-//          ).getItems.map(_.get("gi").getS).toList
-//
-//          val n = reads.filter(_.equals("118136038")).size
-//          val t = reads.size
-//
-//
-//          a += n
-//          b += t
-//          println("n: " + n)
-//          stopped = true
-//        } catch {
-//          case t: Throwable => Thread.sleep(1000); println("retry")
-//        }
-//      }
-//    }
-//
-//    println("unassigned:  " + a)
-//    println("total:  " + b)
-  }
+
 
   def additionalHandler(args: List[String]) {
 
@@ -230,31 +172,33 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
         val merger = new FastaMerger(aws, reads, results, configuration.samples.map(_.name))
         merger.merge()
       }
+      case "undeploy" :: "actions" :: Nil => undeployActions(false)
       case _ =>  undeployActions(false)
     }
   }
 
 
-  override def checkTasks(verbose: Boolean): Boolean = {
-
+  override def checkConfiguration(verbose: Boolean): Boolean = {
     logger.info("checking samples")
     configuration.samples.forall { sample =>
-      val t = aws.s3.objectExists(sample.fastq1, Some(logger))
+      val t = aws.s3.objectExists(sample.fastq1, None)
       if (verbose) println("aws.s3.objectExists(" + sample.fastq1 + ") = " + t)
       t
     } &&
      configuration.samples.forall { sample =>
-      val t = aws.s3.objectExists(sample.fastq2, Some(logger))
+      val t = aws.s3.objectExists(sample.fastq2, None)
       if (verbose) println("aws.s3.objectExists(" + sample.fastq2 + ") = " + t)
       t
-    }
+    } && {
+      logger.info("checking tagging")
+      configuration.tagging.forall { case (sample, tags) =>
+        configuration.samples.contains(sample)
+      }
+    } && super.checkConfiguration(verbose)
+
   }
 
   def addTasks() {
-    //logger.info("creating bucket " + bucket)
-    aws.s3.createBucket(nisperonConfiguration.bucket)
-
-    if (checkTasks(false)) {
       pairedSamples.initWrite()
       val t1 = System.currentTimeMillis()
       configuration.samples.foreach {
@@ -262,7 +206,6 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
           pairedSamples.put(sample.name, "", List(List(sample)))
       }
       val t2 = System.currentTimeMillis()
-      logger.info("added " + (t2 - t1) + " ms")
-    }
+      logger.info("tasks added (in " + (t2 - t1) + " ms)")
   }
 }

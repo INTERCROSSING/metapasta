@@ -24,7 +24,7 @@ object DOTExporter {
     val result = new PrintWriter(dst)
 
 
-    val specialTaxa = Set(Assigned.taxon, NoHit.taxon, NoTaxId.taxon, NotAssignedCat.taxon, FileType.assignedOnOtherKind)
+    val specialTaxa = Set(Assigned.taxon, NoHit.taxon, NoTaxId.taxon, NotAssignedCat.taxon, FileType.assignedToOtherRank)
     result.println("graph tax {")
     data.foreach { case (taxon, taxInfo) =>
       //print node
@@ -39,8 +39,8 @@ object DOTExporter {
           val name = node.getScientificName()
           result.println(taxon.taxId + " [label=\"" + name + "\\n" + taxInfo +  "\", shape=box];")
         } catch {
-          case t: Throwable => logger.warn(t.toString)
-          t.printStackTrace()
+          case t: Throwable => logger.warn("couldn't retrieve taxon from id " + t.toString)
+          //t.printStackTrace()
         }
 
         try {
@@ -48,8 +48,12 @@ object DOTExporter {
           val parent = node.getParent().getTaxId()
           result.println(parent + "--" + taxon.taxId + ";")
         } catch {
-          case t: Throwable => logger.warn(t.toString)
-            t.printStackTrace()
+          case t: Throwable => logger.warn("couldn't retrieve parent taxon for " + t.toString)
+
+          //
+
+          // logger.warn(t.toString)
+            //t.printStackTrace()
         }
       }
     }

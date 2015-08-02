@@ -62,7 +62,7 @@ class Reporter(aws: AWS,
     val pg = ProjectGroup(projectName, samples)
 
 
-    val groups: List[AnyGroup] = generateGroups(samples, tags) ++ samples.map(OneSampleGroup(_)) :+ pg
+    val groups: List[AnyGroup] = generateGroups(samples, tags) ++ samples.map { s => OneSampleGroup(s) } :+ pg
 
     for (group <- groups) {
       val groupStats = stats.filterKeys {
@@ -109,16 +109,15 @@ class Reporter(aws: AWS,
 
     val ranks: List[Option[TaxonomyRank]] = TaxonomyRank.ranks.map(Some(_)) ++ List(None)
 
-    val assignedToOtherLevel = new mutable.HashMap[(SampleId, AssignmentType), PerSampleData]()
-    val assignedToOtherLevelItem = (FileType.assignedOnOtherKind, (TaxonInfo("", ""), assignedToOtherLevel))
 
-    for ((sampleAssignmentType, stat) <- stats) {
-      val sampleId = SampleId(sampleAssignmentType._1)
-      val assignmentType = sampleAssignmentType._2
-      //val d = (stat.notMerged + stat.notAssigned).toInt
-      //will be calculated after
-      assignedToOtherLevel.put((sampleId, assignmentType), PerSampleData(0, 0))
-    }
+
+//    for ((sampleAssignmentType, stat) <- stats) {
+//      val sampleId = SampleId(sampleAssignmentType._1)
+//      val assignmentType = sampleAssignmentType._2
+//      //val d = (stat.notMerged + stat.notAssigned).toInt
+//      //will be calculated after
+//      assignedToOtherLevel.put((sampleId, assignmentType), PerSampleData(0, 0))
+//    }
 
     for (r <- ranks) {
 
@@ -142,8 +141,14 @@ class Reporter(aws: AWS,
       }
 
       val items: Iterable[FileType.Item] = r match {
-        case None => prepareMapping(table, r)
-        case Some(rr) => prepareMapping(table, r) += assignedToOtherLevelItem
+        case None => {
+          prepareMapping(table, r)
+        }
+        case Some(rr) => {
+          //val assignedToOtherLevel = new mutable.HashMap[(SampleId, AssignmentType), PerSampleData]()
+          //val assignedToOtherLevelItem = (FileType.assignedOnOtherKind, (TaxonInfo("", ""), assignedToOtherLevel))
+          prepareMapping(table, r) //+= assignedToOtherLevelItem
+        }
       }
 
       for (fType <- fileTypes) {
@@ -161,12 +166,17 @@ class Reporter(aws: AWS,
   }
 
 
-  def getTaxInfo(taxon: Taxon) = {
+  def getTaxInfo(taxon: Taxon): Option[TaxonInfo] = {
     try {
       val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
-      TaxonInfo(node.getScientificName(), node.getRank())
+      Some(TaxonInfo(node.getScientificName(), node.getRank()))
     } catch {
-      case t: Throwable => t.printStackTrace(); TaxonInfo("", "")
+      case t: Throwable => {
+        //t.printStackTrace();
+        logger.warn("couldn't retrieve taxon info for taxon: " + taxon.taxId)
+        //TaxonInfo("", "")
+        None
+      }
     }
   }
 
@@ -182,23 +192,28 @@ class Reporter(aws: AWS,
       val assignmentType = sampleAssignmentType._2
 
       for ((taxon, taxonInfo) <- taxonsInfos) {
-        val taxonInfoInfo = getTaxInfo(taxon)
+        val taxonInfoInfo = getTaxInfo(taxon).getOrElse(TaxonInfo("", ""))
 
         val filter = rank match {
-          case None if taxon.equals(FileType.assignedOnOtherKind) => true
-          case None if !taxon.equals(FileType.assignedOnOtherKind) => false
-          case Some(rk) if rk.toString.equals(taxonInfoInfo.rank) => false
-          case Some(rk) if taxon.equals(NotAssignedCat.taxon) => false
-          case Some(rk) if taxon.equals(NoHit.taxon) => false
-          case Some(rk) if taxon.equals(NoTaxId.taxon) => false
-          case Some(rk) if taxon.equals(FileType.assignedOnOtherKind) => false
-          case _ => true
+          case None => {
+            false
+          }
+          case Some(rk) => {
+            //special taxa
+            val specialTaxa = List(NoHit.taxon, NotAssignedCat.taxon, NoTaxId.taxon)
+            if (specialTaxa.contains(taxon) || taxonInfoInfo.rank.equals(rk.toString)) {
+              false
+            } else {
+              true
+            }
+          }
         }
 
         if(!filter) {
           result.get(taxon) match {
             case None => {
               val map = new mutable.HashMap[(SampleId, AssignmentType), PerSampleData]()
+
               map.put((sampleId, assignmentType), new PerSampleData(direct = taxonInfo.count, cumulative = taxonInfo.acc))
               result.put(taxon, (taxonInfoInfo, map))
             }

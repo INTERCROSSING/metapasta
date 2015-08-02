@@ -147,7 +147,12 @@ class Executor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[I
   }
 }
 
-class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterable[Item], val separator: String = ",", val headers: Boolean = true) {
+class CSVExecutor[Item](
+                         attributes: List[AnyAttribute.For[Item]],
+                         items: Iterable[Item],
+                         val separator: String = ",",
+                         val headers: Boolean = true
+                         ) {
  def quote(s: String): String = {
    if(s.contains(" ") || s.contains("\t")) {
      '"' + s + '"'
@@ -158,6 +163,7 @@ class CSVExecutor[Item](attributes: List[AnyAttribute.For[Item]], items: Iterabl
 
   def execute(): String  = {
     val context = new ListContext(attributes)
+
 
 
    // println("executing")
