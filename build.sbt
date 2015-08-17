@@ -11,7 +11,7 @@ libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.0" % "test"
 testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-maxSize", "40", "-minSuccessfulTests", "10", "-workers", "1", "-verbosity", "1")
 
 libraryDependencies ++= Seq(
-  "ohnosequences" %% "compota" % "0.9.12-RC2",
+  "ohnosequences" %% "compota" % "0.9.12-RC3",
   "com.novocode" % "junit-interface" % "0.10" % "test",
   "ohnosequences" %% "bio4j-ncbi-taxonomy" % "0.1.0"  classifier("")
 )

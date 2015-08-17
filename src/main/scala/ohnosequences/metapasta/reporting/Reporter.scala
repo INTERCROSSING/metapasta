@@ -152,7 +152,7 @@ class Reporter(aws: AWS,
       }
 
       for (fType <- fileTypes) {
-        val csvPrinter = new CSVExecutor[FileType.Item](fType.attributes(stats), items)
+        val csvPrinter = new CSVExecutor[FileType.Item](fType.attributes(stats), items ++ fType.additinalItems(stats))
         val resultS = csvPrinter.execute()
         val dst = group match {
           case ProjectGroup(name, ss) => destination

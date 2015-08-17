@@ -8,9 +8,9 @@ import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions
 import ohnosequences.metapasta.reporting._
 import java.io.File
 
+import scala.util.Try
+
 abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
-
-
 
   override val aws = new AWS(new File(System.getProperty("user.home"), "metapasta.credentials"))
 
@@ -145,16 +145,18 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
     if(configuration.generateDot) {
       logger.info("generate dot files")
-      DOTExporter.installGraphiz()
-      tables.table.foreach { case (sampleAssignmentType, map) =>
-        val sample = sampleAssignmentType._1
-        val assignmentType = sampleAssignmentType._2
-        val dotFile = new File(sample  + "." + assignmentType + ".tree.dot")
-        val pdfFile = new File(sample  + "." + assignmentType + ".tree.pdf")
-        DOTExporter.generateDot(map, nodeRetriever.nodeRetriever,dotFile)
-        DOTExporter.generatePdf(dotFile, pdfFile)
-        aws.s3.putObject(S3Paths.treeDot(results, sample, assignmentType), pdfFile)
-        aws.s3.putObject(S3Paths.treePdf(results, sample, assignmentType), pdfFile)
+      Try {
+        DOTExporter.installGraphiz()
+        tables.table.foreach { case (sampleAssignmentType, map) =>
+          val sample = sampleAssignmentType._1
+          val assignmentType = sampleAssignmentType._2
+          val dotFile = new File(sample + "." + assignmentType + ".tree.dot")
+          val pdfFile = new File(sample + "." + assignmentType + ".tree.pdf")
+          DOTExporter.generateDot(map, nodeRetriever.nodeRetriever, dotFile)
+          DOTExporter.generatePdf(dotFile, pdfFile)
+          aws.s3.putObject(S3Paths.treeDot(results, sample, assignmentType), pdfFile)
+          aws.s3.putObject(S3Paths.treePdf(results, sample, assignmentType), pdfFile)
+        }
       }
     }
     None
@@ -173,7 +175,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
         merger.merge()
       }
       case "undeploy" :: "actions" :: Nil => undeployActions(false)
-      case _ =>  undeployActions(false)
+      case _ =>  logger.error("wrong command")
     }
   }
 
