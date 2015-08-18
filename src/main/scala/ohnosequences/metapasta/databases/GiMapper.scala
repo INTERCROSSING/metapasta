@@ -1,40 +1,47 @@
 package ohnosequences.metapasta.databases
 
-import java.io.File
-import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
-import scala.collection.mutable
-import org.clapper.avsl.Logger
-import ohnosequences.metapasta.{Taxon, Factory}
+import java.util.zip.GZIPInputStream
 
-/**
- * todo it will moved to bio4j
- */
+import ohnosequences.logging.Logger
+import ohnosequences.metapasta.Taxon
+import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
+
+import scala.collection.mutable
+
+import java.io.{FileInputStream, File}
+
+import scala.util.Try
+
 trait GIMapper {
   def getTaxIdByGi(gi: String): Option[Taxon]
 }
 
-class InMemoryGIMapperFactory() extends DatabaseFactory[GIMapper] {
 
-  val logger = Logger(this.getClass)
+class InMemoryGIMemory(giTaxId: ObjectAddress = ObjectAddress("metapasta", "0.9.13/gi_taxid_nucl.dmp.filtered.gz")) extends Installable[GIMapper] {
 
-  class InMemoryGIMapper(map: mutable.HashMap[String, Taxon]) extends GIMapper {
+  class InMemoryGIMemoryC(map: Map[String, Taxon]) extends GIMapper {
     override def getTaxIdByGi(gi: String): Option[Taxon] = map.get(gi)
   }
 
 
-  override def build(loadingManager: LoadingManager): GIMapper = {
-    val mapping = new mutable.HashMap[String, Taxon]()
-    val mappingFile = new File("gi.map")
-    loadingManager.download(ObjectAddress("metapasta", "gi.map"), mappingFile)
-    val giP = """(\d+)\s+(\d+).*""".r
-    for(line <- io.Source.fromFile(mappingFile).getLines()) {
-      line match {
-        case giP(gi, tax) => mapping.put(gi, Taxon(tax))
-        case l => logger.error("can't parse " + l)
-      }
-    }
+  override protected def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[GIMapper] = {
+    Try {
+      val mappingFile = new File(workingDirectory, "gi.map")
+      logger.info("downloading gi.map from " + giTaxId.url)
+      loadingManager.download(giTaxId, mappingFile)
 
-    new InMemoryGIMapper(mapping)
+      logger.info("parsing gi.map")
+      val builder = new mutable.HashMap[String, Taxon]()
+      io.Source.fromInputStream(new GZIPInputStream(new FileInputStream(mappingFile))).getLines().foreach { s =>
+        s.trim.split("\\s+").toList match {
+          case gi :: taxonId :: rest => {
+            builder.put(gi, Taxon(taxonId))
+          }
+          case _ => logger.warn("couldn't parse line: " + s)
+        }
+      }
+      new InMemoryGIMemoryC(builder.toMap)
+    }
   }
 
 }

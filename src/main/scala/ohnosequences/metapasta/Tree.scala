@@ -67,7 +67,6 @@ class Bio4JTaxonomyTree(nodeRetriever: NodeRetriever) extends Tree[Taxon] {
 
 object TreeUtils {
 
-
   @tailrec
   def getLineageAux[N](tree: Tree[N], node: N, acc: List[N] = List[N]()): List[N] = {
     tree.getParent(node) match {
@@ -118,21 +117,6 @@ object TreeUtils {
       }
     }
   }
-
-//  todo: linear algorithm, with map and stacks
-//  def isInLine[N](tree: Tree[N], nodes: Seq[N]): Option[N] = {
-//    val distances = new mutable.HashMap[N, Int]()
-//
-//
-//    nodes.find { node =>
-//      var curent = node
-//      val visited = new mutable.Stack[N]()
-//
-//      whi
-//
-//      true
-//    }
-//  }
 
 
   def lca[N](tree: Tree[N], n1: N, n2: N): N = {
