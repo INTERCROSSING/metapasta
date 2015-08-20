@@ -1,6 +1,6 @@
 package ohnosequences.metapasta
 
-import ohnosequences.nisperon.{JsonSerializer, Serializer, MapMonoid, Monoid}
+import ohnosequences.compota.{JsonSerializer, Serializer, MapMonoid, Monoid}
 import scala.collection.mutable
 
 

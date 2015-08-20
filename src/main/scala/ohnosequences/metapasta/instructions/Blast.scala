@@ -1,50 +1,144 @@
 package ohnosequences.metapasta.instructions
 
-import ohnosequences.metapasta.databases.BlastDatabase16S
-import ohnosequences.metapasta.Factory
-import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
 import java.io.File
-import org.clapper.avsl.Logger
+import java.net.URL
+
+import ohnosequences.awstools.s3.{ObjectAddress, LoadingManager}
+import ohnosequences.logging.Logger
+import ohnosequences.metapasta.{Utils, Hit, ReadId}
+import ohnosequences.metapasta.databases.{Installable, BlastDatabase16S, ReferenceId}
+
+import scala.collection.mutable.ListBuffer
+import scala.util.{Failure, Success, Try}
+
+class Blast[R <: ReferenceId, D <: BlastDatabase16S[R]](blastn: File, blastTemplate: List[String]) extends MappingTool[R, D] {
+  
+  override val name: String = "blast"
+
+  override def extractReadId(header: String): ReadId = ReadId(header)
 
 
-trait Blast {
-  def launch(commandLine: String, database: BlastDatabase16S, input: File, output: File, useXML: Boolean): Int
-}
+  override def launch(logger: Logger, workingDirectory: File, database: D, readsFile: File, outputFile: File): Try[List[Hit[R]]] = {
+    val commandRaw = blastTemplate.map { arg =>
+      arg
+        .replace("$db$", database.blastParameter)
+        .replace("$input$", readsFile.getAbsolutePath)
+        .replace("$output$", outputFile.getAbsolutePath)
+        .replace("$out_format$", "6")
+        .replace("$threads_count$", Runtime.getRuntime().availableProcessors().toString)
+    }
 
 
-class BlastFactory() extends Factory[LoadingManager, Blast] {
-  val logger = Logger(this.getClass)
+    val command = List(blastn.getAbsolutePath) ++ commandRaw
+    logger.info("blast command: " + command)
+    val res = logger.benchExecute("executing BLAST") {
+      sys.process.Process(command, workingDirectory).! match {
+        case 0 => {
+          Success(outputFile)
+        }
+        case _ => {
+          Failure(new Error("can't execute BLAST"))
+        }
+      }
+    }
+
+    res.map { blastOutput =>
+      //blast 12 fields
+      //25  gi|339283447|gb|JF799642.1| 100.00  399 0   0   1   399 558 956 0.0  737
+      //M02255:17:000000000-A8J9J:1:2104:18025:8547     gi|291331518|gb|GU958050.1|     88.31   77      3       6       1       74      506     579     1e-15   87.9
+      //val blastHit = """\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*([^\s]+)\s*(\d+)$""".r
+      val blastHit = """^\s*([^\s]+)\s+([^\s]+).*?([^\s]+)\s*$""".r
+      val comment = """#(.*)""".r
+
+      logger.benchExecute("parsing BLAST output from " + blastOutput) {
+        val hits = new ListBuffer[Hit[R]]()
+        scala.io.Source.fromFile(blastOutput).getLines().foreach {
+          case comment(c) => //logger.info("skipping comment: " + c)
+          case blastHit(header, refIdRaw, _score) => {
+            val readId = extractReadId(header)
+            database.parseRawId(refIdRaw) match {
+              case None => {
+                logger.warn("couldn't parse reference id from BLAST output " + refIdRaw)
+              }
+              case Some(refId) => {
+                val score = Utils.parseDouble(_score)
+                hits += Hit(readId, refId, score)
+              }
+            }
 
 
-  class _Blast extends Blast {
-    override def launch(commandLine: String, database: BlastDatabase16S, input: File, output: File, useXML: Boolean): Int = {
-
-      val command =  commandLine
-        .replace("$db$", database.name)
-        .replace("$output$", output.getPath)
-        .replace("$input$", input.getPath)
-        .replace("$out_format$", if (useXML) "5" else "6")
-
-      logger.info("running BLAST " + command)
-      import scala.sys.process._
-      command.!
-
-
+          }
+          case l => logger.error("can't parse: " + l)
+        }
+        hits.toList
+      }
     }
   }
+}
 
-  override def build(loadingManager: LoadingManager): Blast = {
-    import scala.sys.process._
-    logger.info("downloading BLAST")
-    val blast = ObjectAddress("resources.ohnosequences.com", "blast/ncbi-blast-2.2.25.tar.gz")
-    loadingManager.download(blast, new File("ncbi-blast-2.2.25.tar.gz"))
+object Blast {
 
-    logger.info("extracting BLAST")
-    """tar -xvf ncbi-blast-2.2.25.tar.gz""".!
+  //ManagementFactory.getThreadMXBean().getThreadCount()
 
-    logger.info("installing BLAST")
-    // new Runtime().exec()
-    Seq("sh", "-c", """cp ./ncbi-blast-2.2.25+/bin/* /usr/bin""").!
-    new _Blast()
+  def defaultBlastnTemplate = List(
+    "-task",
+    "megablast",
+    "-db",
+    "$db$",
+    "-query",
+    "$input$",
+    "-out",
+    "$output$",
+    "-max_target_seqs",
+    "1",
+    "-num_threads",
+    "$threads_count$",
+    "-outfmt",
+    "$out_format$",
+    "-show_gis"
+  )
+
+  import Installable._
+
+
+  def windows[R <: ReferenceId](blastTemplate: List[String]): Installable[MappingTool[R, BlastDatabase16S[R]]] = new Installable[MappingTool[R, BlastDatabase16S[R]]] {
+    override def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[MappingTool[R, BlastDatabase16S[R]]] = {
+
+      val latestURL = new URL( """ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ncbi-blast-2.2.30+-ia32-win32.tar.gz""")
+      val blastArchive = new File(workingDirectory, "ncbi-blast-2.2.30+-ia32-win32.tar.gz")
+      workingDirectory.mkdir()
+      download("blast", logger, latestURL, blastArchive).flatMap { archive =>
+        extractTarGz(logger, archive, new File(workingDirectory, "blast")).map { dst =>
+          logger.info("installing BLAST")
+          val blastRoot = new File(dst, "ncbi-blast-2.2.30+")
+          val blastBin = new File(blastRoot, "bin")
+          val blastn = new File(blastBin, "blastn")
+          blastn.setExecutable(true)
+          new Blast[R, BlastDatabase16S[R]](blastn, blastTemplate)
+        }
+      }
+    }
+
+  }
+
+
+  def linux[R <: ReferenceId](blastTemplate: List[String]): Installable[MappingTool[R, BlastDatabase16S[R]]] = new Installable[MappingTool[R, BlastDatabase16S[R]]] {
+    override def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[MappingTool[R, BlastDatabase16S[R]]] = {
+      logger.info("downloading BLAST")
+      val blast = ObjectAddress("resources.ohnosequences.com", "blast/ncbi-blast-2.2.25.tar.gz")
+      workingDirectory.mkdir()
+      val blastArchive = new File(workingDirectory, "ncbi-blast-2.2.25.tar.gz")
+      loadingManager.download(blast, blastArchive)
+      logger.info("installing BLAST")
+
+      extractTarGz(logger, blastArchive, new File(workingDirectory, "blast")).map { dst =>
+        val blastRoot = new File(dst, "ncbi-blast-2.2.30+")
+        val blastBin = new File(blastRoot, "bin")
+        val blastn = new File(blastBin, "blastn")
+        blastn.setExecutable(true)
+        new Blast[R, BlastDatabase16S[R]](blastn, blastTemplate)
+      }
+
+    }
   }
 }

@@ -1,20 +1,18 @@
 package ohnosequences.metapasta.reporting
 
+import ohnosequences.logging.ConsoleLogger
 import ohnosequences.metapasta._
-import org.clapper.avsl.Logger
-import ohnosequences.nisperon._
-import ohnosequences.awstools.s3.{S3, ObjectAddress}
-import ohnosequences.metapasta.ReadsStats
-import ohnosequences.metapasta.AssignTable
-import scala.collection.mutable
 import ohnosequences.metapasta.reporting.spreadsheeet.CSVExecutor
-import scala.collection.mutable.ListBuffer
-import java.io.{PrintWriter, File}
+import ohnosequences.compota._
+import ohnosequences.awstools.s3.{S3, ObjectAddress}
 
+import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
+
+import java.io.{PrintWriter, File}
 
 case class PerSampleData(direct: Long, cumulative: Long)
 
-case class TaxonInfo(scientificName: String, rank: String)
 
 case class SampleId(id: String)
 
@@ -24,7 +22,7 @@ class Reporter(aws: AWS,
                tablesAddresses: List[ObjectAddress],
                statsAddresses: List[ObjectAddress],
                tags: Map[SampleId, List[SampleTag]],
-               nodeRetriever: NodeRetriever,
+               taxonomy: Taxonomy,
                destination: ObjectAddress,
                projectName: String
                ) {
@@ -36,7 +34,7 @@ class Reporter(aws: AWS,
      serializer.fromString(aws.s3.readWholeObject(address))
   }
 
-  val logger = Logger(this.getClass)
+  val logger = new ConsoleLogger("report generator")
 
   def generate() {
     logger.info("reading assignment tables")
@@ -152,7 +150,7 @@ class Reporter(aws: AWS,
       }
 
       for (fType <- fileTypes) {
-        val csvPrinter = new CSVExecutor[FileType.Item](fType.attributes(stats), items ++ fType.additinalItems(stats))
+        val csvPrinter = new CSVExecutor[FileType.Item](fType.attributes(stats), items ++ fType.additionalItems(stats))
         val resultS = csvPrinter.execute()
         val dst = group match {
           case ProjectGroup(name, ss) => destination
@@ -162,21 +160,6 @@ class Reporter(aws: AWS,
         aws.s3.putWholeObject(fType.destination(dst), resultS)
       }
 
-    }
-  }
-
-
-  def getTaxInfo(taxon: Taxon): Option[TaxonInfo] = {
-    try {
-      val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
-      Some(TaxonInfo(node.getScientificName(), node.getRank()))
-    } catch {
-      case t: Throwable => {
-        //t.printStackTrace();
-        logger.warn("couldn't retrieve taxon info for taxon: " + taxon.taxId)
-        //TaxonInfo("", "")
-        None
-      }
     }
   }
 
@@ -192,7 +175,7 @@ class Reporter(aws: AWS,
       val assignmentType = sampleAssignmentType._2
 
       for ((taxon, taxonInfo) <- taxonsInfos) {
-        val taxonInfoInfo = getTaxInfo(taxon).getOrElse(TaxonInfo("", ""))
+        val taxonInfoInfo = taxonomy.getTaxonInfo(taxon).getOrElse(TaxonInfo(taxon))
 
         val filter = rank match {
           case None => {
@@ -201,7 +184,7 @@ class Reporter(aws: AWS,
           case Some(rk) => {
             //special taxa
             val specialTaxa = List(NoHit.taxon, NotAssignedCat.taxon, NoTaxId.taxon)
-            if (specialTaxa.contains(taxon) || taxonInfoInfo.rank.equals(rk.toString)) {
+            if (specialTaxa.contains(taxon) || taxonInfoInfo.rank.equals(rk)) {
               false
             } else {
               true

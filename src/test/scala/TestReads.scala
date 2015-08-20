@@ -5,7 +5,7 @@ import ohnosequences.metapasta._
 import ohnosequences.awstools.s3._
 import ohnosequences.formats._
 import ohnosequences.parsers._
-import ohnosequences.nisperon.AWS
+import ohnosequences.compota.AWS
 
 // This can be reused in other tests, not only for the parser
 case object TestReads {

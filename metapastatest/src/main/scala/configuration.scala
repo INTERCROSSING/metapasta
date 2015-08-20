@@ -40,8 +40,8 @@ object metapastatest extends Metapasta(configuration) {
     //test xmls
 
     try {
-      val xml1 = ObjectAddress(nisperonConfiguration.bucket, "map/" + mockSamples.ss2 + ".1.1/out.blast")
-      val xml2 = ObjectAddress(nisperonConfiguration.bucket, "map/" + mockSamples.ss2 + ".1.2/out.blast")
+      val xml1 = ObjectAddress(compotaConfiguration.bucket, "map/" + mockSamples.ss2 + ".1.1/out.blast")
+      val xml2 = ObjectAddress(compotaConfiguration.bucket, "map/" + mockSamples.ss2 + ".1.2/out.blast")
 
       val query5 = "Query_5"
       val query6 = "Query_6"

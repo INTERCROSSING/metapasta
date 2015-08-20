@@ -34,36 +34,6 @@ class MapTree[N](val map: Map[N, N], val root: N) extends Tree[N] {
   override def toString: String = map.toString() + "|" + root
 }
 
-case class Taxon(taxId: String)
-
-class Bio4JTaxonomyTree(nodeRetriever: NodeRetriever) extends Tree[Taxon] {
-  override def getParent(taxon: Taxon): Option[Taxon] = {
-    val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
-    val parent = node.getParent()
-    if (parent == null) {
-      None
-    } else {
-      Some(Taxon(parent.getTaxId()))
-    }
-  }
-
-  override val root: Taxon = Taxon("1")
-
-  override def isNode(node0: Taxon): Boolean = {
-    val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(node0.taxId)
-    if (node == null) {
-      false
-    } else {
-      val taxId = node.getTaxId()
-      if (taxId == null || taxId.isEmpty) {
-        false
-      } else {
-        true
-      }
-    }
-  }
-}
-
 
 object TreeUtils {
 

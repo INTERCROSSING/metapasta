@@ -1,7 +1,7 @@
 import java.io.File
 import ohnosequences.awstools.s3.{S3, ObjectAddress}
 
-import ohnosequences.nisperon.AWS
+import ohnosequences.compota.AWS
 import org.junit.Test
 import org.junit.Assert._
 

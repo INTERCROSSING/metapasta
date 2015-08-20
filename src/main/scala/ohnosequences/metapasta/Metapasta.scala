@@ -1,20 +1,22 @@
 package ohnosequences.metapasta
 
-import ohnosequences.nisperon._
-import ohnosequences.nisperon.queues.{QueueMerger, ProductQueue}
-import scala.collection.mutable
-import ohnosequences.awstools.s3.ObjectAddress
-import ohnosequences.metapasta.instructions.{LastInstructions, BlastInstructions, FlashInstructions}
+import ohnosequences.metapasta.instructions._
 import ohnosequences.metapasta.reporting._
-import java.io.File
+import ohnosequences.compota._
+import ohnosequences.compota.queues.{QueueMerger, ProductQueue}
+import ohnosequences.logging.ConsoleLogger
+import ohnosequences.awstools.s3.ObjectAddress
 
+import scala.collection.mutable
 import scala.util.Try
 
-abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon {
+import java.io.File
+
+abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota {
 
   override val aws = new AWS(new File(System.getProperty("user.home"), "metapasta.credentials"))
 
-  val nisperonConfiguration: NisperonConfiguration = NisperonConfiguration(
+  val compotaConfiguration: CompotaConfiguration = CompotaConfiguration(
     managerGroupConfiguration = configuration.managerGroupConfiguration,
     metamanagerGroupConfiguration = configuration.metamanagerGroupConfiguration,
     defaultInstanceSpecs = configuration.defaultInstanceSpecs,
@@ -51,7 +53,6 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
     serializer = readsStatsSerializer
   )
 
-
   object assignTable extends S3Queue(
     name = "table",
     monoid = assignTableMonoid,
@@ -60,106 +61,76 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
   override val mergingQueues = List(assignTable, readsStats)
 
-  val flashNispero = nispero(
+  val mergingInstructions: Instructions[List[PairedSample], (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])] =
+    new MergingInstructions(configuration)
+  val mergingNispero = nispero(
     inputQueue = pairedSamples,
-    outputQueue = ProductQueue(readsStats, mergedSampleChunks),
-    instructions = new FlashInstructions(
-      aws, configuration.chunksSize, ObjectAddress(nisperonConfiguration.bucket, "reads"),
-    configuration.chunksThreshold, configuration.flashTemplate),
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "flash")
+    outputQueue = ProductQueue(mergedSampleChunks, readsStats),
+    instructions = mergingInstructions,
+    nisperoConfiguration = NisperoConfiguration(compotaConfiguration, "merge")
   )
-
-  val bio4j = new Bio4jDistributionDist(configuration.metadataBuilder)
-
-  //val lastInstructions =  new LastInstructions(aws, new NTLastDatabase(aws), bio4j, configuration.lastTemplate)
 
 
   val mappingInstructions: MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, AssignmentType), ReadsStats])] =
-    configuration match {
-      case b: BlastConfiguration => new BlastInstructions(
-        aws = aws,
-        metadataBuilder = configuration.metadataBuilder,
-        assignmentConfiguration = b.assignmentConfiguration,
-        blastCommandTemplate = b.blastTemplate,
-        databaseFactory = b.databaseFactory,
-        useXML = b.xmlOutput,
-        logging = configuration.logging,
-        resultDirectory = ObjectAddress(nisperonConfiguration.bucket, "results"),
-        readsDirectory = ObjectAddress(nisperonConfiguration.bucket, "reads")
-      )
-      case l: LastConfiguration => new LastInstructions(
-        aws = aws,
-        metadataBuilder = configuration.metadataBuilder,
-        assignmentConfiguration = l.assignmentConfiguration,
-        lastCommandTemplate = l.lastTemplate,
-        databaseFactory = l.databaseFactory,
-        fastaInput = l.useFasta,
-        logging = configuration.logging,
-        resultDirectory = ObjectAddress(nisperonConfiguration.bucket, "results"),
-        readsDirectory = ObjectAddress(nisperonConfiguration.bucket, "reads")
-      )
-    }
-
+    new MappingInstructions(configuration)
 
   val mapNispero = nispero(
     inputQueue = mergedSampleChunks,
     outputQueue = ProductQueue(assignTable, readsStats),
     instructions = mappingInstructions,
-    nisperoConfiguration = NisperoConfiguration(nisperonConfiguration, "map", workerGroup = configuration.mappingWorkers)
+    nisperoConfiguration = NisperoConfiguration(compotaConfiguration, "map", workerGroup = configuration.mappingWorkers)
   )
 
 
-  //todo test failed actions ...
   override def undeployActions(force: Boolean): Option[String] = {
     if (force) {
       return None
     }
 
-    val nodeRetriever = new BundleNodeRetrieverFactory().build(configuration.metadataBuilder)
+    val logger = new ConsoleLogger("undeploying actions")
 
-    val tableAddress = QueueMerger.destination(nisperonConfiguration.results, assignTable)
-    val statsAddress = QueueMerger.destination(nisperonConfiguration.results,  readsStats)
+    Try {
+      logger.info("creating working directory")
+      configuration.workingDirectory.mkdir()
 
-    logger.info("reading assign table " + tableAddress)
+      val loadingManager = aws.s3.createLoadingManager()
 
-    val tables = assignTable.serializer.fromString(aws.s3.readWholeObject(tableAddress))
+      logger.info("installing taxonomy")
+      configuration.taxonomy.get(logger, configuration.workingDirectory, loadingManager).map { taxonomy =>
+        val tableAddress = QueueMerger.destination(compotaConfiguration.results, assignTable)
+        val statsAddress = QueueMerger.destination(compotaConfiguration.results,  readsStats)
 
-    val tagging  = new mutable.HashMap[SampleId, List[SampleTag]]()
+        logger.info("reading assign table " + tableAddress)
 
-    for ((sample, tags) <- configuration.tagging) {
-      tagging.put(SampleId(sample.name), tags)
-    }
+        val tables = assignTable.serializer.fromString(aws.s3.readWholeObject(tableAddress))
 
-    val reporter = new Reporter(aws, List(tableAddress), List(statsAddress), tagging.toMap, nodeRetriever,
-      ObjectAddress(nisperonConfiguration.bucket, "results"), nisperonConfiguration.id)
-    reporter.generate()
+        val tagging  = new mutable.HashMap[SampleId, List[SampleTag]]()
 
-
-    logger.info("merge FASTA files")
-
-    val reads = ObjectAddress(nisperonConfiguration.bucket, "reads")
-    val results = ObjectAddress(nisperonConfiguration.bucket, "results")
-
-    val merger = new FastaMerger(aws, reads, results, configuration.samples.map(_.name))
-    merger.merge()
-
-    if(configuration.generateDot) {
-      logger.info("generate dot files")
-      Try {
-        DOTExporter.installGraphiz()
-        tables.table.foreach { case (sampleAssignmentType, map) =>
-          val sample = sampleAssignmentType._1
-          val assignmentType = sampleAssignmentType._2
-          val dotFile = new File(sample + "." + assignmentType + ".tree.dot")
-          val pdfFile = new File(sample + "." + assignmentType + ".tree.pdf")
-          DOTExporter.generateDot(map, nodeRetriever.nodeRetriever, dotFile)
-          DOTExporter.generatePdf(dotFile, pdfFile)
-          aws.s3.putObject(S3Paths.treeDot(results, sample, assignmentType), pdfFile)
-          aws.s3.putObject(S3Paths.treePdf(results, sample, assignmentType), pdfFile)
+        for ((sample, tags) <- configuration.tagging) {
+          tagging.put(SampleId(sample.name), tags)
         }
+
+        val reporter = new Reporter(aws, List(tableAddress), List(statsAddress), tagging.toMap, taxonomy,
+          ObjectAddress(compotaConfiguration.bucket, "results"), compotaConfiguration.id)
+        reporter.generate()
+
+
+        logger.info("merge FASTA files")
+
+        val reads = ObjectAddress(compotaConfiguration.bucket, "reads")
+        val results = ObjectAddress(compotaConfiguration.bucket, "results")
+
+        val merger = new FastaMerger(aws, reads, results, configuration.samples.map(_.name))
+        merger.merge()
+
+
       }
     }
+
+    //todo
     None
+
+
   }
 
 
@@ -168,8 +139,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
 
     args match {
       case "merge" :: "fastas" :: Nil => {
-        val reads = ObjectAddress(nisperonConfiguration.bucket, "reads")
-        val results = ObjectAddress(nisperonConfiguration.bucket, "results")
+        val reads = ObjectAddress(compotaConfiguration.bucket, "reads")
+        val results = ObjectAddress(compotaConfiguration.bucket, "results")
 
         val merger = new FastaMerger(aws, reads, results, configuration.samples.map(_.name))
         merger.merge()
@@ -197,7 +168,6 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Nisperon
         configuration.samples.contains(sample)
       }
     } && super.checkConfiguration(verbose)
-
   }
 
   def addTasks() {

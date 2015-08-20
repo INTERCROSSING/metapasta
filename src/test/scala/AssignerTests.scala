@@ -13,7 +13,7 @@ import ohnosequences.metapasta.RefId
 import ohnosequences.metapasta.reporting.SampleId
 import ohnosequences.metapasta.reporting.SampleId
 import ohnosequences.metapasta.Taxon
-import ohnosequences.nisperon.logging.ConsoleLogger
+import ohnosequences.compota.logging.ConsoleLogger
 import org.junit.Test
 import org.junit.Assert._
 import scala.Some

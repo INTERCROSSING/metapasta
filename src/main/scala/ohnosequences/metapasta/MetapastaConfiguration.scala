@@ -1,105 +1,140 @@
 package ohnosequences.metapasta
 
-import ohnosequences.nisperon.bundles.NisperonMetadataBuilder
-import ohnosequences.nisperon.{NisperonConfiguration, SingleGroup, GroupConfiguration, Group}
+import java.io.File
+
+import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.compota.bundles.NisperonMetadataBuilder
+import ohnosequences.compota.{CompotaConfiguration, SingleGroup, GroupConfiguration}
 import ohnosequences.awstools.ec2.{InstanceSpecs, InstanceType}
-import ohnosequences.awstools.autoscaling.{SpotAuto, OnDemand}
+import ohnosequences.awstools.autoscaling.{SpotAuto}
 import ohnosequences.metapasta.databases._
+import ohnosequences.metapasta.instructions._
 import ohnosequences.metapasta.reporting.{SampleTag}
-
-
-//todo extract mapping configuration
-
-//sealed abstract class MappingInstructions {}
-//-r10 -q95 -a0 -b95
-//case class Last(template: String = """./lastal nt.last/$name$ $input$ -s2 -T0 -e70 -Q$format$ -f0 -o $output$""", fasta: Boolean = false) extends MappingInstructions
-//case class Blast(template: String, xmlOutput: Boolean) extends MappingInstructions
-
 
 
 case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
 
 
-trait  MetapastaConfiguration {
-   val metadataBuilder: NisperonMetadataBuilder
-   val mappingWorkers: GroupConfiguration
-   val managerGroupConfiguration: GroupConfiguration
-   val metamanagerGroupConfiguration: GroupConfiguration
-   val uploadWorkers: Option[Int]
-   val email: String
-   val password: String
-   val samples: List[PairedSample]
-   val tagging: Map[PairedSample, List[SampleTag]]
-   val chunksSize: Int
-   val chunksThreshold: Option[Int]
-   val logging: Boolean
-   val removeAllQueues: Boolean
-   val timeout: Int
-   val mergeQueueThroughput: MergeQueueThroughput
-   val generateDot: Boolean
-   val assignmentConfiguration: AssignmentConfiguration
-   val defaultInstanceSpecs: InstanceSpecs
-   val flashTemplate: String
+trait MetapastaConfiguration extends MappingInstructionsConfiguration with MergingInstructionsConfiguration {
+  val metadataBuilder: NisperonMetadataBuilder
+  val mappingWorkers: GroupConfiguration
+  val email: String
+  val password: String
+  val samples: List[PairedSample]
+  val tagging: Map[PairedSample, List[SampleTag]]
+  val timeout: Int
+  val generateDot: Boolean = false
+
+  val removeAllQueues: Boolean = true
+  val logging: Boolean = true
+  val mergeQueueThroughput: MergeQueueThroughput = SampleBased(1)
+  val taxonomy: Installable[Taxonomy] = new OhnosequencesNCBITaxonomy()
+  val workingDirectory: File = new File("/media/ephemeral0/metapasta")
+  val metamanagerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.m1_medium, SpotAuto)
+  val managerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.m1_medium, SpotAuto)
+  val defaultInstanceSpecs: InstanceSpecs = CompotaConfiguration.defaultInstanceSpecs
+
+  def readsDestination: ObjectAddress
+
+  override val mergedReadsDestination: (PairedSample) => ObjectAddress
+  override val notMergedReadsDestination: (PairedSample) => (ObjectAddress, ObjectAddress)
 }
 
 
 abstract class MergeQueueThroughput
 
 case class Fixed(n: Int) extends MergeQueueThroughput
+
 case class SampleBased(ration: Double, max: Int = 100) extends MergeQueueThroughput
 
-case class BlastConfiguration(
-                               metadataBuilder: NisperonMetadataBuilder,
-                               mappingWorkers: GroupConfiguration = Group(size = 1, max = 20, instanceType = InstanceType.t1_micro, purchaseModel = OnDemand),
-                               uploadWorkers: Option[Int],
-                               email: String,
-                               samples: List[PairedSample],
-                               tagging: Map[PairedSample, List[SampleTag]] = Map[PairedSample, List[SampleTag]](),
-                               chunksSize: Int = 20000,
-                               chunksThreshold: Option[Int] = None,
-                               blastTemplate: String = """blastn -task megablast -db $db$ -query $input$ -out $output$ -max_target_seqs 1 -num_threads 1 -outfmt $out_format$ -show_gis""",
-                               xmlOutput: Boolean = false,
-                               password: String,
-                               databaseFactory: DatabaseFactory[BlastDatabase16S] = Blast16SFactory,
-                               logging: Boolean = true,
-                               removeAllQueues: Boolean = true,
-                               timeout: Int = 360000,
-                               mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
-                               generateDot: Boolean = true,
-                               assignmentConfiguration: AssignmentConfiguration = AssignmentConfiguration(400, 0.8),
-                               managerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.t1_micro, SpotAuto),
-                               metamanagerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.m1_medium, SpotAuto),
-                               defaultInstanceSpecs: InstanceSpecs = NisperonConfiguration.defaultInstanceSpecs,
-                               flashTemplate: String = "flash 1.fastq 2.fastq"
-                               ) extends MetapastaConfiguration {
+
+trait BlastConfiguration extends MetapastaConfiguration {
+
+  //override val assignmentConfiguration: AssignmentConfiguration = AssignmentConfiguration(400, 0.8)
+
+  override val chunksSize: Long = 20000
+
+  val xmlOutput: Boolean = false
+
+  override type DatabaseReferenceId = GI
+  override type Database = BlastDatabase16S[GI]
+  val database: Installable[BlastDatabase16S[GI]] = new OhnosequencesBlastDatabase16()
+
+  override val mappingTool: Installable[MappingTool[GI, BlastDatabase16S[GI]]] = Blast.linux(blastTemplate)
+
+  override val taxonRetriever: Installable[TaxonRetriever[GI]] = new OhnosequencesGIMapper()
+
+  //override val fastaWriter: Installable[Option[FastasWriter]] = new FastasWriter[DatabaseReferenceId]()
+
+  def blastTemplate: List[String] = List(
+    "-task",
+    "megablast",
+    "-db",
+    "$db$",
+    "-query",
+    "$input$",
+    "-out",
+    "$output$",
+    "-max_target_seqs",
+    "1",
+    "-num_threads",
+    "$threads_count$",
+    "-outfmt",
+    "$out_format$",
+    "-show_gis"
+  )
+  //override val mappingWorkers: GroupConfiguration = Group(size = 1, max = 20, instanceType = InstanceType.t1_micro, purchaseModel = OnDemand)
+}
+
+//trait LastConfiguration extends MetapastaConfiguration with MappingInstructionsConfiguration {
+//  //override val assignmentConfiguration: AssignmentConfiguration = AssignmentConfiguration(400, 0.8)
+//  override val chunksSize: Int = 2000000
+//  override type DatabaseReferenceId = GI
+//  override type Database = LastDatabase16S[GI]
+//  val database: Installable[LastDatabase16S[GI]] = new OhnosequencesLastDatabase16()
+//
+//  def lastTemplate: String = """./lastal $db$ $input$ -s2 -m100 -T0 -e70 -Q$format$ -f0 -o $output$"""
+//  val useFasta: Boolean = true
+//  //override val mappingWorkers: GroupConfiguration = Group(size = 1, max = 20, instanceType = InstanceType.m1_medium, purchaseModel = OnDemand)
+//}
+
+
+trait MappingInstructionsConfiguration {
+
+  type DatabaseReferenceId <: ReferenceId
+
+  type Database <: Database16S[DatabaseReferenceId]
+
+  val mappingTool: Installable[MappingTool[DatabaseReferenceId, Database]]
+
+  val taxonomy: Installable[Taxonomy]
+
+  val taxonRetriever: Installable[TaxonRetriever[DatabaseReferenceId]]
+
+  //val fastaWriter: Installable[Option[FastasWriter]]
+
+  val database: Installable[Database]
+
+  val assignmentConfiguration: AssignmentConfiguration
+
 }
 
 
-case class LastConfiguration(
-                               metadataBuilder: NisperonMetadataBuilder,
-                               mappingWorkers: GroupConfiguration = Group(size = 1, max = 20, instanceType = InstanceType.m1_medium, purchaseModel = OnDemand),
-                               uploadWorkers: Option[Int],
-                               email: String,
-                               samples: List[PairedSample],
-                               tagging: Map[PairedSample, List[SampleTag]] = Map[PairedSample, List[SampleTag]](),
-                               chunksSize: Int = 2000000,
-                               lastTemplate: String = """./lastal $db$ $input$ -s2 -m100 -T0 -e70 -Q$format$ -f0 -o $output$""",
-                               useFasta: Boolean = true,
-                               chunksThreshold: Option[Int] = None,
-                               databaseFactory: DatabaseFactory[LastDatabase16S] = Last16SFactory,
-                               logging: Boolean = true,
-                               password: String,
-                               removeAllQueues: Boolean = true,
-                               timeout: Int = 360000,
-                               mergeQueueThroughput: MergeQueueThroughput = SampleBased(1),
-                               generateDot: Boolean = true,
-                               assignmentConfiguration: AssignmentConfiguration,
-                               managerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.t1_micro, SpotAuto),
-                               metamanagerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.m1_medium, SpotAuto),
-                               defaultInstanceSpecs: InstanceSpecs = NisperonConfiguration.defaultInstanceSpecs,
-                               flashTemplate: String = "flash 1.fastq 2.fastq"
-                              ) extends MetapastaConfiguration {
+trait MergingInstructionsConfiguration {
+
+  val mergingTool: Installable[MergingTool]
+
+  val chunksThreshold: Option[Int]
+
+  val chunksSize: Long
+
+  val mergedReadsDestination: PairedSample => ObjectAddress
+
+  val notMergedReadsDestination: PairedSample => (ObjectAddress, ObjectAddress)
+
 }
 
+trait FlashConfiguration extends MergingInstructionsConfiguration {
+  override val mergingTool: Installable[MergingTool] = new Era7FLASh()
+}
 
-//mappingWorkers = Group(size = 1, max = 20, instanceType = InstanceType.T1Micro, purchaseModel = SpotAuto)

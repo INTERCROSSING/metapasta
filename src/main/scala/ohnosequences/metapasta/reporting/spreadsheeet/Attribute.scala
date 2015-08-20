@@ -1,6 +1,6 @@
 package ohnosequences.metapasta.reporting.spreadsheeet
 
-import ohnosequences.nisperon.{longMonoid, doubleMonoid, intMonoid, Monoid}
+import ohnosequences.compota.{longMonoid, doubleMonoid, intMonoid, Monoid}
 import scala.collection.mutable
 
 

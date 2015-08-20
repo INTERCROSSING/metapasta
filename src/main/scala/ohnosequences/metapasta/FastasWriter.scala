@@ -1,12 +1,12 @@
 package ohnosequences.metapasta
 
-import ohnosequences.formats.{RawHeader, FASTQ}
-import scala.collection.mutable
-import ohnosequences.nisperon.logging.{Logger, S3Logger}
-import ohnosequences.nisperon.AWS
-import ohnosequences.awstools.s3.ObjectAddress
+import ohnosequences.metapasta.databases.ReferenceId
 import ohnosequences.metapasta.reporting.SampleId
+import ohnosequences.compota.AWS
+import ohnosequences.formats.{RawHeader, FASTQ}
+import ohnosequences.awstools.s3.ObjectAddress
 
+import scala.collection.mutable
 
 case class ChunkId(sample: SampleId, start: Long, end: Long)
 
@@ -14,35 +14,34 @@ object ChunkId {
   def apply(chunk: MergedSampleChunk): ChunkId = ChunkId(SampleId(chunk.sample), chunk.range._1, chunk.range._2)
 }
 
-class FastasWriter(aws: AWS, readsDirectory: ObjectAddress, nodeRetriever: NodeRetriever) {
+class FastasWriter[R <: ReferenceId](aws: AWS, readsDirectory: ObjectAddress, taxonomy: Taxonomy) {
+
   val noHitFasta = new mutable.StringBuilder()
   val noTaxIdFasta = new mutable.StringBuilder()
   val notAssignedFasta = new mutable.StringBuilder()
   val assignedFasta = new mutable.StringBuilder()
 
-  def fastaHeader(sampleId: String, taxon: Taxon, refIds: Set[RefId], reason: Option[String]): String = {
+  def fastaHeader(sampleId: String, taxon: Taxon, refIds: Set[R], reason: Option[String]): String = {
 
     val (taxname, taxonId, rank) = reason match {
-      case Some(reason) => {
-        (reason, "", "")
+      case Some(r) => {
+        (r, "", "")
       }
       case None => {
-        try {
-          val node = nodeRetriever.nodeRetriever.getNCBITaxonByTaxId(taxon.taxId)
-          (node.getScientificName(), taxon.taxId, node.getRank())
-        } catch {
-          case t: Throwable => ("", taxon.taxId, "")
+        taxonomy.getTaxonInfo(taxon) match {
+          case None => ("", taxon.taxId, "")
+          case Some(taxonInfo) => (taxonInfo.scientificName, taxon.taxId, taxonInfo.rank.toString)
         }
       }
     }
 
 
-    sampleId + "|" + taxname + "|" + taxonId + "|" + rank + "|" + refIds.foldLeft("")(_ + "_" + _.refId) + "|"
+    sampleId + "|" + taxname + "|" + taxonId + "|" + rank + "|" + refIds.foldLeft("")(_ + "_" + _.id) + "|"
   }
 
 
 
-  def write(sample: SampleId, read: FASTQ[RawHeader], readId: ReadId, assignment: Assignment) {
+  def write(sample: SampleId, read: FASTQ[RawHeader], readId: ReadId, assignment: Assignment[R]) {
     assignment match {
       case TaxIdAssignment(taxon, refIds, _, _, _) => {
         assignedFasta.append(read.toFasta(fastaHeader(sample.id, taxon, refIds, None)))
@@ -56,16 +55,12 @@ class FastasWriter(aws: AWS, readsDirectory: ObjectAddress, nodeRetriever: NodeR
         notAssignedFasta.append(read.toFasta(fastaHeader(sample.id, Taxon(""), refIds, Some("LCAfiltered"))))
         notAssignedFasta.append(System.lineSeparator())
       }
-//      case NoHitAss(reason, refIds, taxIds) => {
-//        noHitFasta.append(read.toFasta(fastaHeader(sample.id, Taxon(""), refIds, Some("NoHits"))))
-//        noHitFasta.append(System.lineSeparator())
-//      }
     }
   }
 
   //hohit
   def writeNoHit(read: FASTQ[RawHeader], readId: ReadId, sample: SampleId) {
-    noHitFasta.append(read.toFasta(fastaHeader(sample.id, Taxon(""), Set[RefId](), Some("NoHits"))))
+    noHitFasta.append(read.toFasta(fastaHeader(sample.id, Taxon(""), Set[R](), Some("NoHits"))))
     noHitFasta.append(System.lineSeparator())
 
   }

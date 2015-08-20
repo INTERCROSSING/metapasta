@@ -5,7 +5,7 @@
 //import scala.collection.mutable
 //import java.io.File
 //import org.clapper.avsl.Logger
-//import ohnosequences.nisperon.queues.Merger
+//import ohnosequences.compota.queues.Merger
 //
 //
 //case class CSVGenerator(metapasta: Metapasta, nodeRetriever: NodeRetriever) {
@@ -128,7 +128,7 @@
 ////    }
 ////
 ////
-////    val result = ObjectAddress(nisperonConfiguration.bucket, "results/" + "result.csv")
+////    val result = ObjectAddress(compotaConfiguration.bucket, "results/" + "result.csv")
 ////    aws.s3.putWholeObject(result, resultCSV.toString())
 ////
 ////    if (configuration.generateDot) {
@@ -140,7 +140,7 @@
 ////          val pdfFile = new File(sample + ".pdf")
 ////          DOTExporter.generateDot(map, nodeRetriever.nodeRetriever, new File(sample + ".dot"))
 ////          DOTExporter.generatePdf(dotFile, pdfFile)
-////          val res = ObjectAddress(nisperonConfiguration.bucket, "results/viz/" + sample + ".pdf")
+////          val res = ObjectAddress(compotaConfiguration.bucket, "results/viz/" + sample + ".pdf")
 ////          aws.s3.putObject(res, pdfFile)
 ////      }
 ////    }

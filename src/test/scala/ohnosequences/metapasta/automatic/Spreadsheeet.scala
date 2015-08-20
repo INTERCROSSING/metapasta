@@ -3,7 +3,7 @@ package ohnosequences.metapasta.automatic
 import ohnosequences.metapasta.automatic.Assigner._
 import ohnosequences.metapasta.automatic.Generators._
 import ohnosequences.metapasta.reporting.spreadsheeet._
-import ohnosequences.nisperon.{maxDoubleMonoid, doubleMonoid, longMonoid}
+import ohnosequences.compota.{maxDoubleMonoid, doubleMonoid, longMonoid}
 import org.scalacheck.Prop._
 import org.scalacheck.{Gen, Properties}
 

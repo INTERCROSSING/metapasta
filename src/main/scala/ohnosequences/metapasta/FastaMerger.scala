@@ -1,14 +1,16 @@
 package ohnosequences.metapasta
 
 import ohnosequences.awstools.s3.{LoadingManager, ObjectAddress}
+import ohnosequences.compota.AWS
+
 import java.io.{PrintWriter, File}
-import ohnosequences.nisperon.AWS
-import org.clapper.avsl.Logger
+
+import ohnosequences.logging.ConsoleLogger
 
 
 class FastaMerger(aws: AWS, readObject: ObjectAddress, resultsObject: ObjectAddress, samples: List[String]) {
 
-  val logger = Logger(this.getClass)
+  val logger = new ConsoleLogger("fast merger")
   val lm = aws.s3.createLoadingManager()
 
 

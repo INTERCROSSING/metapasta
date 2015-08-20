@@ -1,11 +1,11 @@
 package ohnosequences.metapasta.reporting
 
 import ohnosequences.metapasta._
-import ohnosequences.metapasta.reporting.spreadsheeet.AnyAttribute.For
-import scala.collection.mutable
-import ohnosequences.nisperon.{maxLongMonoid, AWS, intMonoid, longMonoid}
+import ohnosequences.compota.{maxLongMonoid, longMonoid}
 import ohnosequences.metapasta.reporting.spreadsheeet._
 import ohnosequences.awstools.s3.ObjectAddress
+
+import scala.collection.mutable
 
 object FileType {
   type Item = (Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))
@@ -15,7 +15,7 @@ object FileType {
 }
 
 trait FileType {
-  def additinalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[FileType.Item]
+  def additionalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[FileType.Item]
 
   def attributes(stats: Map[(String, AssignmentType), ReadsStats]): List[AnyAttribute.For[FileType.Item]]
 
@@ -48,7 +48,7 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
 
   object taxonomyRank extends StringAttribute[Item]("TaxonomyRank", emptyStringMonoid) {
     override def execute(item: Item, index: Int, context: Context): String = {
-      item._2._1.rank
+      item._2._1.rank.toString
     }
   }
 
@@ -133,7 +133,7 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
     res.toList
   }
 
-  override def additinalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[Item] = {
+  override def additionalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[Item] = {
     rank match {
       case None => List()
       case Some(r) => {
@@ -143,7 +143,8 @@ case class FileTypeA(group: AnyGroup, rank: Option[TaxonomyRank]) extends FileTy
             assignMap.put((sample, assignmentType), PerSampleData(0, 0))
           }
         }
-        val assignToOtherKind: FileType.Item = (Taxon("Not assigned at this rank"), (TaxonInfo("", ""), assignMap))
+        val t = Taxon("Not assigned at this rank")
+        val assignToOtherKind: FileType.Item = (t, (TaxonInfo(t), assignMap))
         List(assignToOtherKind)
       }
     }
@@ -191,7 +192,7 @@ case class FileTypeB(project: ProjectGroup) extends FileType {
     res.toList
   }
 
-  override def additinalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[(Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))] = List()
+  override def additionalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[(Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))] = List()
 }
 
 case class FileTypeC(project: ProjectGroup) extends FileType {
@@ -234,7 +235,7 @@ case class FileTypeC(project: ProjectGroup) extends FileType {
     res.toList
   }
 
-  override def additinalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[(Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))] = List()
+  override def additionalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[(Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))] = List()
 }
 
 case class FileTypeD(group: SamplesGroup) extends FileType {
@@ -242,7 +243,7 @@ case class FileTypeD(group: SamplesGroup) extends FileType {
 
   import FileType.{Item, emptyStringMonoid}
 
-  override def additinalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[(Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))] = List()
+  override def additionalItems(stats: Map[(String, AssignmentType), ReadsStats]): List[(Taxon, (TaxonInfo, mutable.HashMap[(SampleId, AssignmentType), PerSampleData]))] = List()
 
   override def destination(dst: ObjectAddress): ObjectAddress = {
     dst / (group.name + ".frequencies.complete.csv")

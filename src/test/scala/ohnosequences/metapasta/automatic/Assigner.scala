@@ -2,7 +2,7 @@ package ohnosequences.metapasta.automatic
 
 import ohnosequences.metapasta.databases.{GIMapper, Blast16SFactory}
 import ohnosequences.metapasta.reporting.SampleId
-import ohnosequences.nisperon.logging.ConsoleLogger
+import ohnosequences.compota.logging.ConsoleLogger
 import org.scalacheck.{Gen, Properties}
 import scala.util.Random
 

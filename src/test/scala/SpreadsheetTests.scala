@@ -2,7 +2,7 @@ package ohnosequences.metapasta.reporting.spreadsheeet
 
 import org.junit.Test
 import org.junit.Assert._
-import ohnosequences.nisperon.longMonoid
+import ohnosequences.compota.longMonoid
 
 class SpreadsheetTests {
   object Id extends StringAttribute[(Int, String)]("id", new StringConstantMonoid("total")) {

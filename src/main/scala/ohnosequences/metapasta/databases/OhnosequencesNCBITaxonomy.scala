@@ -5,14 +5,14 @@ import java.util.zip.GZIPInputStream
 
 import ohnosequences.awstools.s3.{ObjectAddress, LoadingManager}
 import ohnosequences.logging.Logger
-import ohnosequences.metapasta.{Tree, Taxon, TaxonomyRank}
+import ohnosequences.metapasta._
 
 import scala.collection.mutable
 import scala.util.Try
 
-class NCBITaxonomy(
-                    nodes: ObjectAddress = ObjectAddress("metapasta", "0.9.13/nodes.dmp.gz"),
-                    names: ObjectAddress = ObjectAddress("metapasta", "0.9.13/names.dmp.gz")
+class OhnosequencesNCBITaxonomy(
+                    nodes: ObjectAddress = ObjectAddress("metapasta", "taxonomy/august.15/nodes.dmp.gz"),
+                    names: ObjectAddress = ObjectAddress("metapasta", "taxonomy/august.15/names.dmp.gz")
                     ) extends Installable[Taxonomy] {
 
   class InMemoryNCBITaxonomy(nodes: Map[Taxon, (Taxon, TaxonomyRank)], names: Map[Taxon, String]) extends Taxonomy {
@@ -32,7 +32,7 @@ class NCBITaxonomy(
 
     }
 
-    override def getTaxonInfo(taxon: Taxon): Option[AnyTaxonInfo] = {
+    override def getTaxonInfo(taxon: Taxon): Option[TaxonInfo] = {
       nodes.get(taxon).map { case (rawParent, rank) =>
         TaxonInfo (
           taxon = taxon,
@@ -46,16 +46,16 @@ class NCBITaxonomy(
 
   override def install(logger: Logger, workingDirectory: File, loadingManager: LoadingManager): Try[Taxonomy] = {
 
-    val nodesFile = new File(workingDirectory, "nodes.dmp")
-    val namesFile = new File(workingDirectory, "names.dmp")
+    val nodesFile = new File(workingDirectory, "nodes.dmp.gz")
+    val namesFile = new File(workingDirectory, "names.dmp.gz")
 
-    logger.info("downloading nodes.dmp from " + nodes.url)
+    logger.info("downloading nodes.dmp.gz from " + nodes.url)
     Try {loadingManager.download(nodes, nodesFile)}.flatMap { r1 =>
-      logger.info("downloading names.dmp from " + names.url)
+      logger.info("downloading names.dmp.gz from " + names.url)
       Try {loadingManager.download(names, namesFile)}.flatMap { r2 =>
-        logger.info("loading nodes information from nodes.dmp")
+        logger.info("loading nodes information from nodes.dmp.gz")
         parseNodes(logger, nodesFile).flatMap { map1 =>
-          logger.info("loading nodes names from names.dmp")
+          logger.info("loading nodes names from names.dmp.gz")
           parseNames(logger, namesFile).map { map2 =>
             new InMemoryNCBITaxonomy(map1, map2)
           }
