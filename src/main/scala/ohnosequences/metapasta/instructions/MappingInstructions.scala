@@ -31,7 +31,7 @@ MapInstructions[List[MergedSampleChunk], (AssignTable, Map[(String, AssignmentTy
       configuration.taxonRetriever.get(logger, workingDirectory, loadingManager).flatMap { taxonRetriever =>
         configuration.taxonomy.get(logger, workingDirectory, loadingManager).flatMap { taxonomy =>
           configuration.mappingTool.get(logger, workingDirectory, loadingManager).map { mappingTool =>
-            val fastasWriter = new FastasWriter[configuration.DatabaseReferenceId](aws, configuration.readsDestination, taxonomy)
+            val fastasWriter = new FastasWriter[configuration.DatabaseReferenceId](aws, configuration, taxonomy)
             val assigner = new Assigner(
               taxonomy.tree,
               taxonRetriever,
@@ -80,7 +80,7 @@ MapInstructions[List[MergedSampleChunk], (AssignTable, Map[(String, AssignmentTy
       case Some(chunk) => {
         //parsing
         val reader = S3ChunksReader(loadingManager.transferManager.getAmazonS3Client, chunk.fastq)
-        val parsed: List[FASTQ[RawHeader]] = reader.parseChunk[RawHeader](chunk.range._1, chunk.range._2)._1
+        val parsed: List[FASTQ[RawHeader]] = reader.parseChunk[RawHeader](chunk.start, chunk.end)._1
         val inputFile = new File(workingDirectory, "reads.fasta")
         saveParsedReads(logger, parsed, inputFile).flatMap { emptyInput =>
           val outputFile = new File(workingDirectory, "out.mapping")
@@ -93,7 +93,7 @@ MapInstructions[List[MergedSampleChunk], (AssignTable, Map[(String, AssignmentTy
             }.flatMap { hits =>
               //todo add configs for it
               logger.uploadFile(outputFile, workingDirectory)
-              Success(assigner.assign(logger, ChunkId(chunk), parsed, hits))
+              Success(assigner.assign(logger, chunk.chunkId, parsed, hits))
             }
           }
         }

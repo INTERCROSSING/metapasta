@@ -8,7 +8,7 @@ import java.io.{PrintWriter, File}
 import ohnosequences.logging.ConsoleLogger
 
 
-class FastaMerger(aws: AWS, readObject: ObjectAddress, resultsObject: ObjectAddress, samples: List[String]) {
+class FastaMerger(aws: AWS, readObject: ObjectAddress, s3Paths: S3Paths, samples: List[SampleId]) {
 
   val logger = new ConsoleLogger("fast merger")
   val lm = aws.s3.createLoadingManager()
@@ -17,20 +17,20 @@ class FastaMerger(aws: AWS, readObject: ObjectAddress, resultsObject: ObjectAddr
   def merge() {
     for (sample <- samples) {
       logger.info("merging noHits fastas for sample " + sample)
-      rawMerge(S3Paths.noHitFastas(readObject, sample), S3Paths.mergedNoHitFasta(resultsObject, sample), lm)
+      rawMerge(s3Paths.noHitFastas(sample), s3Paths.mergedNoHitFasta(sample), lm)
 
 
 
       for (asType <- List(LCA, BBH)) {
 
-        logger.info("merging noTaxIds fastas for sample " + sample + " for " + asType)
-        rawMerge(S3Paths.noTaxIdFastas(readObject, sample, asType), S3Paths.mergedNoTaxIdFasta(resultsObject, sample, asType), lm)
+        logger.info("merging noTaxIds fastas for sample " + sample.id + " for " + asType)
+        rawMerge(s3Paths.noTaxIdFastas(sample, asType), s3Paths.mergedNoTaxIdFasta(sample, asType), lm)
 
-        logger.info("merging notAssigned fastas for sample " + sample + " for " + asType)
-        rawMerge(S3Paths.notAssignedFastas(readObject, sample, asType), S3Paths.mergedNotAssignedFasta(resultsObject, sample, asType), lm)
+        logger.info("merging notAssigned fastas for sample " + sample.id + " for " + asType)
+        rawMerge(s3Paths.notAssignedFastas(sample, asType), s3Paths.mergedNotAssignedFasta(sample, asType), lm)
 
-        logger.info("merging assigned fastas for sample " + sample + " for " + asType)
-        rawMerge(S3Paths.assignedFastas(readObject, sample, asType), S3Paths.mergedAssignedFasta(resultsObject, sample, asType), lm)
+        logger.info("merging assigned fastas for sample " + sample.id + " for " + asType)
+        rawMerge(s3Paths.assignedFastas(sample, asType), s3Paths.mergedAssignedFasta(sample, asType), lm)
       }
 
     }

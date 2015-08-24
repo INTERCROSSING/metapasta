@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
 
 import java.io.File
 
-class MergingInstructions(configuration: MergingInstructionsConfiguration)
+class MergingInstructions(configuration: MergingInstructionsConfiguration, s3Paths: S3Paths)
   extends Instructions[List[PairedSample], (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])] {
 
   case class MergingContext(loadingManager: LoadingManager, mergingTool: MergingTool)
@@ -75,7 +75,7 @@ class MergingInstructions(configuration: MergingInstructionsConfiguration)
 
     val sample = input.head
 
-    val mergedReadsObject = configuration.mergedReadsDestination(sample)
+    val mergedReadsObject = s3Paths.mergedReadsDestination(sample.id)
 
     (if (sample.fastq1.equals(sample.fastq2)) {
       logger.info("paired-end sample")
@@ -92,7 +92,7 @@ class MergingInstructions(configuration: MergingInstructionsConfiguration)
         downloadUnpackUpload(logger, loadingManager, sample.fastq2, workingDirectory, "2.fastq", None).flatMap { readsFile2 =>
           logger.info(context.mergingTool.name + ": merging " + readsFile1.getAbsolutePath + " and " + readsFile2.getAbsolutePath)
           context.mergingTool.merge(logger, workingDirectory, readsFile1, readsFile2).map { mergeResults =>
-            val notMergedDst = configuration.notMergedReadsDestination(sample)
+            val notMergedDst = s3Paths.notMergedReadsDestination(sample.id)
             mergeResults.notMerged1.foreach { file =>
               loadingManager.upload(notMergedDst._1, file)
             }
@@ -118,10 +118,10 @@ class MergingInstructions(configuration: MergingInstructionsConfiguration)
       }
       val res: List[(List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])] = chunks.zipWithIndex.map {
         case (chunk, 0) => {
-          (List(MergedSampleChunk(mergedReadsObject, sample.name, chunk)), Map((sample.name, BBH) -> stats, (sample.name, LCA) -> stats))
+          (List(MergedSampleChunk(mergedReadsObject, sample.id, chunk._1, chunk._2)), Map((sample.name, BBH) -> stats, (sample.name, LCA) -> stats))
         }
         case (chunk, _) => {
-          (List(MergedSampleChunk(mergedReadsObject, sample.name, chunk)), readStatMapMonoid.unit)
+          (List(MergedSampleChunk(mergedReadsObject, sample.id, chunk._1, chunk._2)), readStatMapMonoid.unit)
         }
       }
       res

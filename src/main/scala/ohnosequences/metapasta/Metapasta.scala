@@ -16,7 +16,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota 
 
   override val aws = new AWS(new File(System.getProperty("user.home"), "metapasta.credentials"))
 
-  val compotaConfiguration: CompotaConfiguration = CompotaConfiguration(
+  object compotaConfiguration extends CompotaConfiguration(
     managerGroupConfiguration = configuration.managerGroupConfiguration,
     metamanagerGroupConfiguration = configuration.metamanagerGroupConfiguration,
     defaultInstanceSpecs = configuration.defaultInstanceSpecs,
@@ -26,7 +26,9 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota 
     timeout = configuration.timeout,
     password = configuration.password,
     removeAllQueues = configuration.removeAllQueues
-  )
+  ) {
+    override def bucket: String = configuration.resultsBucket
+  }
 
   object pairedSamples extends DynamoDBQueue (
     name = "pairedSamples",
@@ -62,7 +64,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota 
   override val mergingQueues = List(assignTable, readsStats)
 
   val mergingInstructions: Instructions[List[PairedSample], (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])] =
-    new MergingInstructions(configuration)
+    new MergingInstructions(configuration, configuration)
   val mergingNispero = nispero(
     inputQueue = pairedSamples,
     outputQueue = ProductQueue(mergedSampleChunks, readsStats),
@@ -120,7 +122,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota 
         val reads = ObjectAddress(compotaConfiguration.bucket, "reads")
         val results = ObjectAddress(compotaConfiguration.bucket, "results")
 
-        val merger = new FastaMerger(aws, reads, results, configuration.samples.map(_.name))
+        val merger = new FastaMerger(aws, reads, configuration, configuration.samples.map(_.id))
         merger.merge()
 
 
@@ -142,7 +144,7 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota 
         val reads = ObjectAddress(compotaConfiguration.bucket, "reads")
         val results = ObjectAddress(compotaConfiguration.bucket, "results")
 
-        val merger = new FastaMerger(aws, reads, results, configuration.samples.map(_.name))
+        val merger = new FastaMerger(aws, reads, configuration, configuration.samples.map(_.id))
         merger.merge()
       }
       case "undeploy" :: "actions" :: Nil => undeployActions(false)

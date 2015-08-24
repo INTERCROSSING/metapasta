@@ -1,20 +1,12 @@
 package ohnosequences.metapasta
 
 import ohnosequences.metapasta.databases.ReferenceId
-import ohnosequences.metapasta.reporting.SampleId
 import ohnosequences.compota.AWS
 import ohnosequences.formats.{RawHeader, FASTQ}
-import ohnosequences.awstools.s3.ObjectAddress
 
 import scala.collection.mutable
 
-case class ChunkId(sample: SampleId, start: Long, end: Long)
-
-object ChunkId {
-  def apply(chunk: MergedSampleChunk): ChunkId = ChunkId(SampleId(chunk.sample), chunk.range._1, chunk.range._2)
-}
-
-class FastasWriter[R <: ReferenceId](aws: AWS, readsDirectory: ObjectAddress, taxonomy: Taxonomy) {
+class FastasWriter[R <: ReferenceId](aws: AWS, s3Paths: S3Paths, taxonomy: Taxonomy) {
 
   val noHitFasta = new mutable.StringBuilder()
   val noTaxIdFasta = new mutable.StringBuilder()
@@ -66,10 +58,10 @@ class FastasWriter[R <: ReferenceId](aws: AWS, readsDirectory: ObjectAddress, ta
   }
 
   def uploadFastas(chunk: ChunkId, assignmentType: AssignmentType) {
-    aws.s3.putWholeObject(S3Paths.noHitFasta(readsDirectory, chunk), noHitFasta.toString())
-    aws.s3.putWholeObject(S3Paths.noTaxIdFasta(readsDirectory, chunk, assignmentType), noTaxIdFasta.toString())
-    aws.s3.putWholeObject(S3Paths.notAssignedFasta(readsDirectory, chunk, assignmentType), notAssignedFasta.toString())
-    aws.s3.putWholeObject(S3Paths.assignedFasta(readsDirectory, chunk, assignmentType), assignedFasta.toString())
+    aws.s3.putWholeObject(s3Paths.noHitFasta(chunk), noHitFasta.toString())
+    aws.s3.putWholeObject(s3Paths.noTaxIdFasta(chunk, assignmentType), noTaxIdFasta.toString())
+    aws.s3.putWholeObject(s3Paths.notAssignedFasta(chunk, assignmentType), notAssignedFasta.toString())
+    aws.s3.putWholeObject(s3Paths.assignedFasta(chunk, assignmentType), assignedFasta.toString())
     noHitFasta.clear()
     noTaxIdFasta.clear()
     notAssignedFasta.clear()

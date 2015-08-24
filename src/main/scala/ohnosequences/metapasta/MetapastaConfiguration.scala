@@ -4,25 +4,26 @@ import java.io.File
 
 import ohnosequences.awstools.s3.ObjectAddress
 import ohnosequences.compota.bundles.NisperonMetadataBuilder
-import ohnosequences.compota.{CompotaConfiguration, SingleGroup, GroupConfiguration}
+import ohnosequences.compota.{Naming, CompotaConfiguration, SingleGroup, GroupConfiguration}
 import ohnosequences.awstools.ec2.{InstanceSpecs, InstanceType}
 import ohnosequences.awstools.autoscaling.{SpotAuto}
 import ohnosequences.metapasta.databases._
 import ohnosequences.metapasta.instructions._
-import ohnosequences.metapasta.reporting.{SampleTag}
+
+import scala.concurrent.duration.Duration
 
 
 case class AssignmentConfiguration(bitscoreThreshold: Int, p: Double = 0.8)
 
 
-trait MetapastaConfiguration extends MappingInstructionsConfiguration with MergingInstructionsConfiguration {
+trait MetapastaConfiguration extends MergingInstructionsConfiguration with MappingInstructionsConfiguration with S3Paths {
   val metadataBuilder: NisperonMetadataBuilder
   val mappingWorkers: GroupConfiguration
   val email: String
   val password: String
   val samples: List[PairedSample]
   val tagging: Map[PairedSample, List[SampleTag]]
-  val timeout: Int
+  val timeout: Duration
   val generateDot: Boolean = false
 
   val removeAllQueues: Boolean = true
@@ -34,12 +35,64 @@ trait MetapastaConfiguration extends MappingInstructionsConfiguration with Mergi
   val managerGroupConfiguration: GroupConfiguration = SingleGroup(InstanceType.m1_medium, SpotAuto)
   val defaultInstanceSpecs: InstanceSpecs = CompotaConfiguration.defaultInstanceSpecs
 
-  def readsDestination: ObjectAddress
-
-  override val mergedReadsDestination: (PairedSample) => ObjectAddress
-  override val notMergedReadsDestination: (PairedSample) => (ObjectAddress, ObjectAddress)
 }
 
+trait S3Paths {
+  s3Paths: MetapastaConfiguration =>
+
+  def resultsBucket: String = Naming.s3name(metadataBuilder.id)
+
+  def resultsDestination: ObjectAddress = ObjectAddress(resultsBucket, "results")
+
+  def resultsReadsDestination(sampleId: SampleId): ObjectAddress = resultsDestination / sampleId.id / "reads"
+
+  def mergedReadsDestination(sample: SampleId): ObjectAddress = {
+    resultsReadsDestination(sample) / (sample.id + ".merged.fastq")
+  }
+
+  def notMergedReadsDestination(sample: SampleId): (ObjectAddress, ObjectAddress) = {
+    (readsDestination(sample) / (sample.id + ".notMerged1.fastq"), readsDestination(sample) / (sample.id + ".notMerged2.fastq"))
+  }
+
+  def readsDestination: ObjectAddress = ObjectAddress(resultsBucket, "reads")
+
+  def readsDestination(sample: SampleId): ObjectAddress = readsDestination / sample.id
+
+  def readsDestination(sample: SampleId, assignmentType: AssignmentType): ObjectAddress = readsDestination / (sample.id + "###" + assignmentType)
+
+  def noHitFastas(sample: SampleId): ObjectAddress = readsDestination(sample) / "noHit"
+
+  def noHitFasta(chunk: ChunkId): ObjectAddress = {
+    noHitFastas(chunk.sample) / (chunk.start + "_" + chunk.end + ".fasta")
+  }
+
+  def noTaxIdFastas(sample: SampleId, assignmentType: AssignmentType): ObjectAddress = readsDestination(sample, assignmentType) / "noTaxId"
+
+  def noTaxIdFasta(chunk: ChunkId, assignmentType: AssignmentType): ObjectAddress = {
+    noTaxIdFastas(chunk.sample, assignmentType) / (chunk.sample.id + chunk.start + "_" + chunk.end + ".fasta")
+  }
+
+  def notAssignedFastas(sample: SampleId, assignmentType: AssignmentType): ObjectAddress = readsDestination(sample, assignmentType) / "notAssigned"
+
+  def notAssignedFasta(chunk: ChunkId, assignmentType: AssignmentType): ObjectAddress = {
+    notAssignedFastas(chunk.sample, assignmentType) / (chunk.sample.id + chunk.start + "_" + chunk.end + ".fasta")
+  }
+
+  def assignedFastas(sample: SampleId, assignmentType: AssignmentType): ObjectAddress = readsDestination(sample, assignmentType) / "assigned"
+
+  def assignedFasta(chunk: ChunkId, assignmentType: AssignmentType): ObjectAddress = {
+    assignedFastas(chunk.sample, assignmentType) / (chunk.sample.id + chunk.start + "_" + chunk.end + ".fasta")
+  }
+
+  def mergedNoHitFasta(sample: SampleId): ObjectAddress = resultsReadsDestination(sample) / (sample + ".noHit.fasta")
+
+  def mergedNoTaxIdFasta(sample: SampleId, assignmentType: AssignmentType): ObjectAddress = resultsReadsDestination(sample) / (sample + "." + assignmentType + ".noTaxId.fasta")
+
+  def mergedAssignedFasta(sample: SampleId, assignmentType: AssignmentType): ObjectAddress = resultsReadsDestination(sample) / (sample + "." + assignmentType + ".assigned.fasta")
+
+  def mergedNotAssignedFasta(sample: SampleId, assignmentType: AssignmentType): ObjectAddress = resultsReadsDestination(sample) / (sample + "." + assignmentType + ".notAssigned.fasta")
+
+}
 
 abstract class MergeQueueThroughput
 
@@ -83,6 +136,7 @@ trait BlastConfiguration extends MetapastaConfiguration {
     "$out_format$",
     "-show_gis"
   )
+
   //override val mappingWorkers: GroupConfiguration = Group(size = 1, max = 20, instanceType = InstanceType.t1_micro, purchaseModel = OnDemand)
 }
 
@@ -124,17 +178,19 @@ trait MergingInstructionsConfiguration {
 
   val mergingTool: Installable[MergingTool]
 
-  val chunksThreshold: Option[Int]
+  val chunksThreshold: Option[Int] = None
 
   val chunksSize: Long
 
-  val mergedReadsDestination: PairedSample => ObjectAddress
-
-  val notMergedReadsDestination: PairedSample => (ObjectAddress, ObjectAddress)
 
 }
 
 trait FlashConfiguration extends MergingInstructionsConfiguration {
-  override val mergingTool: Installable[MergingTool] = new Era7FLASh()
+
+  val flashTemplate: List[String] = List("$file1$", "$file2$")
+
+  override val mergingTool: Installable[MergingTool] = new Era7FLASh(commandTemplate = flashTemplate)
+
+
 }
 

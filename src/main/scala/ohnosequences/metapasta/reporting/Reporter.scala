@@ -14,10 +14,6 @@ import java.io.{PrintWriter, File}
 case class PerSampleData(direct: Long, cumulative: Long)
 
 
-case class SampleId(id: String)
-
-case class SampleTag(tag: String)
-
 class Reporter(aws: AWS,
                tablesAddresses: List[ObjectAddress],
                statsAddresses: List[ObjectAddress],
@@ -110,11 +106,11 @@ class Reporter(aws: AWS,
 
 
 //    for ((sampleAssignmentType, stat) <- stats) {
-//      val sampleId = SampleId(sampleAssignmentType._1)
+//      val id = SampleId(sampleAssignmentType._1)
 //      val assignmentType = sampleAssignmentType._2
 //      //val d = (stat.notMerged + stat.notAssigned).toInt
 //      //will be calculated after
-//      assignedToOtherLevel.put((sampleId, assignmentType), PerSampleData(0, 0))
+//      assignedToOtherLevel.put((id, assignmentType), PerSampleData(0, 0))
 //    }
 
     for (r <- ranks) {

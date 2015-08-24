@@ -1,4 +1,4 @@
-package ohnosequences.metapasta.reporting
+package ohnosequences.metapasta
 
 
 trait AnyGroup {
