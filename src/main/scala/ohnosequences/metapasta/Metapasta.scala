@@ -12,7 +12,7 @@ import scala.util.Try
 
 import java.io.File
 
-abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota {
+abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota { metapasta =>
 
   override val aws = new AWS(new File(System.getProperty("user.home"), "metapasta.credentials"))
 
@@ -65,7 +65,8 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota 
 
   val mergingInstructions: Instructions[List[PairedSample], (List[MergedSampleChunk], Map[(String, AssignmentType), ReadsStats])] =
     new MergingInstructions(configuration, configuration)
-  val mergingNispero = nispero(
+
+  case object mergeNispero extends NisperoWithDefaults(
     inputQueue = pairedSamples,
     outputQueue = ProductQueue(mergedSampleChunks, readsStats),
     instructions = mergingInstructions,
@@ -76,13 +77,15 @@ abstract class Metapasta(configuration: MetapastaConfiguration) extends Compota 
   val mappingInstructions: MapInstructions[List[MergedSampleChunk],  (AssignTable, Map[(String, AssignmentType), ReadsStats])] =
     new MappingInstructions(configuration)
 
-  val mapNispero = nispero(
+  case object mapNispero extends NisperoWithDefaults(
     inputQueue = mergedSampleChunks,
     outputQueue = ProductQueue(assignTable, readsStats),
     instructions = mappingInstructions,
     nisperoConfiguration = NisperoConfiguration(compotaConfiguration, "map", workerGroup = configuration.mappingWorkers)
   )
 
+
+  override def nisperos: List[NisperoAux] = List(mapNispero, mergeNispero)
 
   override def undeployActions(force: Boolean): Option[String] = {
     if (force) {
