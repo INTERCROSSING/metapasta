@@ -3,7 +3,7 @@
 
 For each read:
 
-1. filter all alignments with bitscore below the threshold **s_0** and select only the HSP with lowest e value for each reference sequence 
+1. filter all alignments with bitscore below the threshold **s_0** and select only the HSP with lowest e value for each reference sequence with hits with that read
 2. find the best bitscore value S (in the set of BLAST HSPs corresponding to hits of that read)
 3. filter all alignments with bitscore below p * S (where **p** is fixed coefficient, e.g. 0.9)
 4. now there are two cases:
